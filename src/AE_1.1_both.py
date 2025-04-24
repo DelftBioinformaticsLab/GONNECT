@@ -9,7 +9,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 if __name__ == "__main__":
     experiment_name = "AE_1.1"
     experiment_version = ".0"
-    model_name = "encoder"
+    model_name = "both"
     # Model params
     model_type = "sparse"
     biologically_informed = model_name # Don't forget to change this if necessary!
