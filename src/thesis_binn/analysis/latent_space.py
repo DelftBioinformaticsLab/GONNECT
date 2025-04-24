@@ -113,6 +113,7 @@ if __name__ == '__main__':
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
     experiment_name = "AE_1.0"
+    experiment_version = ".1"
     model_name = "none"
     label = "cancer_type"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
     seed = 42
@@ -142,8 +143,9 @@ if __name__ == '__main__':
     model = build_model(model_type, biologically_informed, soft_links, dataset_name, go_preprocessing, merge_conditions,
                         n_go_layers_used, activation_fn, dtype, genes, package_call=True)
     model.load_state_dict(
-        torch.load(f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name}_{model_name}_model.pt",
-                   weights_only=True))
+        torch.load(
+            f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name + experiment_version}_{model_name}_model.pt",
+            weights_only=True))
     print("----- COMPLETED: Building model -----")
 
     print("----- START: Transforming latent space -----")

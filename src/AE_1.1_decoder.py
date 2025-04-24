@@ -7,12 +7,13 @@ from thesis_binn.train.loss import MSE_Soft_Link_Sum, MSE
 from thesis_binn.train.train import make_data_splits, train_with_validation, save_training_losses
 
 if __name__ == "__main__":
-    experiment_name = "AE_1.0"
-    model_name = "both"
+    experiment_name = "AE_1.1"
+    experiment_version = ".0"
+    model_name = "decoder"
     # Model params
-    model_type = "dense"
-    biologically_informed = "both"
-    soft_links = False
+    model_type = "sparse"
+    biologically_informed = model_name # Don't forget to change this if necessary!
+    soft_links = True
     activation_fn = torch.nn.ReLU
     loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE()
     # GO params
@@ -30,11 +31,11 @@ if __name__ == "__main__":
     device = "cuda"
     # Storage params
     save_losses = True
-    loss_path = experiment_name + "_" + model_name
+    loss_path = experiment_name + experiment_version + "_" + model_name
     save_weights = True
-    save_weights_path = experiment_name + "_" + model_name
+    save_weights_path = experiment_name + experiment_version + "_" + model_name
     load_weights = False
-    load_weights_path = experiment_name + "_" + model_name
+    load_weights_path = experiment_name + experiment_version + "_" + model_name
     # Additional params
     data_split = 0.7
     seed = 1

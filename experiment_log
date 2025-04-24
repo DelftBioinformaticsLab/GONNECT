@@ -1,0 +1,7 @@
+AE_1.0
+Basic AE models, trained twice with different datasplit seeds
+All four models are dense
+
+AE_1.1
+Basic AE models, trained twice with different datasplit seeds
+Three sparse BI models (sparse BA not possible)

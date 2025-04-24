@@ -8,11 +8,11 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "AE_1.0"
-    experiment_version = ".1"
-    model_name = "decoder"
+    experiment_version = ".0"
+    model_name = "none"
     # Model params
     model_type = "dense"
-    biologically_informed = "decoder"
+    biologically_informed = ""
     soft_links = False
     activation_fn = torch.nn.ReLU
     loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE()
@@ -31,14 +31,14 @@ if __name__ == "__main__":
     device = "cuda"
     # Storage params
     save_losses = True
-    loss_path = experiment_name + experiment_version + "_" + model_name
+    loss_path = experiment_name+ experiment_version + "_" + model_name
     save_weights = True
-    save_weights_path = experiment_name = experiment_version + "_" + model_name
+    save_weights_path = experiment_name + experiment_version + "_" + model_name
     load_weights = False
     load_weights_path = experiment_name + experiment_version + "_" + model_name
     # Additional params
     data_split = 0.7
-    seed = 2
+    seed = 1
     dtype = torch.float64
     n_nan_cols = 5
     # Set path to root directory

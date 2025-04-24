@@ -1,8 +1,8 @@
 #!/bin/sh
 #SBATCH --account=ewi-insy-prb-dbl
 #SBATCH --partition=insy,general # Request partition. Default is 'general'
-#SBATCH --qos=medium         # Request Quality of Service. Default is 'short' (maximum run time: 4 hours)
-#SBATCH --time=6:00:00      # Request run time (wall-clock). Default is 1 minute
+#SBATCH --qos=short         # Request Quality of Service. Default is 'short' (maximum run time: 4 hours)
+#SBATCH --time=3:00:00      # Request run time (wall-clock). Default is 1 minute
 #SBATCH --ntasks=1          # Request number of parallel tasks per job. Default is 1
 #SBATCH --cpus-per-task=2   # Request number of CPUs (threads) per task. Default is 1 (note: CPUs are always allocated to jobs per 2).
 #SBATCH --mem=10GB          # Request memory (MB) per node. Default is 1024MB (1GB). For multiple tasks, specify --mem-per-cpu instead
@@ -19,4 +19,4 @@ apptainer exec --nv --writable-tmpfs --pwd /opt/app --containall \
 	--bind src/:/opt/app/src/ \
 	--bind data/:/opt/app/data/ \
 	--bind out/:/opt/app/out/ \
-	./container_pixi_0.2.1.sif pixi run python -u src/AE_1.0_decoder.py
+	./container_pixi_0.2.1.sif pixi run python -u src/AE_1.0.0_encoder.py
