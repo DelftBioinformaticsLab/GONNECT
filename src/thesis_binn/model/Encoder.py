@@ -10,6 +10,7 @@ class Encoder(DenseCoder):
         # GO layers are originally ordered by ascending depth, so they need to be reversed for the encoder architecture
         go_layers = list(reversed(go_layers))
         super(Encoder, self).__init__(go_layers, activation_fn, dtype)
+        self.name = "Encoder"
 
         # Optionally add activation after final linear layer
         pass
@@ -30,6 +31,7 @@ class DenseBIEncoder(DenseBICoder):
         # GO layers are originally ordered by ascending depth, so they need to be reversed for the encoder architecture
         go_layers = list(reversed(go_layers))
         super(DenseBIEncoder, self).__init__(go_layers, activation_fn, dtype, masks, soft_links)
+        self.name = "BI-Encoder"
 
         # Optionally add activation after final linear layer
         pass
@@ -71,6 +73,7 @@ class SparseBIEncoder(SparseCoder):
         # GO layers are originally ordered by ascending depth, so they need to be reversed for the encoder architecture
         go_layers = list(reversed(go_layers))
         super(SparseBIEncoder, self).__init__(go_layers, activation_fn, dtype, masks)
+        self.name = "sparse BI-Encoder"
 
         # Optionally add activation after final linear layer
         pass

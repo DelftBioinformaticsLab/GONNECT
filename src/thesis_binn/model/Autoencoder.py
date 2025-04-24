@@ -4,6 +4,7 @@ import torch.nn as nn
 class Autoencoder(nn.Module):
     def __init__(self, encoder, decoder):
         super(Autoencoder, self).__init__()
+        self.name = f"{encoder.name}:{decoder.name}"
         self.encoder = encoder
         self.decoder = decoder
 
