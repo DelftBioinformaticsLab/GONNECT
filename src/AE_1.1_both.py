@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # Model params
     model_type = "sparse"
     biologically_informed = model_name # Don't forget to change this if necessary!
-    soft_links = True
+    soft_links = False
     activation_fn = torch.nn.ReLU
     loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE()
     # GO params
