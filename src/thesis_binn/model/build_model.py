@@ -24,14 +24,12 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
 
     else:
         if cluster:
-            go_layers = torch.load(
-                f"/opt/app/out/masks/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
-                weights_only=True)
+            root_dir = "/opt/app"
         else:
-            go_layers = torch.load(
-                f"{package_call * "../../"}../out/masks/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
-                weights_only=True)
-        masks = load_masks(biologically_informed, merge_conditions, dataset_name, model_type)
+            root_dir = f"{package_call * "../../"}.."
+        go_layers = torch.load(f"{root_dir}/out/masks/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
+                               weights_only=True)
+        masks = load_masks(biologically_informed, merge_conditions, dataset_name, model_type, root_dir=root_dir)
         print("\n----- COMPLETED: Loading GO from file -----")
 
     # Model construction

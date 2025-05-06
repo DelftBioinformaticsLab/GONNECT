@@ -61,29 +61,78 @@ def save_masks(layers: [GOTerm], merge_conditions, dataset_name, dtype, model_ty
     print(f"----- Saved {model_type} masks to file -----")
 
 
-def load_masks(module, merge_conditions, dataset_name, model_type, cluster=False):
-    """Load edge and proxy masks from file. Arguments are used to find the correct file path for the AE module. Masks are returned as a list of Tensors."""
-    root_dir = ".."
-    if cluster:
-        root_dir = "/opt/app"
+def load_masks(module, merge_conditions, dataset_name, model_type, random_version=None, root_dir=".."):
+    """Load edge and proxy masks from file. Arguments are used to find the correct file path for the AE module. Masks are returned as a list of Tensors. The 'random_version' argument should be the integer of the randomized edge mask you want to use."""
+    suffix = ""
+    if random_version is not None:
+        suffix = f"_random{str(random_version)}"
+
     masks = []
     if (module == "encoder") or (module == "both"):
         masks.append(
-            torch.load(f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks.pt",
-                       weights_only=True))
+            torch.load(
+                f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks{suffix}.pt",
+                weights_only=True))
         masks.append(
-            torch.load(f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
-                       weights_only=True))
+            torch.load(
+                f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
+                weights_only=True))
     if (module == "decoder") or (module == "both"):
         masks.append(
-            torch.load(f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks.pt",
-                       weights_only=True))
+            torch.load(
+                f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks{suffix}.pt",
+                weights_only=True))
         masks.append(
-            torch.load(f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
-                       weights_only=True))
+            torch.load(
+                f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
+                weights_only=True))
     if len(masks) == 0:
         return None
     return masks
+
+
+def save_random_masks(module, merge_conditions, dataset_name, model_type):
+    """Take an existing edge mask and shuffle the edges in a way that preserves the in- and out-degree of each node and save the new random mask."""
+    version = 1
+    n_swaps = 10000
+    original_masks = load_masks(module, merge_conditions, dataset_name, model_type, root_dir="../../..")
+    randomized_masks = []
+    # We skip performing swaps fot the final mask, since this mask is for the GO root, which is fully connected, so there are no valid swaps possible
+    if module == "encoder":
+        masks = original_masks[0][:-1]
+    else:
+        masks = original_masks[0][1:]
+
+    for edge_mask in masks:
+        # Copy the original edge mask, and make sparse masks temporarily dense during swapping phase
+        randomized_edge_mask = edge_mask.clone()
+        if model_type == "sparse":
+            randomized_edge_mask = randomized_edge_mask.to_dense()
+
+        swaps = 0
+        while swaps < n_swaps:
+            # Randomly pick two edges
+            edge_indices = torch.nonzero(randomized_edge_mask)
+            edge_a = edge_indices[int(torch.rand(1) * len(edge_indices) - 1)]
+            edge_b = edge_indices[int(torch.rand(1) * len(edge_indices) - 1)]
+            # Check if the swapped edges already exist
+            if randomized_edge_mask[edge_b[0]][edge_a[1]] or randomized_edge_mask[edge_a[0]][edge_b[1]]:
+                continue
+            # If not, swap the rows of the two selected edges to change the mask yet preserve node connectivity
+            randomized_edge_mask[edge_a[0]][edge_a[1]] = False
+            randomized_edge_mask[edge_b[0]][edge_a[1]] = True
+            randomized_edge_mask[edge_b[0]][edge_b[1]] = False
+            randomized_edge_mask[edge_a[0]][edge_b[1]] = True
+            swaps += 1
+
+        if model_type == "sparse":
+            randomized_masks.append(randomized_edge_mask.to_sparse())
+        else:
+            randomized_masks.append(randomized_edge_mask)
+
+    torch.save(randomized_masks,
+               f"../../../out/masks/{module}/{merge_conditions}/{dataset_name}_{model_type}_edge_masks_random{version}.pt")
+    print(f"----- Saved {model_type} {module} random{version} masks to file -----")
 
 
 if __name__ == "__main__":
@@ -92,7 +141,9 @@ if __name__ == "__main__":
     n_nan_cols = 5
     dtype = torch.float64
 
-    layers = make_layers(merge_conditions, dataset_name, n_nan_cols)
-    save_layers(layers, merge_conditions, dataset_name)
-    save_masks(layers, merge_conditions, dataset_name, dtype, model_type="sparse")
-    save_masks(layers, merge_conditions, dataset_name, dtype, model_type="dense")
+    # layers = make_layers(merge_conditions, dataset_name, n_nan_cols)
+    # save_layers(layers, merge_conditions, dataset_name)
+    # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="sparse")
+    # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="dense")
+
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense")
