@@ -16,7 +16,7 @@ def make_layers(merge_conditions, dataset_name, n_nan_cols, print_go=True):
     # genes = list(data["gene id"])
     data = pd.read_csv(f"../../../data/{dataset_name}.csv.gz", compression="gzip")
     genes = list(data.columns[n_nan_cols:])
-    layers = construct_go_bp_layers(genes, merge_conditions, print_go=print_go)
+    layers = construct_go_bp_layers(genes, merge_conditions, print_go=print_go, package_call=True)
     print("----- COMPLETED: GO preprocessing -----")
     return layers
 
@@ -30,7 +30,7 @@ def save_layers(layers, merge_conditions, dataset_name):
 
 
 def save_masks(layers: [GOTerm], merge_conditions, dataset_name, dtype, model_type="dense"):
-    """Generate biologically-informed edge and proxy masks by initializing BICoder objects with layers containing GOTerms. These masks are saved as Tensors and organized by merge conditions, dataset and and model type (sparse/dense)."""
+    """Generate biologically-informed edge and proxy masks by initializing BICoder objects with layers containing GOTerms. These masks are saved as Tensors and organized by merge conditions, dataset and model type (sparse/dense)."""
     print(f"\n----- START: Generate {model_type} masks -----")
     if model_type == "sparse":
         encoder = SparseBIEncoder(layers, torch.nn.ReLU, dtype)
@@ -49,25 +49,37 @@ def save_masks(layers: [GOTerm], merge_conditions, dataset_name, dtype, model_ty
                f"../../../out/masks/decoder/{merge_conditions}/{dataset_name}_{model_type}_edge_masks.pt")
     torch.save(decoder.proxy_masks,
                f"../../../out/masks/decoder/{merge_conditions}/{dataset_name}_{model_type}_proxy_masks.pt")
+    os.makedirs(f"../../../out/masks/genes/{merge_conditions}", exist_ok=True)
+    orphan_gene_mask = []
+    for gene in layers[-1]:
+        if len(gene.parents) == 0:
+            orphan_gene_mask.append(True)
+        else:
+            orphan_gene_mask.append(False)
+    torch.save(torch.tensor(orphan_gene_mask),
+               f"../../../out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt")
     print(f"----- Saved {model_type} masks to file -----")
 
 
-def load_masks(module, merge_conditions, dataset_name, model_type):
+def load_masks(module, merge_conditions, dataset_name, model_type, cluster=False):
     """Load edge and proxy masks from file. Arguments are used to find the correct file path for the AE module. Masks are returned as a list of Tensors."""
+    root_dir = ".."
+    if cluster:
+        root_dir = "/opt/app"
     masks = []
     if (module == "encoder") or (module == "both"):
         masks.append(
-            torch.load(f"../../../out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks.pt",
+            torch.load(f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks.pt",
                        weights_only=True))
         masks.append(
-            torch.load(f"../../../out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
+            torch.load(f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
                        weights_only=True))
     if (module == "decoder") or (module == "both"):
         masks.append(
-            torch.load(f"../../../out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks.pt",
+            torch.load(f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks.pt",
                        weights_only=True))
         masks.append(
-            torch.load(f"../../../out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
+            torch.load(f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
                        weights_only=True))
     if len(masks) == 0:
         return None

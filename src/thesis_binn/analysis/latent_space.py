@@ -149,6 +149,10 @@ if __name__ == '__main__':
     print("----- COMPLETED: Building model -----")
 
     print("----- START: Transforming latent space -----")
-    plot_pca(model, data=dataset[dataset.columns[n_nan_cols:]], labels=dataset[label], seed=seed, colored=colored)
-    plot_tsne(model, data=dataset[dataset.columns[n_nan_cols:]], labels=dataset[label], seed=seed, colored=colored)
-    plot_umap(model, data=dataset[dataset.columns[n_nan_cols:]], labels=dataset[label], seed=seed, colored=colored)
+    full_label_set = dataset[label].unique()
+    # label_subset = full_label_set
+    label_subset = ["KICH", "KIRC", "KIRP"]
+    filtered_data = dataset[dataset[label].isin(label_subset)]
+    # plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+    # plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)

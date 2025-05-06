@@ -10,13 +10,31 @@ from thesis_binn.model.Encoder import DenseBIEncoder
 class MSE(nn.Module):
     """Wrapper class for torch.nn.MSELoss to allow additional arguments for easy swapping of loss functions."""
 
-    def __init__(self, model=None):
+    def __init__(self):
         super(MSE, self).__init__()
         self.name = "MSE Loss"
         self.mse = nn.MSELoss()
 
     def forward(self, x, y, **kwargs):
         return self.mse(x, y)
+
+
+class MSE_Masked(nn.Module):
+    """Mean Squared Error loss for reconstructed gene expression where genes without GO-terms are masked."""
+
+    def __init__(self, mask):
+        super(MSE_Masked, self).__init__()
+        self.name = "MSE Loss Guess Corrected"
+        self.mask = mask
+        self.mse = nn.MSELoss()
+
+    def forward(self, x, y, **kwargs):
+        mask = ~self.mask
+        if self.mask.dim() == 1:
+            mask = mask.unsqueeze(0)
+        x_masked = x * mask
+        y_masked = y * mask
+        return self.mse(x_masked, y_masked)
 
 
 class MSE_Soft_Link_Sum(nn.Module):
