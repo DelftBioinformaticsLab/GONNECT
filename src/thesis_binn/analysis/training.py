@@ -17,3 +17,6 @@ def plot_training_loss(path):
     plt.ylabel("MSE")
     plt.legend(["train", "validation", "test"])
     plt.show()
+
+if __name__ == "__main__":
+    plot_training_loss("../../../out/trained_models/AE_1.0/AE_1.0.0_both_results.txt")
