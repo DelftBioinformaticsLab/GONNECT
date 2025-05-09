@@ -12,6 +12,7 @@ from thesis_binn.model.build_model import build_model
 
 
 def activations_per_term(model: Autoencoder, go_layers: [GOTerm], data: pd.DataFrame, bi_module: str):
+    """Returns a DataFrame with GO-terms as columns and raw sample activations as rows."""
     # Generate activations by performing a forward pass over the provided data
     model.eval()
     with torch.no_grad():
@@ -38,12 +39,14 @@ def activations_per_term(model: Autoencoder, go_layers: [GOTerm], data: pd.DataF
 
 
 def k_most_variable_terms(k: int, terms: pd.DataFrame):
+    """Dirty filtering for large activation differences in activation DataFrame."""
     term_variances = terms.var()
     top_k_terms = term_variances.nlargest(k).index
     return top_k_terms
 
 
 def setup_figure(data: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm]):
+    """Setup grid with GO-term columns and sample rows. Requires GO dict for naming GO-terms. Does not filter or sort data."""
     data = data.sort_values("cancer_type")
     data_values = data[data.columns[n_nan_cols:]]
     fig, ax = plt.subplots(figsize=(12, 15))

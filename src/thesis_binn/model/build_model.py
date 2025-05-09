@@ -10,7 +10,7 @@ from thesis_binn.model.Encoder import SparseBIEncoder, DenseBIEncoder, Encoder
 
 def build_model(model_type: str, biologically_informed: str, soft_links: bool, dataset_name: str,
                 go_preprocessing: bool, merge_conditions, n_go_layers_used: int, activation_fn, dtype, genes=None,
-                package_call=False, cluster=False):
+                package_call=False, cluster=False, random_version=None):
     # GO processing
     if go_preprocessing:
         if not genes:
@@ -29,7 +29,8 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
             root_dir = f"{package_call * "../../"}.."
         go_layers = torch.load(f"{root_dir}/out/masks/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
                                weights_only=True)
-        masks = load_masks(biologically_informed, merge_conditions, dataset_name, model_type, root_dir=root_dir)
+        masks = load_masks(biologically_informed, merge_conditions, dataset_name, model_type,
+                           random_version=random_version, root_dir=root_dir)
         print("\n----- COMPLETED: Loading GO from file -----")
 
     # Model construction

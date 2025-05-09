@@ -112,9 +112,9 @@ if __name__ == '__main__':
     # Best practice would be to make a separate script for the actual processing, but I didn't...
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
-    experiment_name = "AE_1.0"
-    experiment_version = ".1"
-    model_name = "none"
+    experiment_name = "AE_1.0"  # dataset_name for locally trained models
+    experiment_version = ".1"  # "" for locally trained models
+    model_name = "encoder"
     label = "cancer_type"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
     seed = 42
     n_nan_cols = 5
@@ -122,9 +122,9 @@ if __name__ == '__main__':
 
     # Model construction
     model_type = "dense"
-    biologically_informed = model_name
+    biologically_informed = model_name  # change this for locally trained models
     soft_links = False
-    go_preprocessing = True
+    go_preprocessing = False
     merge_conditions = (1, 30, 50)
     n_go_layers_used = 5
     activation_fn = torch.nn.ReLU
@@ -145,14 +145,16 @@ if __name__ == '__main__':
     model.load_state_dict(
         torch.load(
             f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name + experiment_version}_{model_name}_model.pt",
+            # remove {experiment_name + experiment_version}_ for locally trained models
             weights_only=True))
     print("----- COMPLETED: Building model -----")
 
     print("----- START: Transforming latent space -----")
     full_label_set = dataset[label].unique()
-    # label_subset = full_label_set
-    label_subset = ["KICH", "KIRC", "KIRP"]
+    label_subset = full_label_set
+    # label_subset = ["KICH", "KIRC", "KIRP"]
     filtered_data = dataset[dataset[label].isin(label_subset)]
     # plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
-    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed,
+              colored=colored)
     # plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)

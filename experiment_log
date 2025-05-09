@@ -5,3 +5,21 @@ All four models are dense
 AE_1.1
 Basic AE models, trained twice with different datasplit seeds
 Three sparse BI models (sparse BA not possible)
+
+AE_2.0
+General idea: retrain the 4 AE models, now with ignoring unlinked genes in bi-models
+merge_conditions = (1, 30, 50)
+BI trained with MSE_masked
+No soft links
+
+AE_2.1
+General idea: train the 3 bi-models, now with soft links
+merge_conditions = (1, 30, 50)
+no FC model (covered in AE_2.0)
+Soft links and SL loss (not masked)
+
+AE_2.2
+General idea: train the 3 bi-models, with randomized edge masks
+merge_conditions = (1, 30, 50)
+trained with MSE_Masked (unlinked genes remain unlinked)
+no soft links
