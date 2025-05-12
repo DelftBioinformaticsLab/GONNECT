@@ -58,7 +58,7 @@ class MSE_Soft_Link_Sum(nn.Module):
             soft_weight_sum += layer_sum
             n_soft_weights += layer_n
         if hasattr(model.decoder, "edge_masks"):
-            layer_sum, layer_n = soft_link_sum(model.encoder)
+            layer_sum, layer_n = soft_link_sum(model.decoder)
             soft_weight_sum += layer_sum
             n_soft_weights += layer_n
         # Debug
@@ -66,16 +66,16 @@ class MSE_Soft_Link_Sum(nn.Module):
         return mse + self.alpha * (soft_weight_sum / n_soft_weights)
 
 
-def soft_link_sum(net):
+def soft_link_sum(module):
     """For a given network (encoder or decoder), return the sum of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network."""
     soft_weight_sum = 0
     mask_index = 0
     n = 0
-    for layer in net.net_layers:
+    for layer in module.net_layers:
         if isinstance(layer, nn.Linear):
             # For each linear layer of the network, sum the absolute values of the masked weights
-            soft_weight_sum += torch.sum(layer.weight.abs() * ~net.edge_masks[mask_index])
-            n += torch.sum(~net.edge_masks[mask_index])
+            soft_weight_sum += torch.sum(layer.weight.abs() * ~module.edge_masks[mask_index])
+            n += torch.sum(~module.edge_masks[mask_index])
             mask_index += 1
     return soft_weight_sum, n
 
