@@ -1,6 +1,6 @@
 #!/bin/sh
-#SBATCH --account=ewi-insy-prb-dbl
-#SBATCH --partition=insy,general # Request partition. Default is 'general'
+#SBATCH --account=ewi-insy-prb
+#SBATCH --partition=ewi-insy-prb,general # Request partition. Default is 'general'
 #SBATCH --qos=short         # Request Quality of Service. Default is 'short' (maximum run time: 4 hours)
 #SBATCH --time=4:00:00      # Request run time (wall-clock). Default is 1 minute
 #SBATCH --ntasks=1          # Request number of parallel tasks per job. Default is 1

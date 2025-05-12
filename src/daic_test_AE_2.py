@@ -10,7 +10,7 @@ if __name__ == "__main__":
     experiment_name = "test"
     experiment_version = ".random_edges"
     model_name = "encoder"
-    project_folder = ".."
+    project_folder = "/opt/app"
     # Model params
     model_type = "dense"
     biologically_informed = model_name
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     dtype = torch.float64
     n_nan_cols = 5
     # Set path to root directory
-    cluster = False
+    cluster = True
 
     # Data processing
     data = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", nrows=min(n_samples, 9797),
