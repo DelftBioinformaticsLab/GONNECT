@@ -69,6 +69,7 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
     print(f"Autoencoder tensor type: {model_type}")
     print(f"Biologically informed module: {biologically_informed}")
     print(f"Uses soft links: {soft_links}")
+    print(f"Randomized edges: {random_version}")
     print(f"Real-time GO-processing: {go_preprocessing}")
     print(f"Merge conditions: {merge_conditions} (min parents, min children, min terms per layer)")
     print(f"Number of GO layers used: {len(used_go_layers)}\n")
