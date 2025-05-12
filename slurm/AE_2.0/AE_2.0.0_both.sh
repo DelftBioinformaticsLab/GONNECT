@@ -19,4 +19,4 @@ apptainer exec --nv --writable-tmpfs --pwd /opt/app --containall \
 	--bind src/:/opt/app/src/ \
 	--bind data/:/opt/app/data/ \
 	--bind out/:/opt/app/out/ \
-	./container_pixi_0.2.1.sif pixi run python -u src/AE_2.0/AE_2.0.0_both.py
+	./container_pixi_0.2.1.sif pixi run python -u src/AE_2.0.0_both.py
