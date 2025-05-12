@@ -22,10 +22,11 @@ class MSE(nn.Module):
 class MSE_Masked(nn.Module):
     """Mean Squared Error loss for reconstructed gene expression where genes without GO-terms are masked."""
 
-    def __init__(self, mask):
+    def __init__(self, mask, device="cpu"):
         super(MSE_Masked, self).__init__()
         self.name = "MSE Loss Guess Corrected"
-        self.mask = mask
+        self.mask = mask.to(device)
+        self.device = device
         self.mse = nn.MSELoss()
 
     def forward(self, x, y, **kwargs):

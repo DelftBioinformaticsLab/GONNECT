@@ -10,7 +10,7 @@ if __name__ == "__main__":
     experiment_name = "test"
     experiment_version = ".random_edges"
     model_name = "encoder"
-    project_folder = "/opt/app"
+    project_folder = ".."
     # Model params
     model_type = "dense"
     biologically_informed = model_name
@@ -23,15 +23,15 @@ if __name__ == "__main__":
     n_go_layers_used = 5
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
+    device = "cuda"
     input_mask = torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt", weights_only=True)
-    loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE_Masked(input_mask)
+    loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE_Masked(input_mask, device)
     n_samples = 9797
     batch_size = 100
     n_epochs = 100
     learning_rate = 0.01
     momentum = 0.9
     patience = 5
-    device = "cuda"
     # Storage params
     save_losses = True
     loss_path = experiment_name + experiment_version + "_" + model_name
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     dtype = torch.float64
     n_nan_cols = 5
     # Set path to root directory
-    cluster = True
+    cluster = False
 
     # Data processing
     data = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", nrows=min(n_samples, 9797),
