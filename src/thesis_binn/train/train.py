@@ -42,7 +42,7 @@ def make_data_splits(data, n_nan_cols, n_samples, batch_size, data_split, seed):
     return dataloader, trainloader, validationloader, testloader
 
 
-def train(train_loader, net, optimizer, loss_fn, device="cpu"):
+def train(train_loader, net: Autoencoder, optimizer, loss_fn, device="cpu"):
     """Trains network for one epoch in batches.
     Args:
         train_loader: Data loader for training set.
@@ -51,10 +51,12 @@ def train(train_loader, net, optimizer, loss_fn, device="cpu"):
         loss_fn: Loss function.
         device: Whether the network runs on CPU or GPU."""
 
+    # Additional setup for special models
     net.to(device)
     net.masks_to(device)
     if hasattr(loss_fn, "mask"):
         loss_fn.mask.to(device)
+
     avg_loss = 0
     # Iterate over batches
     for i, data in enumerate(train_loader):
@@ -68,7 +70,7 @@ def train(train_loader, net, optimizer, loss_fn, device="cpu"):
         outputs = net(inputs)
 
         # Backward pass
-        loss = loss_fn(outputs, inputs, model=net)
+        loss = loss_fn(outputs, inputs)
         loss.backward()
 
         optimizer.step()
@@ -95,7 +97,7 @@ def test(test_loader, net, loss_fn, device="cpu"):
 
             # Forward pass
             outputs = net(inputs)
-            loss = loss_fn(outputs, inputs, model=net)
+            loss = loss_fn(outputs, inputs)
 
             # keep track of loss and accuracy
             avg_loss += loss

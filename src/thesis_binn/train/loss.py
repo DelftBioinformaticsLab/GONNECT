@@ -15,8 +15,8 @@ class MSE(nn.Module):
         self.name = "MSE Loss"
         self.mse = nn.MSELoss()
 
-    def forward(self, x, y, **kwargs):
-        return self.mse(x, y)
+    def forward(self, y, x):
+        return self.mse(y, x)
 
 
 class MSE_Masked(nn.Module):
@@ -29,45 +29,46 @@ class MSE_Masked(nn.Module):
         self.device = device
         self.mse = nn.MSELoss()
 
-    def forward(self, x, y, **kwargs):
+    def forward(self, y, x):
         mask = ~self.mask
         if self.mask.dim() == 1:
             mask = mask.unsqueeze(0)
-        x_masked = x * mask
         y_masked = y * mask
-        return self.mse(x_masked, y_masked)
+        x_masked = x * mask
+        return self.mse(y_masked, x_masked)
 
 
 class MSE_Soft_Link_Sum(nn.Module):
     """Standard MSE with an additional term, weighted by alpha, for the sum of soft link weights."""
 
-    def __init__(self, alpha=1.0):
+    def __init__(self, model, alpha=1.0):
         super(MSE_Soft_Link_Sum, self).__init__()
         self.name = "MSE + soft link sum"
         self.alpha = alpha
+        self.mse = nn.MSELoss()
+        self.model = model
 
-    def forward(self, x, y, model: Autoencoder, **kwargs):
-        if isinstance(model.encoder, SparseCoder) or isinstance(model.decoder, SparseCoder):
+    def forward(self, y, x):
+        if isinstance(self.model.encoder, SparseCoder) or isinstance(self.model.decoder, SparseCoder):
             raise Exception("Soft links are not supported for models containing SparseTensors")
 
-        mse = nn.functional.mse_loss(x, y)
+        mse_loss = self.mse(y, x)
         soft_weight_sum = 0
         n_soft_weights = 0
-        if hasattr(model.encoder, "edge_masks"):
-            layer_sum, layer_n = soft_link_sum(model.encoder)
-            soft_weight_sum += layer_sum
-            n_soft_weights += layer_n
-        if hasattr(model.decoder, "edge_masks"):
-            layer_sum, layer_n = soft_link_sum(model.decoder)
-            soft_weight_sum += layer_sum
-            n_soft_weights += layer_n
-        # Debug
-        # print("soft_weight_sum: ", soft_weight_sum)
-        return mse + self.alpha * (soft_weight_sum / n_soft_weights)
+        if hasattr(self.model.encoder, "edge_masks"):
+            layer_sum_enc, layer_n_enc = soft_link_sum(self.model.encoder)
+            soft_weight_sum += layer_sum_enc
+            n_soft_weights += layer_n_enc
+        if hasattr(self.model.decoder, "edge_masks"):
+            layer_sum_dec, layer_n_dec = soft_link_sum(self.model.decoder)
+            soft_weight_sum += layer_sum_dec
+            n_soft_weights += layer_n_dec
+
+        return mse_loss + self.alpha * (soft_weight_sum / n_soft_weights)
 
 
 def soft_link_sum(module):
-    """For a given network (encoder or decoder), return the sum of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network."""
+    """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network."""
     soft_weight_sum = 0
     mask_index = 0
     n = 0
@@ -81,7 +82,7 @@ def soft_link_sum(module):
 
 
 if __name__ == '__main__':
-    loss_fn = MSE_Soft_Link_Sum()
+    loss_fn = MSE_Soft_Link_Sum(None)
     layers = torch.randn((2, 3))
     mask_e = [torch.Tensor([
         [0, 1, 1],
