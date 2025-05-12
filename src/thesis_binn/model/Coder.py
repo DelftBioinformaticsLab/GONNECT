@@ -37,6 +37,9 @@ class DenseCoder(nn.Module):
     def mask_gradients(self):
         return
 
+    def masks_to(self, device):
+        return
+
     def _register_hooks(self):
         for idx, layer in enumerate(self.net_layers):
             if isinstance(layer, nn.Module):
@@ -119,6 +122,11 @@ class DenseBICoder(DenseCoder):
     def _create_edge_masks(self):
         """Encoder/Decoder dependent. Implemented in respective subclasses."""
         return [torch.empty() for _ in range(len(self.go_layers))]
+
+    def masks_to(self, device):
+        """When model is transferred to another device, this method must be called to move the masks as well."""
+        self.edge_masks = [mask.to(device) for mask in self.edge_masks]
+        self.proxy_masks = [mask.to(device) for mask in self.proxy_masks]
 
 
 class SparseCoder(nn.Module):

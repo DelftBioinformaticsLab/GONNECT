@@ -16,3 +16,7 @@ class Autoencoder(nn.Module):
     def mask_weights(self):
         self.encoder.mask_weights()
         self.decoder.mask_weights()
+
+    def masks_to(self, device):
+        self.encoder.masks_to(device)
+        self.decoder.masks_to(device)

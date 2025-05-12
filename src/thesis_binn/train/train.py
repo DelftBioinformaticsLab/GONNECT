@@ -52,6 +52,7 @@ def train(train_loader, net, optimizer, loss_fn, device="cpu"):
         device: Whether the network runs on CPU or GPU."""
 
     net.to(device)
+    net.masks_to(device)
     if hasattr(loss_fn, "mask"):
         loss_fn.mask.to(device)
     avg_loss = 0
