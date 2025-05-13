@@ -11,6 +11,8 @@ if __name__ == "__main__":
     experiment_version = ".0"
     model_name = "decoder"
     project_folder = "/opt/app"
+    cluster = True
+    device = "cuda"
     # Model params
     model_type = "dense"
     biologically_informed = model_name
@@ -23,10 +25,8 @@ if __name__ == "__main__":
     n_go_layers_used = 5
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
-    device = "cuda"
-    input_mask = torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt",
-                            weights_only=True)
-    loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE_Masked(input_mask, device)
+    loss = "soft links"
+    soft_link_alpha = 100
     n_samples = 9797
     batch_size = 100
     n_epochs = 10000
@@ -45,8 +45,6 @@ if __name__ == "__main__":
     seed = 1
     dtype = torch.float64
     n_nan_cols = 5
-    # Set path to root directory
-    cluster = True
 
     # Data processing
     data = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", nrows=min(n_samples, 9797),
@@ -78,6 +76,17 @@ if __name__ == "__main__":
         print(f"\n----- Loaded weights from file ({save_weights_path}_model.pt) -----")
 
     # Training
+    if loss == "mse":
+        loss_fn = MSE()
+    if loss == "mse masked":
+        input_mask = torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt",
+                                weights_only=True)
+        loss_fn = MSE_Masked(input_mask, device)
+    if loss == "soft links":
+        loss_fn = MSE_Soft_Link_Sum(model, alpha=soft_link_alpha)
+    else:
+        raise Exception(f"Unknown loss function: {loss}")
+
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
 
     epoch_losses = train_with_validation(n_epochs, trainloader, testloader, validationloader, model, optimizer, loss_fn,
