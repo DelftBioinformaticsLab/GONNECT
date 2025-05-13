@@ -8,24 +8,25 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "test"
-    experiment_version = ".random_edges"
-    model_name = "encoder"
+    experiment_version = ".soft_links_cpu"
+    model_name = "both"
     project_folder = "/opt/app"
+    device = "cpu"
+    cluster = True
     # Model params
     model_type = "dense"
     biologically_informed = model_name
-    soft_links = False
+    soft_links = True
     activation_fn = torch.nn.ReLU
-    random_version = 1
+    random_version = None
     # GO params
     go_preprocessing = False
     merge_conditions = (1, 30, 50)  # min parents, min children, min terms per layer
     n_go_layers_used = 5
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
-    device = "cuda"
-    input_mask = torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt", weights_only=True)
-    loss_fn = MSE_Soft_Link_Sum(alpha=1.0) if soft_links else MSE_Masked(input_mask, device)
+    loss = "soft links"
+    soft_link_alpha = 100
     n_samples = 9797
     batch_size = 100
     n_epochs = 100
@@ -33,9 +34,9 @@ if __name__ == "__main__":
     momentum = 0.9
     patience = 5
     # Storage params
-    save_losses = True
+    save_losses = False
     loss_path = experiment_name + experiment_version + "_" + model_name
-    save_weights = True
+    save_weights = False
     save_weights_path = experiment_name + experiment_version + "_" + model_name
     load_weights = False
     load_weights_path = experiment_name + experiment_version + "_" + model_name
@@ -44,8 +45,6 @@ if __name__ == "__main__":
     seed = 1
     dtype = torch.float64
     n_nan_cols = 5
-    # Set path to root directory
-    cluster = True
 
     # Data processing
     data = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", nrows=min(n_samples, 9797),
@@ -77,6 +76,17 @@ if __name__ == "__main__":
         print(f"\n----- Loaded weights from file ({save_weights_path}_model.pt) -----")
 
     # Training
+    if loss == "mse":
+        loss_fn = MSE()
+    if loss == "mse masked":
+        input_mask = torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt",
+                                weights_only=True)
+        loss_fn = MSE_Masked(input_mask, device)
+    if loss == "soft links":
+        loss_fn = MSE_Soft_Link_Sum(model, alpha=soft_link_alpha)
+    else:
+        raise Exception(f"Unknown loss function: {loss}")
+
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
 
     epoch_losses = train_with_validation(n_epochs, trainloader, testloader, validationloader, model, optimizer, loss_fn,
