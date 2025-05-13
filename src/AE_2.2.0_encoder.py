@@ -78,11 +78,11 @@ if __name__ == "__main__":
     # Training
     if loss == "mse":
         loss_fn = MSE()
-    if loss == "mse masked":
+    elif loss == "mse masked":
         input_mask = torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt",
                                 weights_only=True)
         loss_fn = MSE_Masked(input_mask, device)
-    if loss == "soft links":
+    elif loss == "soft links":
         loss_fn = MSE_Soft_Link_Sum(model, alpha=soft_link_alpha)
     else:
         raise Exception(f"Unknown loss function: {loss}")
