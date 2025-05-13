@@ -8,10 +8,10 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "test"
-    experiment_version = ".soft_links_cpu"
+    experiment_version = ".soft_links_gpu"
     model_name = "both"
     project_folder = "/opt/app"
-    device = "cpu"
+    device = "cuda"
     cluster = True
     # Model params
     model_type = "dense"
