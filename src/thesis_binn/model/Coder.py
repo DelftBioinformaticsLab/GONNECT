@@ -67,6 +67,22 @@ class DenseBICoder(DenseCoder):
             self.edge_masks = self._create_edge_masks()
 
         self.soft_links = soft_links
+        if soft_links:
+            self._initialize_soft_links()
+
+    def _initialize_soft_links(self):
+        # Re-initialize soft links with small values
+        mask_index = 0
+        for layer in self.net_layers:
+            if isinstance(layer, nn.Linear):
+                mask = ~self.edge_masks[mask_index]
+                with torch.no_grad():
+                    # Draw soft link values
+                    soft_link_weights = torch.empty_like(layer.weight).normal_(mean=0.0, std=1e-3)
+                    soft_link_weights = soft_link_weights.to(layer.weight)
+                    # Apply only where mask is True
+                    layer.weight[mask] = soft_link_weights[mask]
+                mask_index += 1
 
     def mask_weights(self):
         """Using the internal dense mask matrices, mask the dense weights and biases after each training step."""

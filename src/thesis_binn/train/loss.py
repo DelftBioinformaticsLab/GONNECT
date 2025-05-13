@@ -63,7 +63,8 @@ class MSE_Soft_Link_Sum(nn.Module):
             layer_sum_dec, layer_n_dec = soft_link_sum(self.model.decoder)
             soft_weight_sum += layer_sum_dec
             n_soft_weights += layer_n_dec
-
+        # Debug:
+        # print(f"mse: {mse_loss} \t sl:{self.alpha * (soft_weight_sum / n_soft_weights)}")
         return mse_loss + self.alpha * (soft_weight_sum / n_soft_weights)
 
 
