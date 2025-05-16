@@ -5,6 +5,12 @@ class Autoencoder(nn.Module):
     def __init__(self, encoder, decoder):
         super(Autoencoder, self).__init__()
         self.name = f"{encoder.name}:{decoder.name}"
+        if hasattr(encoder, "soft_links"):
+            if encoder.soft_links:
+                self.name += " (SL)"
+        elif hasattr(decoder, "soft_links"):
+            if decoder.soft_links:
+                self.name += " (SL)"
         self.encoder = encoder
         self.decoder = decoder
 

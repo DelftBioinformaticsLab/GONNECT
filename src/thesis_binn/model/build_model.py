@@ -73,4 +73,9 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
     print(f"Real-time GO-processing: {go_preprocessing}")
     print(f"Merge conditions: {merge_conditions} (min parents, min children, min terms per layer)")
     print(f"Number of GO layers used: {len(used_go_layers)}\n")
-    return Autoencoder(encoder, decoder)
+
+    model = Autoencoder(encoder, decoder)
+    # Rename model if edges are randomized
+    if random_version:
+        model.name += " (Randomized)"
+    return model
