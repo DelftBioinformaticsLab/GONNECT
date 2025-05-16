@@ -75,7 +75,9 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
     print(f"Number of GO layers used: {len(used_go_layers)}\n")
 
     model = Autoencoder(encoder, decoder)
-    # Rename model if edges are randomized
+    # Rename model for special conditions
+    if soft_links:
+        model.name += " (SL)"
     if random_version:
         model.name += " (Randomized)"
     return model
