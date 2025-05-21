@@ -9,17 +9,39 @@ Three sparse BI models (sparse BA not possible)
 AE_2.0
 General idea: retrain the 4 AE models, now with ignoring unlinked genes in bi-models
 merge_conditions = (1, 30, 50)
-BI trained with MSE_masked
+BI trained with MSE_masked, BA with regular MSE
 No soft links
+Job_ID      Model_name          Node        Time        Memory      Notes
+11501987    AE_2.0.0_none       gpu26       00:08:15    1G          Trained with MSE_Masked
+11502012    AE_2.0.0_encoder    gpu32       00:19:35    1.1G        -
+11502013    AE_2.0.0_decoder    gpu33       02:03:18    1.1G        -
+11507225    AE_2.0.0_none       influ1      00:08:16    909M        Trained with MSE
+11506701    AE_2.0.0_both       influ2      --:--:--                Crashed...
+11507675    AE_2.0.0_both       influ1      22:53:44    1.2G        -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
 merge_conditions = (1, 30, 50)
 no FC model (covered in AE_2.0)
-Soft links and SL loss (not masked)
+Soft links and SL loss (not masked) soft_link_alpha=100
+Job_ID      Model_name          Node        Time        Memory      Notes
+11504174    AE_2.1.0_encoder    gpu26       00:22:47    1.1G        Needs to be redone because of faulty loss function
+11504396    AE_2.1.0_decoder    gpu33       00:23:05    1.1G        Needs to be redone because of faulty loss function
+11507049    AE_2.1.0_encoder    gpu34       00:34:02    1G          -
+11507050    AE_2.1.0_decoder    gpu31       00:24:49    1G          -
+11507051    AE_2.1.0_both       gpu31       01:44:58    1.2G        -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
 merge_conditions = (1, 30, 50)
 trained with MSE_Masked (unlinked genes remain unlinked)
 no soft links
+Job_ID      Model_name          Node        Time        Memory      Notes
+11507228    AE_2.2.0_encoder    gpu31       00:53:20    1G          Quite a bit longer than BI-FC GO...
+11507229    AE_2.2.0_decoder    influ1      05:01:25    1G          -
+11507230    AE_2.2.0_both       gpu30       20:14:38    1.1G        -
+
+AE_3.0
+General idea: Super duper regularized soft links to practically get hard links, but without messing up gradients by having to manually set weights to 0
+merge_conditions = (1, 30, 50)
+Soft links and masked SL loss
