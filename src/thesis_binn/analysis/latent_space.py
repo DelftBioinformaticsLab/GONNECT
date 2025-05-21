@@ -4,8 +4,8 @@ import torch
 from umap import UMAP
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-import plotly.express as px
-import plotly.io as pio
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
 
 from thesis_binn.model.Autoencoder import Autoencoder
 from thesis_binn.model.build_model import build_model
@@ -108,13 +108,58 @@ def plot_pca(model: Autoencoder, data: pd.DataFrame, labels, seed=42, colored=Tr
     plt.show()
 
 
+def calculate_silhouette_score(model: Autoencoder, data: pd.DataFrame, labels):
+    model.eval()
+    with torch.no_grad():
+        # Compute latent representation of data
+        x = torch.tensor(data.values)
+        latent_x = model.encoder(x)
+
+    ss = silhouette_score(latent_x, labels)
+    return ss
+
+
+def calculate_ari(model, data: pd.DataFrame, labels, seed=42):
+    model.eval()
+    with torch.no_grad():
+        # Compute latent representation of data
+        x = torch.tensor(data.values)
+        latent_x = model.encoder(x)
+
+    # Make k-means clustering of latent representations
+    n_clusters = labels.nunique()
+    kmeans = KMeans(n_clusters=n_clusters, random_state=seed)
+    cluster_assignments = kmeans.fit_predict(latent_x)
+
+    # Compute Adjusted Rand Index (ARI)
+    ari_score = adjusted_rand_score(labels, cluster_assignments)
+    return ari_score
+
+
+def calculate_nmi(model: Autoencoder, data: pd.DataFrame, labels):
+    model.eval()
+    with torch.no_grad():
+        # Compute latent representation of data
+        x = torch.tensor(data.values)
+        latent_x = model.encoder(x)
+
+    # Make k-means clustering of latent representations
+    n_clusters = labels.nunique()
+    kmeans = KMeans(n_clusters=n_clusters, random_state=seed)
+    cluster_assignments = kmeans.fit_predict(latent_x)
+
+    # Compute Normalized Mutual Information (NMI)
+    nmi_score = normalized_mutual_info_score(labels, cluster_assignments)
+    return nmi_score
+
+
 if __name__ == '__main__':
     # Best practice would be to make a separate script for the actual processing, but I didn't...
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
-    experiment_name = "AE_1.0"  # dataset_name for locally trained models
-    experiment_version = ".1"  # "" for locally trained models
-    model_name = "encoder"
+    experiment_name = "AE_2.2"  # dataset_name for locally trained models
+    experiment_version = ".0"  # "" for locally trained models
+    model_name = "both"
     label = "cancer_type"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
     seed = 42
     n_nan_cols = 5
@@ -124,6 +169,7 @@ if __name__ == '__main__':
     model_type = "dense"
     biologically_informed = model_name  # change this for locally trained models
     soft_links = False
+    random_version = None
     go_preprocessing = False
     merge_conditions = (1, 30, 50)
     n_go_layers_used = 5
@@ -141,7 +187,7 @@ if __name__ == '__main__':
     else:
         genes = None
     model = build_model(model_type, biologically_informed, soft_links, dataset_name, go_preprocessing, merge_conditions,
-                        n_go_layers_used, activation_fn, dtype, genes, package_call=True)
+                        n_go_layers_used, activation_fn, dtype, genes, random_version=random_version, package_call=True)
     model.load_state_dict(
         torch.load(
             f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name + experiment_version}_{model_name}_model.pt",
@@ -154,7 +200,19 @@ if __name__ == '__main__':
     label_subset = full_label_set
     # label_subset = ["KICH", "KIRC", "KIRP"]
     filtered_data = dataset[dataset[label].isin(label_subset)]
+
+    # Visualization
     # plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
-    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed,
-              colored=colored)
+    # plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed,
+    #           colored=colored)
     # plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+
+    # Quantification
+    ss = calculate_silhouette_score(model, dataset[dataset.columns[n_nan_cols:]], dataset[label])
+    ari = calculate_ari(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed)
+    nmi = calculate_nmi(model, dataset[dataset.columns[n_nan_cols:]], dataset[label])
+
+    print(f"Model: {model.name}")
+    print(f"Silhouette Score (SS): {ss:.4f}") # 1 = Good, 0 = Random, -1 = Bad
+    print(f"Adjusted Rand Index (ARI): {ari:.4f}") # 1 = Good, 0 = Random
+    print(f"Normalized Mutual Information (NMI): {nmi:.4f}") # 1 = Good, 0 = Bad
