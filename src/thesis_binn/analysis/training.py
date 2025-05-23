@@ -47,12 +47,22 @@ def bar_plot_final_loss():
     bi_modules = ["encoder", "decoder", "both"]
     version = "0"
 
-    # When changing version, not only these lines swap, but the two for loops also need to be swapped, and the rotation has to be set to 45
-    # bars = ["FC-FC", "BI-FC (SL)", "BI-FC", "BI-FC (R)", "FC-BI (SL)", "FC-BI", "FC-BI (R)", "BI-BI (SL)", "BI-BI", "BI-BI (R)"]
-    # bar_labels = ["Fully connected", "Soft links", "Hard links", "Randomized hard links", "_Soft links", "_Hard links", "_Randomized hard links", "_Soft links", "_Hard links", "_Randomized hard links"]
-    bars = ["Fully Connected", "    ", "Soft Links", "     ", "", "Hard Links", " ", "  ", "Randomized Hard Links", "   "]
-    bar_labels = ["No Biology", "Biological Encoder", "Biological Decoder", "Biological Encoder and Decoder", "_Biological Encoder", "_Biological Decoder", "_Biological Encoder and Decoder", "_Biological Encoder", "_Biological Decoder", "_Biological Encoder and Decoder"]
-    bar_colors = ["#8516D1", "#1171BE", "#DD5400", "#EDB120", "#1171BE", "#DD5400", "#EDB120", "#1171BE", "#DD5400", "#EDB120"]
+    # When changing version, not only these lines swap, but the two for loops also need to be swapped
+    bars = ["AE", "", "BI-Encoder", "", "", "BI-Decoder", "", "", "BI-AE", ""]
+    bar_labels = ["Fully connected",
+                  "Soft links", "Hard links", "Randomized hard links",
+                  "_Soft links", "_Hard links", "_Randomized hard links",
+                  "_Soft links", "_Hard links", "_Randomized hard links"]
+    # bars = ["Fully Connected", "", "Soft Links", "", "", "Hard Links", "", "", "Randomized Hard Links", ""]
+    # bar_labels = ["No Biology",
+    #               "Biological Encoder", "Biological Decoder", "Biological Encoder and Decoder",
+    #               "_Biological Encoder", "_Biological Decoder", "_Biological Encoder and Decoder",
+    #               "_Biological Encoder", "_Biological Decoder", "_Biological Encoder and Decoder"]
+    bar_colors = ["#8516D1",
+                  "#1171BE", "#DD5400", "#EDB120",
+                  "#1171BE", "#DD5400", "#EDB120",
+                  "#1171BE", "#DD5400", "#EDB120"]
+    x_positions = [0, 1.5, 2.5, 3.5, 5, 6, 7, 8.5, 9.5, 10.5]
 
     values = []
     # Collect final loss value for FC-FC
@@ -63,8 +73,8 @@ def bar_plot_final_loss():
     final_test_loss = final_losses[2]
     values.append(final_test_loss)
     # Collect final loss value for each BI-model in the experiment
-    for experiment in experiments:
-        for bi_module in bi_modules:
+    for bi_module in bi_modules:
+        for experiment in experiments:
             loss_path = f"../../../out/trained_models/{experiment}/{experiment}.{version}_{bi_module}_results.txt"
             with open(loss_path, "r") as f:
                 loss_file_content = f.readlines()
@@ -74,10 +84,10 @@ def bar_plot_final_loss():
 
     plt.figure(figsize=(8, 8))
     plt.title("MSE on test set after training")
-    plt.bar(bars, values, label=bar_labels, color=bar_colors)
+    plt.bar(x_positions, values, label=bar_labels, color=bar_colors)
     plt.ylabel("MSE")
     plt.legend()
-    plt.xticks(bars, rotation=0)
+    plt.xticks(x_positions, bars, rotation=0)
     plt.show()
 
 if __name__ == "__main__":
