@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.feature_selection import f_classif
 from goatools.obo_parser import GOTerm
 
 from thesis_binn.data_processing.GeneTerm import GeneTerm
@@ -45,12 +47,30 @@ def k_most_variable_terms(k: int, terms: pd.DataFrame):
     return top_k_terms
 
 
+def k_most_abundant_labels(data: pd.DataFrame, label: str, k: int):
+    labels = data[label]
+    unique_labels = list(labels.unique())
+    counts = []
+    ordered_labels = []
+    for label in unique_labels:
+        counts.append(labels.count(label))
+    for i in range(k):
+        ordered_labels.append(unique_labels[counts.index(max(counts))])
+        counts[counts.index(max(counts))] = -1
+    return ordered_labels
+
+
 def setup_figure(data: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm]):
     """Setup grid with GO-term columns and sample rows. Requires GO dict for naming GO-terms. Does not filter or sort data."""
     data = data.sort_values("cancer_type")
     data_values = data[data.columns[n_nan_cols:]]
-    fig, ax = plt.subplots(figsize=(12, 15))
-    ax.imshow(data_values, interpolation="none", aspect='auto')
+
+    # Normalize columns -> Debug: How to properly normalize?
+    data_values = (data_values - data_values.mean()) / (data_values.std() / data_values.mean())
+
+    fig, ax = plt.subplots(figsize=(12, 18))
+    ax.imshow(data_values, interpolation="none", aspect="auto", vmin=data_values.min().min(),
+              vmax=data_values.max().max(), cmap="plasma")
 
     # Set column labels
     term_objects = [go[term_id] for term_id in data_values.columns]
@@ -79,14 +99,81 @@ def setup_figure(data: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, 
     plt.tight_layout()
 
 
+def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20):
+    # Order and group samples by label
+    activations = activations.sort_values(label)
+    activation_values = activations[activations.columns[n_nan_cols:]]
+    labels = activations[label].values
+    label_positions = []
+    label_names = []
+    current_label = labels[0]
+    label_positions.append(0)
+    label_names.append(current_label)
+    for i in range(1, len(labels)):
+        if labels[i] != current_label:
+            label_positions.append(i)
+            label_names.append(labels[i])
+            current_label = labels[i]
+
+    # Normalize before performing ANOVA (drop terms without variance)
+    var_terms = [col for col in activation_values if activation_values[col].std() != 0]
+    activation_values = activation_values[var_terms]
+    activation_values = (activation_values - activation_values.mean()) / (activation_values.std())
+
+    # Select k terms with best class separation
+    f_values, p_values = f_classif(activation_values, labels)
+    f_scores = pd.Series(f_values, index=activation_values.columns, name="f_values")
+    top_k_terms = f_scores.nlargest(k).index  # Default k=20
+    activation_values = activation_values[top_k_terms]
+
+    # Normalize activations before running clustermap
+    # activation_values = (activation_values - activation_values.mean()) / (activation_values.std() / activation_values.mean())
+
+    # Cluster columns using clustermap
+    print("\n----- START: CLustering columns -----")
+    clustermap = sns.clustermap(activation_values,
+                                metric='correlation',
+                                method='average',
+                                col_cluster=True,
+                                row_cluster=False,
+                                cmap='viridis',
+                                cbar_pos=None,
+                                xticklabels=True,
+                                yticklabels=True)
+    print("----- COMPLETED: CLustering columns -----")
+    # Extract ordered column indices
+    ordered_col_indices = clustermap.dendrogram_col.reordered_ind
+    ordered_columns = activation_values.columns[ordered_col_indices]
+    ordered_values = activation_values[ordered_columns]
+
+    # Normalize activations for better visibility
+    # ordered_values_norm = (ordered_values - ordered_values.mean()) / (ordered_values.std() / ordered_values.mean())
+
+    plt.figure(figsize=(4 * (k / 10), 28))
+    sns.heatmap(ordered_values, cmap='viridis', xticklabels=False, yticklabels=False, cbar_kws={'label': 'Activation'})
+
+    # Set column labels
+    term_objects = [go[term_id] for term_id in ordered_columns]
+    term_names = [term.name for term in term_objects]
+    plt.xticks(np.arange(ordered_values.shape[1]) + 0.5, labels=term_names, rotation=270)
+
+    # Add one y-tick per cancer type group
+    plt.yticks(label_positions, label_names)
+    plt.xlabel('GO terms (Clustered by Similarity)')
+    plt.ylabel(f'Samples grouped by {label}')
+    plt.title('GO Term Activation Heatmap')
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     # Experiment params
-    experiment_name = "AE_1.0"
+    experiment_name = "AE_2.0"
     experiment_version = ".0"
     model_name = "encoder"
     # Model params
     model_type = "dense"
-    biologically_informed = "encoder"
+    biologically_informed = model_name
     soft_links = False
     activation_fn = torch.nn.ReLU
     # GO params
@@ -126,9 +213,9 @@ if __name__ == "__main__":
     top_k_most_variable_terms = k_most_variable_terms(30, activation_values)
 
     # Visualization
-    cols = list(activation_data.columns[:n_nan_cols]) + list(top_k_most_variable_terms)
-    plot_data = activation_data[cols]  # .sort_values("cancer_type")
-    # plot_values = plot_data[plot_data.columns[n_nan_cols:]]
-    # plt.imshow(plot_values[:200], interpolation="none", aspect="auto")  # cmap="RdYlGn"
-    setup_figure(plot_data, "cancer_type", n_nan_cols, terms_dict)
-    plt.show()
+    cols = list(dataset.columns[:n_nan_cols]) + list(top_k_most_variable_terms)
+    plot_data = activation_data[cols]
+
+    activation_heatmap(activation_data, "cancer_type", n_nan_cols, terms_dict, k=50)
+    # setup_figure(plot_data, "cancer_type", n_nan_cols, terms_dict)
+    # plt.show()
