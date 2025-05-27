@@ -26,13 +26,13 @@ if __name__ == "__main__":
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
     loss = "soft links"
-    soft_link_alpha = 1000
+    soft_link_alpha = 100
     n_samples = 9797
     batch_size = 100
     n_epochs = 10000
     learning_rate = 0.01
     momentum = 0.9
-    patience = 5
+    patience = 10
     # Storage params
     save_losses = True
     loss_path = experiment_name + experiment_version + "_" + model_name

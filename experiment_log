@@ -45,14 +45,25 @@ AE_3.0
 General idea: variable regularization on soft links
 merge_conditions = (1, 30, 50)
 Soft links and SL loss
-alpha = 1000
+alpha = 100, patience = 50
 Job_ID      Model_name          Node        Time        Memory      Notes
---------    AE_3.0.0_encoder
+11560162    AE_3.0.0_encoder    awi02
+11560163    AE_3.0.0_decoder    gpu07
 
 AE_3.1
-alpha = 10000
+alpha = 1000
 Job_ID      Model_name          Node        Time        Memory      Notes
+11560167    AE_3.1.0_encoder    gpu12
+11560168    AE_3.1.0_decoder    gpu15
 
 AE_3.2
+alpha = 10000
+Job_ID      Model_name          Node        Time        Memory      Notes
+11560184    AE_3.2.0_encoder    gpu07
+11560173    AE_3.2.0_decoder
+
+AE_3.3
 alpha = 100000
 Job_ID      Model_name          Node        Time        Memory      Notes
+11560184    AE_3.3.0_encoder    gpu07
+11560173    AE_3.3.0_decoder
