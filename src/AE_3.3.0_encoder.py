@@ -9,7 +9,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 if __name__ == "__main__":
     experiment_name = "AE_3.3"
     experiment_version = ".0"
-    model_name = "decoder"
+    model_name = "encoder"
     project_folder = "/opt/app"
     cluster = True
     device = "cuda"
