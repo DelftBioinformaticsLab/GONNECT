@@ -8,7 +8,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "AE_3.2"
-    experiment_version = ".0"
+    experiment_version = ".2"
     model_name = "decoder"
     project_folder = "/opt/app"
     cluster = True
@@ -29,10 +29,10 @@ if __name__ == "__main__":
     soft_link_alpha = 10000
     n_samples = 9797
     batch_size = 100
-    n_epochs = 10000
+    n_epochs = 1000
     learning_rate = 0.01
     momentum = 0.9
-    patience = 10
+    patience = 10000
     # Storage params
     save_losses = True
     loss_path = experiment_name + experiment_version + "_" + model_name
