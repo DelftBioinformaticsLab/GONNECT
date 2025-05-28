@@ -45,25 +45,40 @@ AE_3.0
 General idea: variable regularization on soft links
 merge_conditions = (1, 30, 50)
 Soft links and SL loss
-alpha = 100, patience = 50
+alpha = 100
+.0 patience = 10
+.1 patience = 100
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560162    AE_3.0.0_encoder    awi02
-11560163    AE_3.0.0_decoder    gpu07
+11560162    AE_3.0.0_encoder    awi02       00:46:25    1.1G        Too low patience
+11560163    AE_3.0.0_decoder    gpu07       01:09:57    1G          Too low patience
+11560194    AE_3.0.0_encoder    gpu07       00:43:21    1G          -
+11560195    AE_3.0.0_decoder    gpu07       00:38:24    1G          -
 
 AE_3.1
 alpha = 1000
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560167    AE_3.1.0_encoder    gpu12
-11560168    AE_3.1.0_decoder    gpu15
+11560167    AE_3.1.0_encoder    gpu12       00:13:57    1G          Too low patience
+11560168    AE_3.1.0_decoder    gpu15       00:01:34    1G          Too low patience
+11560196    AE_3.1.0_encoder    gpu12       00:36:32    1G          -
+11560197    AE_3.1.0_decoder    gpu07       00:58:43    1G          -
 
 AE_3.2
 alpha = 10000
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560184    AE_3.2.0_encoder    gpu07
-11560173    AE_3.2.0_decoder
+11560184    AE_3.2.0_encoder    gpu07       00:01:39    1G          Too low patience
+11560173    AE_3.2.0_decoder                00:01:08    1G          Too low patience
+11560198    AE_3.2.0_encoder    gpu12       00:22:46    1G          -
+11560199    AE_3.2.0_decoder                00:03:03    1G          Too low patience
 
 AE_3.3
 alpha = 100000
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560184    AE_3.3.0_encoder    gpu07
-11560173    AE_3.3.0_decoder
+11560200    AE_3.3.0_encoder    gpu09       00:01:49    1G          Too low patience
+11560211    AE_3.3.0_encoder    gpu31       00:01:50    1G          Still too fast... (good example for Timo) -> increase patience!!
+11560201    AE_3.3.0_decoder                00:01:49                Too low patience
+
+AE_3.4
+General idea: FC with L1 regularization
+merge_conditions = (1, 30, 50)
+Regular MSE loss
+Job_ID      Model_name          Node        Time        Memory      Notes
