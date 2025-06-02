@@ -9,7 +9,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 if __name__ == "__main__":
     experiment_name = "AE_3.-1"
     experiment_version = ".2"
-    model_name = "decoder"
+    model_name = "none"
     project_folder = "/opt/app"
     cluster = True
     device = "cuda"
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     n_go_layers_used = 5
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
-    loss = "mse masked" #  "mse" / "mse masked" / "soft links"
+    loss = "mse"
     soft_link_alpha = 100
     n_samples = 9797
     batch_size = 100
