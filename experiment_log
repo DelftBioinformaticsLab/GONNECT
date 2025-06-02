@@ -11,6 +11,8 @@ General idea: retrain the 4 AE models, now with ignoring unlinked genes in bi-mo
 merge_conditions = (1, 30, 50)
 BI trained with MSE_masked, BA with regular MSE
 No soft links
+.0 patience = 5
+.1 patience = 10
 Job_ID      Model_name          Node        Time        Memory      Notes
 11501987    AE_2.0.0_none       gpu26       00:08:15    1G          Trained with MSE_Masked
 11502012    AE_2.0.0_encoder    gpu32       00:19:35    1.1G        -
@@ -18,6 +20,11 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11507225    AE_2.0.0_none       influ1      00:08:16    909M        Trained with MSE
 11506701    AE_2.0.0_both       influ2      --:--:--                Crashed...
 11507675    AE_2.0.0_both       influ1      22:53:44    1.2G        -
+------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
+--------    AE_2.0.1_encoder    -----       --:--:--    --          -
+--------    AE_2.0.1_decoder    -----       --:--:--    --          -
+--------    AE_2.0.1_both       -----       --:--:--    --          -
+--------    AE_2.0.1_none       -----       --:--:--    --          -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -30,6 +37,10 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11507049    AE_2.1.0_encoder    gpu34       00:34:02    1G          -
 11507050    AE_2.1.0_decoder    gpu31       00:24:49    1G          -
 11507051    AE_2.1.0_both       gpu31       01:44:58    1.2G        -
+------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
+--------    AE_2.1.1_encoder    -----       --:--:--    --          -
+--------    AE_2.1.1_decoder    -----       --:--:--    --          -
+--------    AE_2.1.1_both       -----       --:--:--    --          -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -40,6 +51,10 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11507228    AE_2.2.0_encoder    gpu31       00:53:20    1G          Quite a bit longer than BI-FC GO...
 11507229    AE_2.2.0_decoder    influ1      05:01:25    1G          -
 11507230    AE_2.2.0_both       gpu30       20:14:38    1.1G        -
+------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
+--------    AE_2.2.1_encoder    -----       --:--:--    --          -
+--------    AE_2.2.1_decoder    -----       --:--:--    --          -
+--------    AE_2.2.1_both       -----       --:--:--    --          -
 
 AE_3.0
 General idea: variable regularization on soft links
@@ -91,10 +106,12 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11562323    AE_3.3.2_decoder    gpu31       01:14:48    1G          -
 
 AE_3.-1
-Baselines for Fixed Links and Fully Connected, also trained for 1000 epochs in stead of with patience
+Baselines for Fixed Links and Fully Connected, also trained for 1000 epochs instead of based on patience
 Fixed Links trained with mse masked, FC trained with mse
 Job_ID      Model_name          Node        Time        Memory      Notes
-
+11571959    AE_3.-1.2_encoder   gpu32       01:00:15	1G          -
+11571962    AE_3.-1.2_decoder   gpu32       01:12:01    1G          -
+11571964    AE_3.-1.2_none      gpu32       00:08:25    890.7M      -
 
 AE_3.4
 General idea: FC with L1 regularization
