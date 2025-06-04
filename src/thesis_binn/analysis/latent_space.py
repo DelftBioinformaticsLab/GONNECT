@@ -157,10 +157,10 @@ if __name__ == '__main__':
     # Best practice would be to make a separate script for the actual processing, but I didn't...
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
-    experiment_name = "AE_2.2"  # dataset_name for locally trained models
+    experiment_name = "AE_2.0"  # dataset_name for locally trained models
     experiment_version = ".0"  # "" for locally trained models
-    model_name = "both"
-    label = "cancer_type"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
+    model_name = "decoder"
+    label = "tumor_tissue_site"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
     seed = 42
     n_nan_cols = 5
     colored = True
@@ -203,8 +203,8 @@ if __name__ == '__main__':
 
     # Visualization
     # plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
-    # plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed,
-    #           colored=colored)
+    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed,
+              colored=colored)
     # plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
 
     # Quantification

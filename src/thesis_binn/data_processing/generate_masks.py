@@ -91,9 +91,8 @@ def load_masks(module, merge_conditions, dataset_name, model_type, random_versio
     return masks
 
 
-def save_random_masks(module, merge_conditions, dataset_name, model_type):
+def save_random_masks(module, merge_conditions, dataset_name, model_type, version):
     """Take an existing edge mask and shuffle the edges in a way that preserves the in- and out-degree of each node and save the new random mask."""
-    version = 1
     n_swaps = 10000
     original_masks = load_masks(module, merge_conditions, dataset_name, model_type, root_dir="../../..")
     randomized_masks = []
@@ -113,8 +112,8 @@ def save_random_masks(module, merge_conditions, dataset_name, model_type):
         while swaps < n_swaps:
             # Randomly pick two edges
             edge_indices = torch.nonzero(randomized_edge_mask)
-            edge_a = edge_indices[int(torch.rand(1) * len(edge_indices) - 1)]
-            edge_b = edge_indices[int(torch.rand(1) * len(edge_indices) - 1)]
+            edge_a = edge_indices[int(torch.rand(1).item() * len(edge_indices) - 1)]
+            edge_b = edge_indices[int(torch.rand(1).item() * len(edge_indices) - 1)]
             # Check if the swapped edges already exist
             if randomized_edge_mask[edge_b[0]][edge_a[1]] or randomized_edge_mask[edge_a[0]][edge_b[1]]:
                 continue
@@ -146,4 +145,4 @@ if __name__ == "__main__":
     # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="sparse")
     # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="dense")
 
-    save_random_masks("decoder", merge_conditions, dataset_name, "dense")
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=3)

@@ -74,13 +74,13 @@ def split_weights(module: DenseCoder):
         # Model is fully connected
         return [weight_mat.to_sparse() for weight_mat in all_weights], None
 
-    # Split weight matrices into two sparse tensors, one for soft and one for hard links
+    # Split weight matrices into two sparse tensors, one for soft and one for fixed links
     soft_links_sparse = []
-    hard_links_sparse = []
+    fixed_links_sparse = []
     for i in range(len(all_weights)):
         soft_links_sparse.append(torch.masked_fill(all_weights[i], masks[i], 0).to_sparse())
-        hard_links_sparse.append(torch.masked_fill(all_weights[i], ~masks[i], 0).to_sparse())
-    return hard_links_sparse, soft_links_sparse
+        fixed_links_sparse.append(torch.masked_fill(all_weights[i], ~masks[i], 0).to_sparse())
+    return fixed_links_sparse, soft_links_sparse
 
 
 def split_weights_per_module(model: Autoencoder):
@@ -129,7 +129,7 @@ if __name__ == "__main__":
             f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name + experiment_version}_{model_name}_model.pt",
             weights_only=True))
 
-    # Histogram comparing Hard Links, Soft Links, FC
+    # Histogram comparing Fixed Links, Soft Links, FC
     model_GO = build_model(model_type, biologically_informed, False, dataset_name, go_preprocessing, merge_conditions,
                         n_go_layers_used, activation_fn, dtype, genes, random_version=random_version, package_call=True)
     model_GO.load_state_dict(torch.load(f"{project_folder}/out/trained_models/AE_2.0/AE_2.0.0_{model_name}_model.pt", weights_only=True))
@@ -143,14 +143,14 @@ if __name__ == "__main__":
     FC_weights = split_weights_per_module(model_FC)
 
     module_index = 0 if model_name == "encoder" else 1
-    hard_GO = GO_weights[module_index][0]
+    fixed_GO = GO_weights[module_index][0]
     soft_GO = SL_weights[module_index][0]
     soft_FC = SL_weights[module_index][1]
-    hard_FC = FC_weights[module_index][0]
+    fixed_FC = FC_weights[module_index][0]
     for i in range(n_go_layers_used - 1):
-        histogram_weights_per_layer(hard_FC[i], bin_width=0.01, i=i, a=0.2)
+        histogram_weights_per_layer(fixed_FC[i], bin_width=0.01, i=i, a=0.2)
         histogram_weights_per_layer(soft_FC[i], bin_width=0.01, i=i, a=0.3)
         histogram_weights_per_layer(soft_GO[i], bin_width=0.01, i=i, a=0.3)
-        histogram_weights_per_layer(hard_GO[i], bin_width=0.01, i=i, a=0.3)
-        plt.legend(["FC Links", "Soft non-GO Links", "Soft GO Links", "Hard GO Links"])
+        histogram_weights_per_layer(fixed_GO[i], bin_width=0.01, i=i, a=0.3)
+        plt.legend(["FC Links", "Soft non-GO Links", "Soft GO Links", "Fixed GO Links"])
         plt.show()

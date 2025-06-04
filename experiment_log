@@ -21,10 +21,14 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11506701    AE_2.0.0_both       influ2      --:--:--                Crashed...
 11507675    AE_2.0.0_both       influ1      22:53:44    1.2G        -
 ------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
---------    AE_2.0.1_encoder    -----       --:--:--    --          -
---------    AE_2.0.1_decoder    -----       --:--:--    --          -
---------    AE_2.0.1_both       -----       --:--:--    --          -
---------    AE_2.0.1_none       -----       --:--:--    --          -
+11572566    AE_2.0.1_none       gpu35       00:04:39    885.5M      -
+11572567    AE_2.0.1_encoder    gpu35       00:45:12    1G          -
+11572568    AE_2.0.1_decoder    gpu35       02:44:03    1.1G        -
+11572569    AE_2.0.1_both       gpu35       20:56:18    1.1G        -
+-------------------------------------------------------------------
+--------    AE_2.2.2_encoder    gpu--       --:--:--    --          -
+--------    AE_2.2.2_decoder    gpu--       --:--:--    --          -
+--------    AE_2.2.2_both       gpu--       --:--:--    --          -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -38,9 +42,13 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11507050    AE_2.1.0_decoder    gpu31       00:24:49    1G          -
 11507051    AE_2.1.0_both       gpu31       01:44:58    1.2G        -
 ------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
---------    AE_2.1.1_encoder    -----       --:--:--    --          -
---------    AE_2.1.1_decoder    -----       --:--:--    --          -
---------    AE_2.1.1_both       -----       --:--:--    --          -
+11572571    AE_2.1.1_encoder    gpu35       00:34:09    1G          -
+11572572    AE_2.1.1_decoder    gpu32       00:31:42    1G          -
+11572573    AE_2.1.1_both       gpu32       02:58:21    1.1G        Check log for timeout
+-------------------------------------------------------------------
+--------    AE_2.2.2_encoder    gpu--       --:--:--    --          -
+--------    AE_2.2.2_decoder    gpu--       --:--:--    --          -
+--------    AE_2.2.2_both       gpu--       --:--:--    --          -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -52,9 +60,13 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11507229    AE_2.2.0_decoder    influ1      05:01:25    1G          -
 11507230    AE_2.2.0_both       gpu30       20:14:38    1.1G        -
 ------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
---------    AE_2.2.1_encoder    -----       --:--:--    --          -
---------    AE_2.2.1_decoder    -----       --:--:--    --          -
---------    AE_2.2.1_both       -----       --:--:--    --          -
+11572574    AE_2.2.1_encoder    gpu32       00:45:12    1017.4M     -
+11572575    AE_2.2.1_decoder    gpu33       03:39:34    1.1G        -
+11572576    AE_2.2.1_both       gpu32       20:53:44    1.1G        -
+-------------------------------------------------------------------
+--------    AE_2.2.2_encoder    gpu--       --:--:--    --          -
+--------    AE_2.2.2_decoder    gpu--       --:--:--    --          -
+--------    AE_2.2.2_both       gpu--       --:--:--    --          -
 
 AE_3.0
 General idea: variable regularization on soft links
