@@ -114,10 +114,11 @@ def train_with_validation(max_epochs, trainloader, testloader, validationloader,
         train_loss = train(trainloader, net, optimizer, loss_fn=loss_function, device=device)
         validation_loss = test(validationloader, net, loss_fn=loss_function, device=device)
         test_loss = test(testloader, net, loss_fn=loss_function, device=device)
+        mse_loss = test(testloader, net, loss_fn=MSE(), device=device) # Loss without regularization term, used for plotting
         print(f"Train loss after epoch {epoch + 1}:\t{train_loss}\t\t"
               f"Validation loss after epoch {epoch + 1}:\t{validation_loss}\t\t"
               f"Test loss after epoch {epoch + 1}:\t{test_loss}")
-        epoch_losses.append([train_loss.item(), validation_loss.item(), test_loss.item()])
+        epoch_losses.append([train_loss.item(), validation_loss.item(), test_loss.item(), mse_loss.item()])
 
         # Initialize early stopping variables
         if epoch == 0:
@@ -142,9 +143,9 @@ def train_with_validation(max_epochs, trainloader, testloader, validationloader,
 def save_training_losses(epoch_losses, file_path):
     """Save losses on train, validation and test sets after each epoch of the training process to the provided file path."""
     with open(file_path, "w") as f:
-        f.write("Train loss\tValidation loss\tTest loss\n")
+        f.write("Train loss\tValidation loss\tTest loss\tMSE loss\n")
         for epoch_loss in epoch_losses:
-            f.write(f"{epoch_loss[0]}\t{epoch_loss[1]}\t{epoch_loss[2]}\n")
+            f.write(f"{epoch_loss[0]}\t{epoch_loss[1]}\t{epoch_loss[2]}\t{epoch_loss[3]}\n")
 
 
 if __name__ == "__main__":

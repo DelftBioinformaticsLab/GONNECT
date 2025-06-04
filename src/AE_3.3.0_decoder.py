@@ -8,7 +8,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "AE_3.3"
-    experiment_version = ".2"
+    experiment_version = ".3"
     model_name = "decoder"
     project_folder = "/opt/app"
     cluster = True
