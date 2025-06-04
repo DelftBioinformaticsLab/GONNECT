@@ -27,9 +27,9 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11572568    AE_2.0.1_decoder    gpu35       02:44:03    1.1G        -
 11572569    AE_2.0.1_both       gpu35       20:56:18    1.1G        -
 -------------------------------------------------------------------
---------    AE_2.2.2_encoder    gpu--       --:--:--    --          -
---------    AE_2.2.2_decoder    gpu--       --:--:--    --          -
---------    AE_2.2.2_both       gpu--       --:--:--    --          -
+--------    AE_2.0.2_encoder    gpu--       --:--:--    --          -
+--------    AE_2.0.2_decoder    gpu--       --:--:--    --          -
+--------    AE_2.0.2_both       gpu--       --:--:--    --          -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -47,9 +47,9 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11572572    AE_2.1.1_decoder    gpu32       00:31:42    1G          -
 11572573    AE_2.1.1_both       gpu32       02:58:21    1.1G        Check log for timeout
 -------------------------------------------------------------------
---------    AE_2.2.2_encoder    gpu--       --:--:--    --          -
---------    AE_2.2.2_decoder    gpu--       --:--:--    --          -
---------    AE_2.2.2_both       gpu--       --:--:--    --          -
+--------    AE_2.1.2_encoder    gpu--       --:--:--    --          -
+--------    AE_2.1.2_decoder    gpu--       --:--:--    --          -
+--------    AE_2.1.2_both       gpu--       --:--:--    --          -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -90,8 +90,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11562316    AE_3.0.2_encoder    gpu33       01:07:25    1G          -
 11562317    AE_3.0.2_decoder    gpu31       01:16:22    1G          -
 -------------------------------------------------------------------
-11575901    AE_3.0.3_encoder    influ1      --:--:--    --          -
-11575902    AE_3.0.3_decoder    influ1      --:--:--    --          -
+11575901    AE_3.0.3_encoder    influ1      02:10:09    1.1G        -
+11575902    AE_3.0.3_decoder    influ1      02:24:31    1.1G        -
 
 AE_3.1
 alpha = 1000
@@ -104,8 +104,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11562318    AE_3.1.2_encoder    gpu31       01:05:12    1G          -
 11562319    AE_3.1.2_decoder    gpu21       01:41:50    1G          -
 -------------------------------------------------------------------
-11575903    AE_3.1.3_encoder    influ1      --:--:--    --          -
-11575904    AE_3.1.3_decoder    influ1      --:--:--    --          -
+11575903    AE_3.1.3_encoder    influ1      02:12:51    1.1G        -
+11575904    AE_3.1.3_decoder    influ1      02:29:54    1.1G        -
 
 AE_3.2
 alpha = 10000
@@ -118,8 +118,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11562320    AE_3.2.2_encoder    gpu30       01:05:19    1G          -
 11562321    AE_3.2.2_decoder    gpu31       01:13:05    1G          -
 -------------------------------------------------------------------
-11575905    AE_3.2.3_encoder    influ2      --:--:--    --          -
-11575906    AE_3.2.3_decoder    influ2      --:--:--    --          -
+11575905    AE_3.2.3_encoder    influ2      02:01:39    1.1G        -
+11575906    AE_3.2.3_decoder    influ2      02:15:58    1.1G        -
 
 AE_3.3
 alpha = 100000
@@ -134,8 +134,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11562322    AE_3.3.2_encoder    gpu33       01:03:10    1G          -
 11562323    AE_3.3.2_decoder    gpu31       01:14:48    1G          -
 -------------------------------------------------------------------
-11575908    AE_3.3.3_encoder    insy16      --:--:--    --          -
-11575907    AE_3.3.3_decoder    insy15      --:--:--    --          -
+11575908    AE_3.3.3_encoder    insy16      01:57:30    1.1G        -
+11575907    AE_3.3.3_decoder    insy15      02:09:55    1.1G        -
 
 AE_3.-1
 Baselines for Fixed Links and Fully Connected, also trained for 1000 epochs instead of based on patience
@@ -144,8 +144,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11571959    AE_3.-1.2_encoder   gpu32       01:00:15	1G          -
 11571962    AE_3.-1.2_decoder   gpu32       01:12:01    1G          -
 11571964    AE_3.-1.2_none      gpu32       00:08:25    890.7M      -
-------------------------------------------------------------------- FC trained with L1 regularization, a = ...
---------    AE_3.-1.3_none      gpu--       --:--:--    --          -
+------------------------------------------------------------------- FC trained with L1 regularization, a = 100
+11576225    AE_3.-1.3_none      insy16      00:21:37    979.2      -
 
 AE_3.4
 General idea: FC with L1 regularization
