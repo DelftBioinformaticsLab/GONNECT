@@ -3,12 +3,12 @@ import pandas as pd
 import torch
 
 from thesis_binn.model.build_model import build_model
-from thesis_binn.train.loss import MSE_Soft_Link_Sum, MSE, MSE_Masked
+from thesis_binn.train.loss import MSE_Soft_Link_Sum, MSE, MSE_Masked, MSE_L1
 from thesis_binn.train.train import make_data_splits, train_with_validation, save_training_losses
 
 if __name__ == "__main__":
     experiment_name = "AE_3.-1"
-    experiment_version = ".2"
+    experiment_version = ".3"
     model_name = "none"
     project_folder = "/opt/app"
     cluster = True
@@ -25,8 +25,9 @@ if __name__ == "__main__":
     n_go_layers_used = 5
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
-    loss = "mse"
+    loss = "mse l1"
     soft_link_alpha = 100
+    l1_alpha = 100
     n_samples = 9797
     batch_size = 100
     n_epochs = 1000
@@ -84,6 +85,8 @@ if __name__ == "__main__":
         loss_fn = MSE_Masked(input_mask, device)
     elif loss == "soft links":
         loss_fn = MSE_Soft_Link_Sum(model, alpha=soft_link_alpha)
+    elif loss == "mse l1":
+        loss_fn = MSE_L1(model, alpha=l1_alpha)
     else:
         raise Exception(f"Unknown loss function: {loss}")
 
