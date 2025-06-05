@@ -32,10 +32,10 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11576397    AE_2.0.2_both       influ1      --:--:--    --          -
 11576398    AE_2.0.2_none       influ1      00:10:13    982.3M      -
 -------------------------------------------------------------------
---------    AE_2.0.3_encoder    -----       --:--:--    --          -
---------    AE_2.0.3_decoder    -----       --:--:--    --          -
---------    AE_2.0.3_both       -----       --:--:--    --          -
---------    AE_2.0.3_none       -----       --:--:--    --          -
+11578207    AE_2.0.3_encoder    influ3      00:41:09    1.1G        -
+11578208    AE_2.0.3_decoder    influ2      --:--:--    --          -
+11578209    AE_2.0.3_both       insy15      --:--:--    --          -
+11578210    AE_2.0.3_none       influ2      00:11:16    904.5M      -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -57,10 +57,9 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11576400    AE_2.1.2_decoder    awi02       00:54:01    1.1G        -
 11576401    AE_2.1.2_both       gpu30       02:04:02    1G          -
 -------------------------------------------------------------------
---------    AE_2.1.3_encoder    -----       --:--:--    --          -
---------    AE_2.1.3_decoder    -----       --:--:--    --          -
---------    AE_2.1.3_both       -----       --:--:--    --          -
---------    AE_2.1.3_none       -----       --:--:--    --          -
+11578211    AE_2.1.3_encoder    insy15      01:14:38    1.1G        -
+11578212    AE_2.1.3_decoder    gpu35       00:32:06    1G          -
+11578213    AE_2.1.3_both       gpu35       02:43:50    1.1G        -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -80,10 +79,9 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11576477    AE_2.2.2_decoder    gpu35       02:27:40    1G          -
 11576478    AE_2.2.2_both       gpu35       20:18:33    1.1G        -
 -------------------------------------------------------------------
---------    AE_2.2.3_encoder    -----       --:--:--    --          -
---------    AE_2.2.3_decoder    -----       --:--:--    --          -
---------    AE_2.2.3_both       -----       --:--:--    --          -
---------    AE_2.2.3_none       -----       --:--:--    --          -
+11578214    AE_2.2.3_encoder    gpu33       00:41:58    1020.1M     -
+11578215    AE_2.2.3_decoder    gpu31       02:51:46    1G          -
+11578216    AE_2.2.3_both       gpu32       --:--:--    --          -
 
 AE_3.0
 General idea: variable regularization on soft links
