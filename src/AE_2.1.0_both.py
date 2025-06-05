@@ -8,7 +8,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "AE_2.1"
-    experiment_version = ".2"
+    experiment_version = ".3"
     model_name = "both"
     project_folder = "/opt/app"
     cluster = True
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     load_weights_path = experiment_name + experiment_version + "_" + model_name
     # Additional params
     data_split = 0.7
-    seed = 2
+    seed = 3
     dtype = torch.float64
     n_nan_cols = 5
 

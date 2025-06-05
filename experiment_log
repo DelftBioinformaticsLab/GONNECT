@@ -27,9 +27,15 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11572568    AE_2.0.1_decoder    gpu35       02:44:03    1.1G        -
 11572569    AE_2.0.1_both       gpu35       20:56:18    1.1G        -
 -------------------------------------------------------------------
---------    AE_2.0.2_encoder    gpu--       --:--:--    --          -
---------    AE_2.0.2_decoder    gpu--       --:--:--    --          -
---------    AE_2.0.2_both       gpu--       --:--:--    --          -
+11576395    AE_2.0.2_encoder    influ1      00:55:32    1.1G        -
+11576396    AE_2.0.2_decoder    influ1      04:49:05    1.1G        -
+11576397    AE_2.0.2_both       influ1      --:--:--    --          -
+11576398    AE_2.0.2_none       influ1      00:10:13    982.3M      -
+-------------------------------------------------------------------
+--------    AE_2.0.3_encoder    -----       --:--:--    --          -
+--------    AE_2.0.3_decoder    -----       --:--:--    --          -
+--------    AE_2.0.3_both       -----       --:--:--    --          -
+--------    AE_2.0.3_none       -----       --:--:--    --          -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -47,9 +53,14 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11572572    AE_2.1.1_decoder    gpu32       00:31:42    1G          -
 11572573    AE_2.1.1_both       gpu32       02:58:21    1.1G        Check log for timeout
 -------------------------------------------------------------------
---------    AE_2.1.2_encoder    gpu--       --:--:--    --          -
---------    AE_2.1.2_decoder    gpu--       --:--:--    --          -
---------    AE_2.1.2_both       gpu--       --:--:--    --          -
+11576399    AE_2.1.2_encoder    awi02       00:55:14    1.1G        -
+11576400    AE_2.1.2_decoder    awi02       00:54:01    1.1G        -
+11576401    AE_2.1.2_both       gpu30       02:04:02    1G          -
+-------------------------------------------------------------------
+--------    AE_2.1.3_encoder    -----       --:--:--    --          -
+--------    AE_2.1.3_decoder    -----       --:--:--    --          -
+--------    AE_2.1.3_both       -----       --:--:--    --          -
+--------    AE_2.1.3_none       -----       --:--:--    --          -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -65,9 +76,14 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11572575    AE_2.2.1_decoder    gpu33       03:39:34    1.1G        -
 11572576    AE_2.2.1_both       gpu32       20:53:44    1.1G        -
 -------------------------------------------------------------------
---------    AE_2.2.2_encoder    gpu--       --:--:--    --          -
---------    AE_2.2.2_decoder    gpu--       --:--:--    --          -
---------    AE_2.2.2_both       gpu--       --:--:--    --          -
+11576476    AE_2.2.2_encoder    gpu35       00:54:04    1G          -
+11576477    AE_2.2.2_decoder    gpu35       02:27:40    1G          -
+11576478    AE_2.2.2_both       gpu35       20:18:33    1.1G        -
+-------------------------------------------------------------------
+--------    AE_2.2.3_encoder    -----       --:--:--    --          -
+--------    AE_2.2.3_decoder    -----       --:--:--    --          -
+--------    AE_2.2.3_both       -----       --:--:--    --          -
+--------    AE_2.2.3_none       -----       --:--:--    --          -
 
 AE_3.0
 General idea: variable regularization on soft links
@@ -76,7 +92,7 @@ Soft links and SL loss
 .0 patience = 10
 .1 patience = 100
 .2 patience = 10000, n_epochs = 1000
-.3 patience = 10000, n_epochs = 1000
+.3 patience = 10000, n_epochs = 1000, now tracking MSE without regularization
 alpha = 100
 Job_ID      Model_name          Node        Time        Memory      Notes
 11560162    AE_3.0.0_encoder    awi02       00:46:25    1.1G        Too low patience
@@ -111,9 +127,9 @@ AE_3.2
 alpha = 10000
 Job_ID      Model_name          Node        Time        Memory      Notes
 11560184    AE_3.2.0_encoder    gpu07       00:01:39    1G          Too low patience
-11560173    AE_3.2.0_decoder    -----       00:01:08    1G          Too low patience
+11560173    AE_3.2.0_decoder    gpu18       00:01:08    1G          Too low patience
 11560198    AE_3.2.0_encoder    gpu12       00:22:46    1G          -
-11560199    AE_3.2.0_decoder    -----       00:03:03    1G          Too low patience
+11560199    AE_3.2.0_decoder    gpu32       00:03:03    1G          Too low patience
 -------------------------------------------------------------------
 11562320    AE_3.2.2_encoder    gpu30       01:05:19    1G          -
 11562321    AE_3.2.2_decoder    gpu31       01:13:05    1G          -
@@ -140,12 +156,13 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 AE_3.-1
 Baselines for Fixed Links and Fully Connected, also trained for 1000 epochs instead of based on patience
 Fixed Links trained with mse masked, FC trained with mse
+.3 MSE_L1, a = 100
 Job_ID      Model_name          Node        Time        Memory      Notes
 11571959    AE_3.-1.2_encoder   gpu32       01:00:15	1G          -
 11571962    AE_3.-1.2_decoder   gpu32       01:12:01    1G          -
 11571964    AE_3.-1.2_none      gpu32       00:08:25    890.7M      -
 ------------------------------------------------------------------- FC trained with L1 regularization, a = 100
-11576225    AE_3.-1.3_none      insy16      00:21:37    979.2      -
+11576225    AE_3.-1.3_none      insy16      00:21:37    979.2M      -
 
 AE_3.4
 General idea: FC with L1 regularization
