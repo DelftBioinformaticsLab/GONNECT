@@ -14,6 +14,7 @@ No soft links
 .0 patience = 5
 .1 patience = 10, seed = 1
 .2 patience = 10, seed = 2
+... etc.
 Job_ID      Model_name          Node        Time        Memory      Notes
 11501987    AE_2.0.0_none       gpu26       00:08:15    1G          Trained with MSE_Masked
 11502012    AE_2.0.0_encoder    gpu32       00:19:35    1.1G        -
@@ -29,13 +30,28 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11576395    AE_2.0.2_encoder    influ1      00:55:32    1.1G        -
 11576396    AE_2.0.2_decoder    influ1      04:49:05    1.1G        -
-11576397    AE_2.0.2_both       influ1      --:--:--    --          -
+11576397    AE_2.0.2_both       influ1      25:47:25    1.1G        -
 11576398    AE_2.0.2_none       influ1      00:10:13    982.3M      -
 -------------------------------------------------------------------
 11578207    AE_2.0.3_encoder    influ3      00:41:09    1.1G        -
-11578208    AE_2.0.3_decoder    influ2      --:--:--    --          -
+11578208    AE_2.0.3_decoder    influ2      05:09:11    1G          -
 11578209    AE_2.0.3_both       insy15      --:--:--    --          -
 11578210    AE_2.0.3_none       influ2      00:11:16    904.5M      -
+-------------------------------------------------------------------
+11578686    AE_2.0.4_encoder    gpu35       00:26:38    1G          -
+11578687    AE_2.0.4_decoder    influ1      05:36:13    1.1G        -
+11578688    AE_2.0.4_both       gpu33       --:--:--    --          -
+11578689    AE_2.0.4_none       gpu32       00:03:44    --          -
+-------------------------------------------------------------------
+--------    AE_2.0.5_encoder    -----       --:--:--    --          -
+--------    AE_2.0.5_decoder    -----       --:--:--    --          -
+--------    AE_2.0.5_both       -----       --:--:--    --          -
+--------    AE_2.0.5_none       -----       --:--:--    --          -
+-------------------------------------------------------------------
+--------    AE_2.0.6_encoder    -----       --:--:--    --          -
+--------    AE_2.0.6_decoder    -----       --:--:--    --          -
+--------    AE_2.0.6_both       -----       --:--:--    --          -
+--------    AE_2.0.6_none       -----       --:--:--    --          -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -60,12 +76,25 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11578211    AE_2.1.3_encoder    insy15      01:14:38    1.1G        -
 11578212    AE_2.1.3_decoder    gpu35       00:32:06    1G          -
 11578213    AE_2.1.3_both       gpu35       02:43:50    1.1G        -
+-------------------------------------------------------------------
+11578706    AE_2.1.4_encoder    gpu33       00:29:15    1G          -
+11578707    AE_2.1.4_decoder    gpu33       00:35:49    1G          -
+11578708    AE_2.1.4_both       gpu35       03:00:10    1.1G        Timeout -> needs to be retrained with higher limit
+-------------------------------------------------------------------
+--------    AE_2.1.5_encoder    -----       --:--:--    --          -
+--------    AE_2.1.5_decoder    -----       --:--:--    --          -
+--------    AE_2.1.5_both       -----       --:--:--    --          -
+-------------------------------------------------------------------
+--------    AE_2.1.6_encoder    -----       --:--:--    --          -
+--------    AE_2.1.6_decoder    -----       --:--:--    --          -
+--------    AE_2.1.6_both       -----       --:--:--    --          -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
 merge_conditions = (1, 30, 50)
 trained with MSE_Masked (unlinked genes remain unlinked)
 no soft links
+from .1 onwards: random_version = version = seed
 Job_ID      Model_name          Node        Time        Memory      Notes
 11507228    AE_2.2.0_encoder    gpu31       00:53:20    1G          Quite a bit longer than BI-FC GO...
 11507229    AE_2.2.0_decoder    influ1      05:01:25    1G          -
@@ -82,6 +111,18 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11578214    AE_2.2.3_encoder    gpu33       00:41:58    1020.1M     -
 11578215    AE_2.2.3_decoder    gpu31       02:51:46    1G          -
 11578216    AE_2.2.3_both       gpu32       --:--:--    --          -
+-------------------------------------------------------------------
+11578838    AE_2.2.4_encoder    gpu32       00:50:10    1G          -
+11578839    AE_2.2.4_decoder    insy16      03:26:42    1.1G        -
+11578840    AE_2.2.4_both       insy16      --:--:--    --          -
+-------------------------------------------------------------------
+--------    AE_2.2.5_encoder    -----       --:--:--    --          -
+--------    AE_2.2.5_decoder    -----       --:--:--    --          -
+--------    AE_2.2.5_both       -----       --:--:--    --          -
+-------------------------------------------------------------------
+--------    AE_2.2.6_encoder    -----       --:--:--    --          -
+--------    AE_2.2.6_decoder    -----       --:--:--    --          -
+--------    AE_2.2.6_both       -----       --:--:--    --          -
 
 AE_3.0
 General idea: variable regularization on soft links
