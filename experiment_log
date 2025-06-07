@@ -13,8 +13,11 @@ BI trained with MSE_masked, BA with regular MSE
 No soft links
 .0 patience = 5
 .1 patience = 10, seed = 1
-.2 patience = 10, seed = 2
-... etc.
+.2 patience = 10, seed = 2, track raw MSE
+.3 patience = 10, seed = 3, track raw MSE
+.4 patience = 10, seed = 4, track raw MSE
+.5 patience = 10, seed = 5, track raw MSE
+.6 patience = 10, seed = 6, track raw MSE
 Job_ID      Model_name          Node        Time        Memory      Notes
 11501987    AE_2.0.0_none       gpu26       00:08:15    1G          Trained with MSE_Masked
 11502012    AE_2.0.0_encoder    gpu32       00:19:35    1.1G        -
@@ -35,23 +38,23 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11578207    AE_2.0.3_encoder    influ3      00:41:09    1.1G        -
 11578208    AE_2.0.3_decoder    influ2      05:09:11    1G          -
-11578209    AE_2.0.3_both       insy15      --:--:--    --          -
+11578209    AE_2.0.3_both       insy15      30:00:24    1.2G        Timeout -> needs to be retrained with higher limit (2)
 11578210    AE_2.0.3_none       influ2      00:11:16    904.5M      -
 -------------------------------------------------------------------
 11578686    AE_2.0.4_encoder    gpu35       00:26:38    1G          -
 11578687    AE_2.0.4_decoder    influ1      05:36:13    1.1G        -
-11578688    AE_2.0.4_both       gpu33       --:--:--    --          -
-11578689    AE_2.0.4_none       gpu32       00:03:44    --          -
+11578688    AE_2.0.4_both       gpu33       19:33:59    1.1G        -
+11578689    AE_2.0.4_none       gpu32       00:03:44    894.2M      -
 -------------------------------------------------------------------
 11579221    AE_2.0.5_encoder    influ1      00:49:21    1.1G        -
 11579222    AE_2.0.5_decoder    insy16      04:08:28    1.1G        -
-11579223    AE_2.0.5_both       influ3      --:--:--    --          -
+11579223    AE_2.0.5_both       influ3      30:00:04    1.1G        Timeout -> needs to be retrained with higher limit (2)
 11579224    AE_2.0.5_none       influ3      00:09:57    898.3M      -
 -------------------------------------------------------------------
-11579252    AE_2.0.6_encoder    -----       --:--:--    --          -
-11579253    AE_2.0.6_decoder    -----       --:--:--    --          -
-11579254    AE_2.0.6_both       -----       --:--:--    --          -
-11579255    AE_2.0.6_none       -----       --:--:--    --          -
+11579252    AE_2.0.6_encoder    gpu21       00:57:35    1019.4M     -
+11579253    AE_2.0.6_decoder    influ3      04:39:59    1.1G        -
+11579254    AE_2.0.6_both       gpu21       --:--:--    --          -
+11579255    AE_2.0.6_none       gpu21       00:09:19    885.6M      -
 
 AE_2.1
 General idea: train the 3 bi-models, now with soft links
@@ -67,7 +70,7 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 ------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
 11572571    AE_2.1.1_encoder    gpu35       00:34:09    1G          -
 11572572    AE_2.1.1_decoder    gpu32       00:31:42    1G          -
-11572573    AE_2.1.1_both       gpu32       02:58:21    1.1G        Check log for timeout
+11572573    AE_2.1.1_both       gpu32       02:58:21    1.1G        Check log for timeout -> Checked: no timeout
 -------------------------------------------------------------------
 11576399    AE_2.1.2_encoder    awi02       00:55:14    1.1G        -
 11576400    AE_2.1.2_decoder    awi02       00:54:01    1.1G        -
@@ -80,14 +83,16 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11578706    AE_2.1.4_encoder    gpu33       00:29:15    1G          -
 11578707    AE_2.1.4_decoder    gpu33       00:35:49    1G          -
 11578708    AE_2.1.4_both       gpu35       03:00:10    1.1G        Timeout -> needs to be retrained with higher limit
+11579322    AE_2.1.4_both       influ2      02:28:57    1.1G        -
 -------------------------------------------------------------------
 11579225    AE_2.1.5_encoder    influ1      00:52:05    1.1G        -
 11579226    AE_2.1.5_decoder    insy16      00:39:45    1.1G        -
 11579227    AE_2.1.5_both       influ2      03:00:29    1.1G        Timeout -> needs to be retrained with higher limit
+11579323    AE_2.1.5_both       influ3      04:00:01    1.1G        Timeout -> needs to be retrained with higher limit (2)
 -------------------------------------------------------------------
-11579256    AE_2.1.6_encoder    -----       --:--:--    --          -
-11579257    AE_2.1.6_decoder    -----       --:--:--    --          -
-11579258    AE_2.1.6_both       -----       --:--:--    --          -
+11579256    AE_2.1.6_encoder    gpu21       00:53:30    1G          -
+11579257    AE_2.1.6_decoder    gpu21       00:49:36    1G          -
+11579258    AE_2.1.6_both       gpu21       03:00:04    --          Timeout -> needs to be retrained with higher limit (2)
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -114,15 +119,15 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11578838    AE_2.2.4_encoder    gpu32       00:50:10    1G          -
 11578839    AE_2.2.4_decoder    insy16      03:26:42    1.1G        -
-11578840    AE_2.2.4_both       insy16      --:--:--    --          -
+11578840    AE_2.2.4_both       insy16      30:00:21    1.2G        Timeout -> needs to be retrained with higher limit (2)
 -------------------------------------------------------------------
 11579228    AE_2.2.5_encoder    influ1      01:20:49    1.1G        -
 11579229    AE_2.2.5_decoder    influ3      02:56:17    1019.7M     -
-11579230    AE_2.2.5_both       influ2      --:--:--    --          -
+11579230    AE_2.2.5_both       influ2      11:01:50    1.1G        -
 -------------------------------------------------------------------
-11579259    AE_2.2.6_encoder    -----       --:--:--    --          -
-11579260    AE_2.2.6_decoder    -----       --:--:--    --          -
-11579261    AE_2.2.6_both       -----       --:--:--    --          -
+11579259    AE_2.2.6_encoder    gpu21       01:08:28    1021.5M     -
+11579260    AE_2.2.6_decoder    awi02       07:32:01    1.1G        -
+11579261    AE_2.2.6_both       gpu30       20:32:30    1021.4M     -
 
 AE_3.0
 General idea: variable regularization on soft links
