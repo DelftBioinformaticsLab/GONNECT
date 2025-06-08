@@ -1,6 +1,6 @@
 import torch
 
-from thesis_binn.data_processing.dag_analysis import print_layers
+from thesis_binn.data_processing.dag_analysis import print_layers, create_layers
 from thesis_binn.data_processing.generate_masks import load_masks
 from thesis_binn.data_processing.go_preprocessing import construct_go_bp_layers
 from thesis_binn.model.Autoencoder import Autoencoder
@@ -10,15 +10,18 @@ from thesis_binn.model.Encoder import SparseBIEncoder, DenseBIEncoder, Encoder
 
 def build_model(model_type: str, biologically_informed: str, soft_links: bool, dataset_name: str,
                 go_preprocessing: bool, merge_conditions, n_go_layers_used: int, activation_fn, dtype, genes=None,
-                package_call=False, cluster=False, random_version=None):
+                package_call=False, cluster=False, random_version=None, preprocessed_go_dict=None):
     # GO processing
     if go_preprocessing:
-        if not genes:
-            raise Exception("Cannot perform GO preprocessing without gene list")
+        if preprocessed_go_dict:
+            go_layers = create_layers(preprocessed_go_dict)
+        else:
+            if not genes:
+                raise Exception("Cannot perform GO preprocessing without gene list")
 
-        print("\n----- START: GO preprocessing -----")
-        go_layers = construct_go_bp_layers(genes, merge_conditions, print_go=True, package_call=package_call,
-                                           cluster=cluster)
+            print("\n----- START: GO preprocessing -----")
+            go_layers = construct_go_bp_layers(genes, merge_conditions, print_go=True, package_call=package_call,
+                                               cluster=cluster)
         masks = None
         print("----- COMPLETED: GO preprocessing -----")
 

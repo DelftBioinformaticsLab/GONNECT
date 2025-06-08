@@ -252,8 +252,7 @@ def insert_proxy_terms(go: dict[str, GOTerm], root, original_dag_size):
     if len(imbalanced_children) > 0:
         # If-statement used for correctly naming the new balancing proxy term
         if isinstance(root, ProxyTerm):
-            proxy_item_id = "Proxy:" + str(len(go) - original_dag_size + 1) + "_" + root.item_id[7 + len(
-                str(len(go) - original_dag_size)):]
+            proxy_item_id = "Proxy:" + str(len(go) - original_dag_size + 1) + "_" + root.item_id[(root.item_id.index("_") + 1):]
         else:
             proxy_item_id = "Proxy:" + str(len(go) - original_dag_size + 1) + "_" + root.item_id
 
@@ -523,6 +522,10 @@ def remove_proxy_branch(go: dict[str, GOTerm], term: GOTerm):
 
 
 def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False):
+    go = construct_go_bp(genes, merge_conditions, print_go, package_call, cluster)
+    return create_layers(go)
+
+def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False):
     default_layer_population_threshold = 0
     # Initialize GO DAG
     if cluster:
@@ -568,7 +571,7 @@ def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, pack
     # Layerize DAG
     if print_go:
         print_dag_info(go)
-    return create_layers(go)
+    return go
 
 
 if __name__ == "__main__":
