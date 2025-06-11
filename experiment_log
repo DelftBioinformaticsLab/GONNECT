@@ -39,6 +39,7 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11578207    AE_2.0.3_encoder    influ3      00:41:09    1.1G        -
 11578208    AE_2.0.3_decoder    influ2      05:09:11    1G          -
 11578209    AE_2.0.3_both       insy15      30:00:24    1.2G        Timeout -> needs to be retrained with higher limit (2)
+11583443    AE_2.0.3_both       gpu21       24:54:02	1.1G        -
 11578210    AE_2.0.3_none       influ2      00:11:16    904.5M      -
 -------------------------------------------------------------------
 11578686    AE_2.0.4_encoder    gpu35       00:26:38    1G          -
@@ -49,11 +50,12 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11579221    AE_2.0.5_encoder    influ1      00:49:21    1.1G        -
 11579222    AE_2.0.5_decoder    insy16      04:08:28    1.1G        -
 11579223    AE_2.0.5_both       influ3      30:00:04    1.1G        Timeout -> needs to be retrained with higher limit (2)
+11582273    AE_2.0.5_both       gpu09       13:53:26    1.1G        -
 11579224    AE_2.0.5_none       influ3      00:09:57    898.3M      -
 -------------------------------------------------------------------
 11579252    AE_2.0.6_encoder    gpu21       00:57:35    1019.4M     -
 11579253    AE_2.0.6_decoder    influ3      04:39:59    1.1G        -
-11579254    AE_2.0.6_both       gpu21       --:--:--    --          -
+11579254    AE_2.0.6_both       gpu21       27:55:33    1G          -
 11579255    AE_2.0.6_none       gpu21       00:09:19    885.6M      -
 
 AE_2.1
@@ -89,10 +91,12 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11579226    AE_2.1.5_decoder    insy16      00:39:45    1.1G        -
 11579227    AE_2.1.5_both       influ2      03:00:29    1.1G        Timeout -> needs to be retrained with higher limit
 11579323    AE_2.1.5_both       influ3      04:00:01    1.1G        Timeout -> needs to be retrained with higher limit (2)
+11582275    AE_2.1.5_both       gpu35       02:24:35    1G          -
 -------------------------------------------------------------------
 11579256    AE_2.1.6_encoder    gpu21       00:53:30    1G          -
 11579257    AE_2.1.6_decoder    gpu21       00:49:36    1G          -
-11579258    AE_2.1.6_both       gpu21       03:00:04    --          Timeout -> needs to be retrained with higher limit (2)
+11579258    AE_2.1.6_both       gpu21       03:00:04    1G          Timeout -> needs to be retrained with higher limit (2)
+11582274    AE_2.1.6_both       influ1      06:28:33    1G          -
 
 AE_2.2
 General idea: train the 3 bi-models, with randomized edge masks
@@ -120,6 +124,7 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11578838    AE_2.2.4_encoder    gpu32       00:50:10    1G          -
 11578839    AE_2.2.4_decoder    insy16      03:26:42    1.1G        -
 11578840    AE_2.2.4_both       insy16      30:00:21    1.2G        Timeout -> needs to be retrained with higher limit (2)
+11583444    AE_2.2.4_both       gpu21       26:04:31    1.1G        -
 -------------------------------------------------------------------
 11579228    AE_2.2.5_encoder    influ1      01:20:49    1.1G        -
 11579229    AE_2.2.5_decoder    influ3      02:56:17    1019.7M     -

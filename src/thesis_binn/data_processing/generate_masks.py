@@ -145,4 +145,4 @@ if __name__ == "__main__":
     # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="sparse")
     # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="dense")
 
-    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=3)
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=6)
