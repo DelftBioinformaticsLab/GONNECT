@@ -142,6 +142,7 @@ Soft links and SL loss
 .1 patience = 100
 .2 patience = 10000, n_epochs = 1000
 .3 patience = 10000, n_epochs = 1000, now tracking MSE without regularization
+.4 patience = 10000, n_epochs = 1000, now tracking MSE without regularization, MSE_Soft_Link_Proxyless
 alpha = 100
 Job_ID      Model_name          Node        Time        Memory      Notes
 11560162    AE_3.0.0_encoder    awi02       00:46:25    1.1G        Too low patience
@@ -171,6 +172,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11575903    AE_3.1.3_encoder    influ1      02:12:51    1.1G        -
 11575904    AE_3.1.3_decoder    influ1      02:29:54    1.1G        -
+--------    AE_3.1.4_encoder
+--------    AE_3.1.4_decoder
 
 AE_3.2
 alpha = 10000
