@@ -224,6 +224,48 @@ def histogram_for_class_activation(activations: pd.DataFrame, label_col: str, la
     plt.show()
 
 
+def anova_distribution_per_module(activations: pd.DataFrame, label: str, module: str, n_nan_cols=5):
+    # Remove any sample with NaN as label
+    activations = activations.dropna(subset=[label])
+
+    activation_values = activations[activations.columns[n_nan_cols:]]
+    labels = activations[label].values
+
+    # Normalize before performing ANOVA (drop terms without variance)
+    var_terms = [col for col in activation_values if activation_values[col].std() != 0]
+    activation_values = activation_values[var_terms]
+    activation_values = (activation_values - activation_values.mean()) / (activation_values.std())
+
+    # Get ANOVA scores
+    f_values, p_values = f_classif(activation_values, labels)
+    f_scores = pd.Series(f_values, index=activation_values.columns, name="f_values")
+
+    # Set bin number
+    bin_range = f_values.max().max()
+    bin_width = 400
+    n_bins = max(1, int(bin_range / bin_width))
+
+    plt.hist(f_scores, bins=n_bins, alpha=0.5)
+    plt.title(f"Distribution of ANOVA F-values per node for Biologically-Informed {module.capitalize()}")
+    plt.xlabel("F-values")
+    plt.ylabel("# nodes")
+    # plt.show()
+
+
+def anova_distribution(model: Autoencoder, go_layers: [GOTerm], dataset: pd.DataFrame, label: str, n_nan_cols=5):
+    data_values = dataset[dataset.columns[n_nan_cols:]]
+    activation_values_enc = activations_per_term(model, go_layers, data_values, "encoder")
+    activation_values_dec = activations_per_term(model, go_layers, data_values, "decoder")
+    activations_enc = pd.concat([dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values_enc.reset_index(drop=True)], axis=1)
+    activations_dec = pd.concat([dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values_dec.reset_index(drop=True)], axis=1)
+    anova_distribution_per_module(activations_enc, label, "encoder")
+    anova_distribution_per_module(activations_dec, label, "decoder")
+    plt.title(f"Distribution of ANOVA F-values for {model.name}")
+    plt.legend([model.encoder.name, model.decoder.name])
+    plt.xlim((-1000, 22000))
+    plt.show()
+
+
 if __name__ == "__main__":
     # Experiment params
     experiment_name = "AE_2.0"
@@ -262,7 +304,7 @@ if __name__ == "__main__":
     data_values = dataset[dataset.columns[n_nan_cols:]]
 
     # All activations
-    activation_values = activations_per_term(model, go_layers, data_values, "encoder")
+    activation_values = activations_per_term(model, go_layers, data_values, biologically_informed)
     activation_data = pd.concat(
         [dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values.reset_index(drop=True)],
         axis=1)
@@ -274,9 +316,16 @@ if __name__ == "__main__":
     cols = list(dataset.columns[:n_nan_cols]) + list(top_k_most_variable_terms)
     plot_data = activation_data[cols]
 
-    selected_labels = ["Bladder", "Kidney"] # [activation_data["tumor_tissue_site"].isin(selected_labels)]
-    activation_heatmap(activation_data, "tumor_tissue_site", n_nan_cols, terms_dict, k=50)
+    selected_labels = ["Bladder", "Kidney"]
+
+    # Replace activation_data by activation_data[activation_data["tumor_tissue_site"].isin(selected_labels)] to plot only selected labels
+    # activation_heatmap(activation_data, "tumor_tissue_site", n_nan_cols, terms_dict, k=50)
+
     # histogram_for_class_activation(activation_data, "tumor_tissue_site", ["Kidney", "Bladder"], terms_dict["GO:1902047"], a=0.5)
 
+    # anova_distribution_per_module(activation_data, "tumor_tissue_site", biologically_informed)
+    anova_distribution(model, go_layers, dataset, "cancer_type")#"tumor_tissue_site")
+
+    # # Deprecated
     # setup_figure(plot_data, "cancer_type", n_nan_cols, terms_dict)
     # plt.show()
