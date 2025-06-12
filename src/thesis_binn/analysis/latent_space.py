@@ -136,7 +136,7 @@ def calculate_ari(model, data: pd.DataFrame, labels, seed=42):
     return ari_score
 
 
-def calculate_nmi(model: Autoencoder, data: pd.DataFrame, labels):
+def calculate_nmi(model: Autoencoder, data: pd.DataFrame, labels, seed=42):
     model.eval()
     with torch.no_grad():
         # Compute latent representation of data
@@ -153,14 +153,61 @@ def calculate_nmi(model: Autoencoder, data: pd.DataFrame, labels):
     return nmi_score
 
 
+def print_average_metric_scores():
+    experiment_name = "AE_2.2"  # dataset_name for locally trained models
+    model_name = "both"
+    biologically_informed = model_name  # change this for locally trained models
+    soft_links = False
+    label = "cancer_type"  # "tumor_tissue_site"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
+    # Don't change these parameters
+    project_folder = "../../.."
+    dataset_name = "TCGA_complete_bp_top1k"
+    seed = 42
+    n_nan_cols = 5
+    model_type = "dense"
+    go_preprocessing = False
+    merge_conditions = (1, 30, 50)
+    n_go_layers_used = 5
+    activation_fn = torch.nn.ReLU
+    dtype = torch.float64
+    genes = None
+
+    dataset = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", compression="gzip")
+    dataset = dataset.dropna(subset=[label])
+
+    ss_sum = 0
+    ari_sum = 0
+    nmi_sum = 0
+    versions = [2, 3, 4, 5, 6]
+    for version in versions:
+        random_version = version if experiment_name == "AE_2.2" else None
+        print(f"----- START: calculating average metrics for version {version} -----")
+        model = build_model(model_type, biologically_informed, soft_links, dataset_name, go_preprocessing,
+                            merge_conditions, n_go_layers_used, activation_fn, dtype, genes,
+                            random_version=random_version, package_call=True)
+        model.load_state_dict(torch.load(f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name}."
+                                         f"{str(version)}_{model_name}_model.pt", weights_only=True))
+
+        ss_sum += calculate_silhouette_score(model, dataset[dataset.columns[n_nan_cols:]], dataset[label])
+        ari_sum += calculate_ari(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed)
+        nmi_sum += calculate_nmi(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed)
+
+    print(f"Model: {model.name}")
+    print(f"Silhouette Score (SS): {(ss_sum / len(versions)):.4f}")  # 1 = Good, 0 = Random, -1 = Bad
+    print(f"Adjusted Rand Index (ARI): {(ari_sum / len(versions)):.4f}")  # 1 = Good, 0 = Random
+    print(f"Normalized Mutual Information (NMI): {(nmi_sum / len(versions)):.4f}")  # 1 = Good, 0 = Bad
+
+
 if __name__ == '__main__':
+    # print_average_metric_scores()
+    # breakpoint = 1/0
     # Best practice would be to make a separate script for the actual processing, but I didn't...
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
     experiment_name = "AE_2.0"  # dataset_name for locally trained models
     experiment_version = ".0"  # "" for locally trained models
     model_name = "decoder"
-    label = "tumor_tissue_site"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
+    label = "cancer_type"  # "tumor_tissue_site"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
     seed = 42
     n_nan_cols = 5
     colored = True
@@ -203,8 +250,7 @@ if __name__ == '__main__':
 
     # Visualization
     # plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
-    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed,
-              colored=colored)
+    # plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
     # plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
 
     # Quantification
@@ -213,6 +259,6 @@ if __name__ == '__main__':
     nmi = calculate_nmi(model, dataset[dataset.columns[n_nan_cols:]], dataset[label])
 
     print(f"Model: {model.name}")
-    print(f"Silhouette Score (SS): {ss:.4f}") # 1 = Good, 0 = Random, -1 = Bad
-    print(f"Adjusted Rand Index (ARI): {ari:.4f}") # 1 = Good, 0 = Random
-    print(f"Normalized Mutual Information (NMI): {nmi:.4f}") # 1 = Good, 0 = Bad
+    print(f"Silhouette Score (SS): {ss:.4f}")  # 1 = Good, 0 = Random, -1 = Bad
+    print(f"Adjusted Rand Index (ARI): {ari:.4f}")  # 1 = Good, 0 = Random
+    print(f"Normalized Mutual Information (NMI): {nmi:.4f}")  # 1 = Good, 0 = Bad
