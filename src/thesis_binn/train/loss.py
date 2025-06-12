@@ -86,6 +86,48 @@ class MSE_Soft_Link_Sum(nn.Module):
         return mse_loss + self.alpha * (soft_weight_sum / n_soft_weights)
 
 
+class MSE_Soft_Link_Proxyless(nn.Module):
+    """Standard MSE with an additional term, weighted by alpha, for the sum of soft link weights, plus extra regularization on soft links towards ProxyTerms."""
+
+    def __init__(self, model, alpha=1.0):
+        super(MSE_Soft_Link_Proxyless, self).__init__()
+        self.name = "MSE Loss with L1 over Soft Links"
+        self.alpha = alpha
+        self.mse = nn.MSELoss()
+        self.model = model
+
+    def forward(self, y, x):
+        if isinstance(self.model.encoder, SparseCoder) or isinstance(self.model.decoder, SparseCoder):
+            raise Exception("Soft links are not supported for models containing SparseTensors")
+
+        mse_loss = self.mse(y, x)
+        soft_weight_sum = 0
+        n_soft_weights = 0
+        soft_weights_proxy_sum = 0
+        n_soft_weights_proxy = 0
+        if hasattr(self.model.encoder, "edge_masks"):
+            layer_sum_enc, layer_n_enc = soft_link_sum(self.model.encoder)
+            soft_weight_sum += layer_sum_enc
+            n_soft_weights += layer_n_enc
+            # Separately find soft links towards proxies
+            proxy_sum_enc, proxy_n_enc = soft_link_proxy_sum(self.model.encoder)
+            soft_weights_proxy_sum += proxy_sum_enc
+            n_soft_weights_proxy += proxy_n_enc
+        if hasattr(self.model.decoder, "edge_masks"):
+            layer_sum_dec, layer_n_dec = soft_link_sum(self.model.decoder)
+            soft_weight_sum += layer_sum_dec
+            n_soft_weights += layer_n_dec
+            # Separately find soft links towards proxies
+            proxy_sum_dec, proxy_n_dec = soft_link_proxy_sum(self.model.decoder)
+            soft_weights_proxy_sum += proxy_sum_dec
+            n_soft_weights_proxy += proxy_n_dec
+        # Debug:
+        # print(f"mse: {mse_loss} \t sl:{self.alpha * (soft_weight_sum / n_soft_weights)}")
+        # Additionally weigh soft links towards proxies in order to discourage gene-gene soft links
+        return (mse_loss + self.alpha * (soft_weight_sum / n_soft_weights) +
+                100 * self.alpha * (soft_weights_proxy_sum / n_soft_weights_proxy))
+
+
 def soft_link_sum(module: DenseCoder):
     """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network."""
     soft_weight_sum = 0
@@ -96,6 +138,22 @@ def soft_link_sum(module: DenseCoder):
             # For each linear layer of the network, sum the absolute values of the masked weights
             soft_weight_sum += torch.sum(layer.weight.abs() * ~module.edge_masks[mask_index])
             n += torch.sum(~module.edge_masks[mask_index])
+            mask_index += 1
+    return soft_weight_sum, n
+
+
+def soft_link_proxy_sum(module: DenseCoder):
+    """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that go to ProxyTerms and are considered soft links because they are masked by the edge mask of the network."""
+    soft_weight_sum = 0
+    mask_index = 0
+    n = 0
+    for layer in module.net_layers:
+        if isinstance(layer, nn.Linear):
+            # For each linear layer of the network, sum the absolute values of the masked weights
+            # The used mask is made by multiplying the inverse GO mask by the proxy mask, resulting in a mask of soft links towards proxies
+            soft_proxy_weight_mask = ~module.edge_masks[mask_index] * module.proxy_masks[mask_index]
+            soft_weight_sum += torch.sum(layer.weight.abs() * soft_proxy_weight_mask)
+            n += torch.sum(soft_proxy_weight_mask)
             mask_index += 1
     return soft_weight_sum, n
 
