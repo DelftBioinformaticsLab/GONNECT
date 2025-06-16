@@ -133,6 +133,10 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11579259    AE_2.2.6_encoder    gpu21       01:08:28    1021.5M     -
 11579260    AE_2.2.6_decoder    awi02       07:32:01    1.1G        -
 11579261    AE_2.2.6_both       gpu30       20:32:30    1021.4M     -
+-------------------------------------------------------------------
+--------    AE_2.2.8_encoder    -----       01:08:28                -
+--------    AE_2.2.8_decoder    -----       07:32:01                -
+--------    AE_2.2.8_both       -----       20:32:30                -
 
 AE_3.0
 General idea: variable regularization on soft links
@@ -172,8 +176,8 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11575903    AE_3.1.3_encoder    influ1      02:12:51    1.1G        -
 11575904    AE_3.1.3_decoder    influ1      02:29:54    1.1G        -
---------    AE_3.1.4_encoder
---------    AE_3.1.4_decoder
+11597223    AE_3.1.4_encoder    gpu09       01:35:32    1G          -
+11597224    AE_3.1.4_decoder    gpu10       01:37:56    1G          -
 
 AE_3.2
 alpha = 10000
