@@ -8,7 +8,7 @@ from thesis_binn.train.train import make_data_splits, train_with_validation, sav
 
 if __name__ == "__main__":
     experiment_name = "AE_3.-1"
-    experiment_version = ".5"
+    experiment_version = ".6"
     model_name = "none"
     project_folder = "/opt/app"
     cluster = True
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     # Training params
     dataset_name = "TCGA_complete_bp_top1k"
     loss = "mse l1"
-    soft_link_alpha = 10000
+    soft_link_alpha = 100000
     l1_alpha = 100
     n_samples = 9797
     batch_size = 100
