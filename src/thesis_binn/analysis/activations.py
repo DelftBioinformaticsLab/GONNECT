@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.feature_selection import f_classif
 from goatools.obo_parser import GOTerm
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 
 from thesis_binn.data_processing.GeneTerm import GeneTerm
 from thesis_binn.data_processing.ProxyTerm import ProxyTerm
@@ -99,7 +104,7 @@ def setup_figure(data: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, 
     plt.tight_layout()
 
 
-def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20):
+def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20, term_selection=None):
     # Remove any sample with NaN as label
     activations = activations.dropna(subset=[label])
 
@@ -123,10 +128,13 @@ def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, g
     activation_values = activation_values[var_terms]
     activation_values = (activation_values - activation_values.mean()) / (activation_values.std())
 
-    # Select k terms with best class separation
-    f_values, p_values = f_classif(activation_values, labels)
-    f_scores = pd.Series(f_values, index=activation_values.columns, name="f_values")
-    top_k_terms = f_scores.nlargest(k).index  # Default k=20
+    if term_selection:
+        top_k_terms = term_selection
+    else:
+        # Select k terms with best class separation
+        f_values, p_values = f_classif(activation_values, labels)
+        f_scores = pd.Series(f_values, index=activation_values.columns, name="f_values")
+        top_k_terms = f_scores.nlargest(k).index  # Default k=20
 
     # Debug:
     # print(top_k_terms) # Print so that the same GO terms can be displayed for different models
@@ -156,7 +164,7 @@ def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, g
     activation_values = activation_values[top_k_terms]
 
     # Cluster columns using clustermap
-    print("\n----- START: CLustering columns -----")
+    print("\n----- START: Clustering columns -----")
     clustermap = sns.clustermap(activation_values,
                                 metric='correlation',
                                 method='average',
@@ -166,7 +174,7 @@ def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, g
                                 cbar_pos=None,
                                 xticklabels=True,
                                 yticklabels=True)
-    print("----- COMPLETED: CLustering columns -----")
+    print("----- COMPLETED: Clustering columns -----")
     # Extract ordered column indices
     ordered_col_indices = clustermap.dendrogram_col.reordered_ind
 
@@ -266,10 +274,175 @@ def anova_distribution(model: Autoencoder, go_layers: [GOTerm], dataset: pd.Data
     plt.show()
 
 
+def node_all_class_auc(activation_data, label, scoring='roc_auc', n_nan_cols=5):
+    activation_data = activation_data.dropna(subset=[label])
+    labels = activation_data[label]
+    activation_values = activation_data[activation_data.columns[n_nan_cols:]]
+    lb = LabelBinarizer()
+    Y_bin = lb.fit_transform(labels)
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    results = []
+
+    for node in activation_values.columns:
+        X_node = activation_values[[node]].values  # (n_samples, 1)
+
+        # Compute macro average ROC-AUC manually
+        aucs = []
+        for i in range(Y_bin.shape[1]):
+            y_bin_class = Y_bin[:, i]
+            model = LogisticRegression(solver='liblinear')
+            scores = cross_val_score(model, X_node, y_bin_class, cv=cv, scoring=scoring)
+            aucs.append(scores.mean())
+        avg_auc = np.mean(aucs)
+        results.append((node, avg_auc))
+
+    result_df = pd.DataFrame(results, columns=['node', 'roc_auc'])
+    return result_df.sort_values(by='roc_auc', ascending=False).reset_index(drop=True)
+
+
+def node_per_class_auc(activation_data, label, terms_dict, scoring='roc_auc', cv=5, n_nan_cols=5, term_selection=None):
+    activation_data = activation_data.dropna(subset=[label])
+    labels = activation_data[label]
+    activation_values = activation_data[activation_data.columns[n_nan_cols:]]
+    lb = LabelBinarizer()
+    y_bin = lb.fit_transform(labels)
+    class_labels = lb.classes_
+    results = []
+    if term_selection is None:
+        term_selection = activation_values.columns
+    for node in term_selection:
+        x_node = activation_values[[node]].values  # (n_samples, 1)
+        row = {"term": node, "name": terms_dict[node].name}
+
+        for i, class_label in enumerate(class_labels):
+            y_bin_class = y_bin[:, i]
+            model = LogisticRegression(solver='liblinear')
+            scores = cross_val_score(model, x_node, y_bin_class, cv=cv, scoring=scoring)
+            row[f'roc_auc_{class_label}'] = np.mean(scores)
+        results.append(row)
+
+    results_data = pd.DataFrame(results)
+    return results_data
+
+
+def auc_heatmap(auc_data, terms_list):
+    # Select terms
+    auc_data = auc_data[auc_data["term"].isin(terms_list)]
+
+    # Extract only the AUC columns
+    auc_cols = list(auc_data.columns[2:])
+
+    # Prepare heatmap data: node_name as index, classes as columns
+    heatmap_data = auc_data.set_index('name')[auc_cols]
+
+    # Rename columns to just class names (remove 'roc_auc_' prefix)
+    heatmap_data.columns = [col.replace("roc_auc_", "") for col in heatmap_data.columns]
+
+    # # Cluster columns using clustermap
+    # print("\n----- START: Clustering columns -----")
+    # clustermap = sns.clustermap(heatmap_data,
+    #                             metric='correlation',
+    #                             method='average',
+    #                             col_cluster=True,
+    #                             row_cluster=False,
+    #                             cbar_pos=None,
+    #                             xticklabels=True,
+    #                             yticklabels=False)
+    # print("----- COMPLETED: Clustering columns -----")
+    # # Extract ordered column indices
+    # ordered_col_indices = clustermap.dendrogram_col.reordered_ind
+    # ordered_columns = heatmap_data.columns[ordered_col_indices]
+    ordered_columns = ["BRCA", "LUAD", "LUSC", "KIRC", "KIRP", "KICH", "UCEC", "LGG", "HNSC", "THCA", "PRAD", "SKCM",
+                   "COAD", "OV", "STAD", "BLCA", "LIHC", "CESC", "PCPG", "ACC", "SARC", "ESCA", "PAAD", "READ", "TGCT",
+                   "LAML", "THYM", "MESO", "UVM", "UCS", "DLBC", "CHOL"]
+    heatmap_data = heatmap_data[ordered_columns]
+
+    # Plot heatmap
+    plt.figure(figsize=(7, 15))
+    sns.heatmap(heatmap_data.transpose(), xticklabels=False, cbar_kws={'label': 'ROC-AUC'})
+    plt.xticks(np.arange(heatmap_data.shape[0]) + 0.5, labels=heatmap_data.index, rotation=270)
+    plt.title("Per-Class ROC AUC of GO-terms")
+    plt.ylabel("Cancer Type")
+    plt.xlabel("GO-term")
+    plt.tight_layout()
+    plt.show()
+
+
+def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20, term_selection=None):
+    # Remove any sample with NaN as label
+    activations = activations.dropna(subset=[label])
+
+    # Order and group samples by label
+    activations = activations.sort_values(label)
+    labels = activations[label].values
+
+    group_values = [label] + list(activations.columns[n_nan_cols:])
+    grouped_activations = activations[group_values].groupby(label).mean().reset_index()
+    activation_values = grouped_activations.set_index(label)[grouped_activations.columns[1:]]
+
+    # Normalize before performing ANOVA (drop terms without variance)
+    var_terms = [col for col in activation_values if activation_values[col].std() != 0]
+    activation_values = activation_values[var_terms]
+    activation_values = (activation_values - activation_values.mean()) / (activation_values.std())
+
+    if term_selection:
+        top_k_terms = [term for term in term_selection if term in activation_values.columns]
+    else:
+        # Select k terms with best class separation
+        f_values, p_values = f_classif(activation_values, labels)
+        f_scores = pd.Series(f_values, index=activation_values.columns, name="f_values")
+        top_k_terms = f_scores.nlargest(k).index  # Default k=20
+
+    activation_values = activation_values[top_k_terms]
+
+    # # Cluster columns using clustermap
+    # print("\n----- START: Clustering columns -----")
+    # clustermap = sns.clustermap(activation_values,
+    #                             metric='correlation',
+    #                             method='average',
+    #                             col_cluster=True,
+    #                             row_cluster=False,
+    #                             cmap='viridis',
+    #                             cbar_pos=None,
+    #                             xticklabels=True,
+    #                             yticklabels=True)
+    # print("----- COMPLETED: Clustering columns -----")
+    # Extract ordered column indices
+    # ordered_col_indices = clustermap.dendrogram_col.reordered_ind
+    ordered_columns = activation_values.columns#[ordered_col_indices]
+    ordered_values = activation_values[ordered_columns]
+
+    # Ensure symmetric colorbar
+    colorbar_extreme_value = min(abs(ordered_values.min().min()), abs(ordered_values.max().max()))
+    print(f"colorbar_extreme_values = {ordered_values.min().min()}, {ordered_values.max().max()}")
+
+    # Custom label ordering
+    label_order = ["BRCA", "LUAD", "LUSC", "KIRC", "KIRP", "KICH", "UCEC", "LGG", "HNSC", "THCA", "PRAD", "SKCM",
+                   "COAD", "OV", "STAD", "BLCA", "LIHC", "CESC", "PCPG", "ACC", "SARC", "ESCA", "PAAD", "READ", "TGCT",
+                   "LAML", "THYM", "MESO", "UVM", "UCS", "DLBC", "CHOL"]
+    ordered_values = ordered_values.sort_values(by=label, key=lambda x: x.map(label_order.index))
+
+    plt.figure(figsize=(7, 15))
+    sns.heatmap(ordered_values, cmap="coolwarm", xticklabels=False, cbar_kws={'label': 'Activation'},
+                vmin=-colorbar_extreme_value, vmax=colorbar_extreme_value)
+
+    # Set column labels
+    term_objects = [go[term_id] for term_id in ordered_columns]
+    term_names = [term.name for term in term_objects]
+    plt.xticks(np.arange(ordered_values.shape[1]) + 0.5, labels=term_names, rotation=270)
+
+    # Set title and axis labels
+    plt.xlabel('GO terms (Clustered by Similarity)')
+    plt.ylabel(f'Mean sample activation per {label}')
+    plt.title('GO Term Activation Heatmap')
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     # Experiment params
     experiment_name = "AE_2.0"
-    experiment_version = ".0"
+    experiment_version = ".2"
     model_name = "encoder"
     # Model params
     model_type = "dense"
@@ -298,6 +471,7 @@ if __name__ == "__main__":
     for layer in go_layers:
         terms_list += layer
     terms_dict = {term.item_id: term for term in terms_list}
+    low_level_terms = [term.item_id for term in go_layers[0] if term.item_id[:3] == "GO:"]
 
     # Dataset
     dataset = pd.read_csv(f"../../../data/{dataset_name}.csv.gz", compression="gzip")
@@ -318,14 +492,32 @@ if __name__ == "__main__":
 
     selected_labels = ["Bladder", "Kidney"]
 
-    # Replace activation_data by activation_data[activation_data["tumor_tissue_site"].isin(selected_labels)] to plot only selected labels
-    # activation_heatmap(activation_data, "tumor_tissue_site", n_nan_cols, terms_dict, k=50)
+    # index_selection_ascending = [13, 14, 43, 60, 62, 65, 80, 92, 97, 98, 99, 103]
+    # index_selection = [103, 13, 97, 14, 62, 60, 98, 43, 65, 80, 99]
+    # layer_index = 0
+    # layer_terms = [term for term in go_layers[layer_index] if term.item_id[:3] == "GO:"]
+    # term_selection = [term.item_id for i, term in enumerate(layer_terms) if i in index_selection]
+    term_selection = ["GO:0008206", "GO:0008203", "GO:0007417", "GO:0031104", "GO:0060253", "GO:0007586", "GO:0031018", "GO:0033089", "GO:0032346", "GO:0061036", "GO:0033574", "GO:0008210", "GO:0033601", "GO:0060421", "GO:0032349", "GO:0045619", "GO:0030195", "GO:0030198", "GO:0038091", "GO:0003012"]
 
+    # Replace activation_data by activation_data[activation_data["tumor_tissue_site"].isin(selected_labels)] to plot only selected labels
+    # activation_heatmap(activation_data, "tumor_tissue_site", n_nan_cols, terms_dict, k=50, term_selection=term_selection)
+
+    activation_heatmap_average_per_label(activation_data, "cancer_type", n_nan_cols, terms_dict, term_selection=term_selection)
+
+    # # Create AUC values
+    # auc_all = node_per_class_auc(activation_data, "cancer_type", terms_dict)
+    # auc_all.to_excel(f"../../../../{experiment_name}{experiment_version}_{model_name}_per_class_auc.xlsx")
+    # auc_data = pd.read_excel(f"../../../../{experiment_name}{experiment_version}_{model_name}_per_class_auc.xlsx")
+    # auc_heatmap(auc_data[auc_data.columns[1:]], term_selection)
+
+    # OLD
     # histogram_for_class_activation(activation_data, "tumor_tissue_site", ["Kidney", "Bladder"], terms_dict["GO:1902047"], a=0.5)
 
     # anova_distribution_per_module(activation_data, "tumor_tissue_site", biologically_informed)
-    anova_distribution(model, go_layers, dataset, "cancer_type")#"tumor_tissue_site")
+    # anova_distribution(model, go_layers, dataset, "cancer_type")
 
     # # Deprecated
     # setup_figure(plot_data, "cancer_type", n_nan_cols, terms_dict)
     # plt.show()
+
+    pass
