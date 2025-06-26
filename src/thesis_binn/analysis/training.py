@@ -63,9 +63,9 @@ def bar_plot_final_loss():
 
     bars = ["Fully Connected", "", "Soft Links", "", "", "Fixed Links", "", "", "Randomized Fixed Links", ""]
     bar_labels = ["No Biology",
-                  "Biological Encoder", "Biological Decoder", "Biological Encoder and Decoder",
-                  "_Biological Encoder", "_Biological Decoder", "_Biological Encoder and Decoder",
-                  "_Biological Encoder", "_Biological Decoder", "_Biological Encoder and Decoder"]
+                  "BINN Encoder", "BINN Decoder", "BINN Encoder and Decoder",
+                  "_BINN Encoder", "_BINN Decoder", "_BINN Encoder and Decoder",
+                  "_BINN Encoder", "_BINN Decoder", "_BINN Encoder and Decoder"]
     bar_colors = ["#8516D1",
                   "#1171BE", "#DD5400", "#EDB120",
                   "#1171BE", "#DD5400", "#EDB120",
@@ -157,6 +157,7 @@ if __name__ == "__main__":
     for experiment in experiments:
         plot_training_loss(f"../../../out/trained_models/{experiment}/{experiment}.{version}_{bi_module}_results.txt", loss_type="mse")
     plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_{bi_module}_results.txt", loss_type="test")
-    plt.legend(["FC a = 0", "FC a = 1e2", "SL a = 1e2", "SL a = 1e3", "SL a = 1e4", "SL a = 1e5", "Fixed Links"])
+    plot_training_loss(f"../../../out/trained_models/{"AE_3.1"}/{"AE_3.1"}.{4}_{bi_module}_results.txt", loss_type="mse")
+    plt.legend(["FC a = 0", "FC a = 1e2", "SL a = 1e2", "SL a = 1e3", "SL a = 1e4", "SL a = 1e5", "Fixed Links", "no P"])
     plt.title(f"MSE on test set after training (BI-{bi_module})")
     plt.show()
