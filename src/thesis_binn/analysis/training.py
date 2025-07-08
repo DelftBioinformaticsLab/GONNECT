@@ -62,10 +62,10 @@ def bar_plot_final_loss():
     versions = ["2", "3", "4", "5", "6"]
 
     bars = ["Fully Connected", "", "Soft Links", "", "", "Fixed Links", "", "", "Randomized Fixed Links", ""]
-    bar_labels = ["No Biology",
-                  "BINN Encoder", "BINN Decoder", "BINN Encoder and Decoder",
-                  "_BINN Encoder", "_BINN Decoder", "_BINN Encoder and Decoder",
-                  "_BINN Encoder", "_BINN Decoder", "_BINN Encoder and Decoder"]
+    bar_labels = ["MLP",
+                  "GONNECT enc", "GONNECT dec", "GONNECT both",
+                  "_GONNECT enc", "_GONNECT dec", "_GONNECT both",
+                  "_GONNECT enc", "_GONNECT dec", "_GONNECT both"]
     bar_colors = ["#8516D1",
                   "#1171BE", "#DD5400", "#EDB120",
                   "#1171BE", "#DD5400", "#EDB120",
@@ -87,6 +87,8 @@ def bar_plot_final_loss():
 
     # Collect final loss value for each BI-model in the experiment
     for experiment in experiments:
+        if experiment == "AE_2.2":  # Randomized links has been retrained with new randomness heuristic
+            versions = ["8", "9", "10", "11", "12"]
         for bi_module in bi_modules:
             bi_losses = []
             for version in versions:
@@ -106,6 +108,8 @@ def bar_plot_final_loss():
     plt.figure(figsize=(8, 8))
     plt.title(f"Average MSE on Gene Expression Reconstruction")
     plt.bar(x_positions, mean_losses, yerr=std_losses, label=bar_labels, color=bar_colors, capsize=5)
+    # Add MLP reference as dashed line
+    plt.axhline(float(mean_losses[0]), linestyle='--', color="gray")
     plt.ylabel("MSE")
     plt.legend()
     plt.xticks(x_positions, bars, rotation=0)
@@ -147,17 +151,15 @@ if __name__ == "__main__":
     version = "3"
     bi_module = "decoder"
 
-    # plot_loss_curves(experiment, version, "train")
+    plot_loss_curves(experiment, version, "train")
     bar_plot_final_loss()
 
     # Evaluate Soft Link alpha parameter
     experiments = ["AE_3.0", "AE_3.1", "AE_3.2", "AE_3.3"]
     plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_none_results.txt", loss_type="test")
-    plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.3_none_results.txt", loss_type="mse")
     for experiment in experiments:
         plot_training_loss(f"../../../out/trained_models/{experiment}/{experiment}.{version}_{bi_module}_results.txt", loss_type="mse")
     plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_{bi_module}_results.txt", loss_type="test")
-    plot_training_loss(f"../../../out/trained_models/{"AE_3.1"}/{"AE_3.1"}.{4}_{bi_module}_results.txt", loss_type="mse")
-    plt.legend(["FC a = 0", "FC a = 1e2", "SL a = 1e2", "SL a = 1e3", "SL a = 1e4", "SL a = 1e5", "Fixed Links", "no P"])
-    plt.title(f"MSE on test set after training (BI-{bi_module})")
+    plt.legend([r"MLP", r"$\alpha$ = 1e2", r"$\alpha$ = 1e3", r"$\alpha$ = 1e4", r"$\alpha$ = 1e5", r"Fixed links"])
+    plt.title(f"MSE during training of GONNECT-SL decoder model")
     plt.show()
