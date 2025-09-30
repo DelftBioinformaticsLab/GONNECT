@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
+import numpy as np
 from umap import UMAP
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -9,10 +10,25 @@ from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mu
 
 from thesis_binn.model.Autoencoder import Autoencoder
 from thesis_binn.model.build_model import build_model
+from thesis_binn.train.loss import MSE_Masked
 
+colors32 = [
+    "#e6194b", "#3cb44b", "#4363d8", "#ffe119",
+    "#911eb4", "#46f0f0", "#f58231", "#008080",
+    "#f032e6", "#bcf60c", "#000075", "#fabebe",
+    "#808000", "#e6beff", "#9a6324", "#aaffc3",
+    "#c71585", "#ffd8b1", "#1e90ff", "#800000",
+    "#00ced1", "#f5a9bc", "#b0de5c", "#808080",
+    "#ff7f50", "#dda0dd", "#b22222", "#7fffd4",
+    "#a9a9f5", "#ff1493", "#daa520", "#fffac8"
+]
+map_32 = {i: color for i, color in enumerate(colors32)}
 
 def convert_labels(labels):
-    label_set = labels.unique()
+    # label_set = labels.unique()
+    label_set = ["BRCA", "LUAD", "LUSC", "KIRC", "KIRP", "KICH", "UCEC", "LGG", "HNSC", "THCA", "PRAD", "SKCM",
+                   "COAD", "OV", "STAD", "BLCA", "LIHC", "CESC", "PCPG", "ACC", "SARC", "ESCA", "PAAD", "READ", "TGCT",
+                   "LAML", "THYM", "MESO", "UVM", "UCS", "DLBC", "CHOL"]
     label_to_int = {label: idx for idx, label in enumerate(label_set)}
     int_labels = labels.map(label_to_int)
     return int_labels, label_to_int
@@ -27,20 +43,22 @@ def size_by_label(label_name):
     return fig_size
 
 
-def setup_figure(embedding, labels, fig_size=(8, 6), cmap="tab20", s=5, colored=True):
+def setup_figure(embedding, labels, fig_size=(16, 12), cmap="tab20", s=8, colored=True):
     # Convert labels to integers for plotting
     int_labels, label_map = convert_labels(labels)
     # Custom legend
     handles = []
     for label_str, label_int in label_map.items():
         handles.append(
-            plt.Line2D([], [], marker='o', linestyle='', color=plt.colormaps["tab20"](label_int % 20), label=label_str))
+            plt.Line2D([], [], marker='o', linestyle='', color=map_32[label_int], label=label_str)
+        )
     # Remove sample colors
     if not colored: int_labels = [0 for _ in range(len(int_labels))]
     # Create figure
     plt.figure(figsize=fig_size)
-    plt.scatter(embedding[:, 0], embedding[:, 1], c=int_labels, cmap=cmap, s=s)
-    plt.legend(handles=handles, title=labels.name, bbox_to_anchor=(1.0, .5), loc='center left')
+    # plt.scatter(embedding[:, 0], embedding[:, 1], c=int_labels, cmap=cmap, s=s, edgecolors="w")
+    plt.scatter(embedding[:, 0], embedding[:, 1], c=[map_32[i] for i in int_labels], s=15, alpha=.8, edgecolor='none')
+    plt.legend(handles=handles, title="Cancer Type", bbox_to_anchor=(1.0, .5), loc='center left')
     return
 
 
@@ -61,6 +79,7 @@ def plot_umap(model: Autoencoder, data: pd.DataFrame, labels, seed=42, colored=T
     plt.xlabel('UMAP-1')
     plt.ylabel('UMAP-2')
     plt.tight_layout()
+    # plt.savefig("../../../../publication/input_umap.pdf", format="pdf")
     plt.show()
 
 
@@ -80,6 +99,7 @@ def plot_tsne(model: Autoencoder, data: pd.DataFrame, labels, seed=42, colored=T
     plt.xlabel('t-SNE-1')
     plt.ylabel('t-SNE-2')
     plt.tight_layout()
+    # plt.savefig("../../../../publication/input_tsne.pdf", format="pdf")
     plt.show()
 
     # # Interactive plot in browser
@@ -105,6 +125,7 @@ def plot_pca(model: Autoencoder, data: pd.DataFrame, labels, seed=42, colored=Tr
     plt.xlabel('PC1')
     plt.ylabel('PC2')
     plt.tight_layout()
+    # plt.savefig("../../../../publication/input_pca.pdf", format="pdf")
     plt.show()
 
 
@@ -175,10 +196,11 @@ def print_average_metric_scores():
     dataset = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", compression="gzip")
     dataset = dataset.dropna(subset=[label])
 
-    ss_sum = 0
-    ari_sum = 0
-    nmi_sum = 0
-    versions = [2, 3, 4, 5, 6]
+    ss = []
+    ari = []
+    nmi = []
+    versions = [2, 3, 4, 5, 6]  # [8, 9, 10, 11, 12]  #
+    mse_per_version = []
     for version in versions:
         random_version = version if experiment_name == "AE_2.2" else None
         print(f"----- START: calculating average metrics for version {version} -----")
@@ -188,14 +210,53 @@ def print_average_metric_scores():
         model.load_state_dict(torch.load(f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name}."
                                          f"{str(version)}_{model_name}_model.pt", weights_only=True))
 
-        ss_sum += calculate_silhouette_score(model, dataset[dataset.columns[n_nan_cols:]], dataset[label])
-        ari_sum += calculate_ari(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed)
-        nmi_sum += calculate_nmi(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed)
+        # ----- DIRTY MSE PER CANCER TYPE -----
+        from thesis_binn.train.loss import MSE, MSE_Masked
+        if ((experiment_name == "AE_2.0") or (experiment_name == "AE_2.2")) and (model_name != "none"):
+            loss = MSE_Masked(torch.load(f"{project_folder}/out/masks/genes/{merge_conditions}/{dataset_name}_gene_mask.pt", weights_only=True))
+        else:
+            loss = MSE()
+        mse_per_version.append(mse_per_cancer_type(dataset, version, model, loss))
+    mse_mean_per_label = np.mean(mse_per_version, axis=0)
+    for label_mean in mse_mean_per_label:
+        print(f"{label_mean:.3f}")
+        # ----- END -----
+
+        ss.append(calculate_silhouette_score(model, dataset[dataset.columns[n_nan_cols:]], dataset[label]))
+        ari.append(calculate_ari(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed))
+        nmi.append(calculate_nmi(model, dataset[dataset.columns[n_nan_cols:]], dataset[label], seed=seed))
 
     print(f"Model: {model.name}")
-    print(f"Silhouette Score (SS): {(ss_sum / len(versions)):.4f}")  # 1 = Good, 0 = Random, -1 = Bad
-    print(f"Adjusted Rand Index (ARI): {(ari_sum / len(versions)):.4f}")  # 1 = Good, 0 = Random
-    print(f"Normalized Mutual Information (NMI): {(nmi_sum / len(versions)):.4f}")  # 1 = Good, 0 = Bad
+    print(f"Silhouette Score (SS): {np.mean(ss):.3f} pm {np.std(ss):.3f}")  # 1 = Good, 0 = Random, -1 = Bad
+    print(f"Adjusted Rand Index (ARI): {np.mean(ari):.3f} pm {np.std(ari):.3f}")  # 1 = Good, 0 = Random
+    print(f"Normalized Mutual Information (NMI): {np.mean(nmi):.3f} pm {np.std(nmi):.3f}")  # 1 = Good, 0 = Bad
+
+
+def mse_per_cancer_type(dataset, version, model, loss):
+    from thesis_binn.train.train import split_data, test
+    from torch.utils.data import TensorDataset, DataLoader
+    labels = ["BRCA", "LUAD", "LUSC", "KIRC", "KIRP", "KICH", "UCEC", "LGG", "HNSC", "THCA", "PRAD", "SKCM",
+                   "COAD", "OV", "STAD", "BLCA", "LIHC", "CESC", "PCPG", "ACC", "SARC", "ESCA", "PAAD", "READ", "TGCT",
+                   "LAML", "THYM", "MESO", "UVM", "UCS", "DLBC", "CHOL"]
+    trainset, valset, testset = split_data(dataset, 0, seed=version)
+    mse_per_label = []
+    for label in labels:
+        testset_label = testset[testset["cancer_type"].isin([label])]
+        test_torch = TensorDataset(torch.from_numpy(testset_label[testset_label.columns[5:]].to_numpy()))
+        testloader = DataLoader(test_torch, batch_size=len(testset_label), shuffle=False)
+        mse_per_label.append(test(testloader, model, loss))
+    return mse_per_label
+
+def plot_mse_per_cancer_type():
+    import seaborn as sns
+    data = pd.read_excel("../../../../mse_per_cancer_type.xlsx", index_col=0)
+    plt.figure(figsize=(12, 5))
+    sns.heatmap(np.transpose(data), cbar_kws={'label': 'MSE'})
+    plt.xticks(rotation=90)
+    plt.title("MSE per Cancer Type")
+    plt.ylabel("Model")
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -205,8 +266,8 @@ if __name__ == '__main__':
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
     experiment_name = "AE_2.0"  # dataset_name for locally trained models
-    experiment_version = ".0"  # "" for locally trained models
-    model_name = "decoder"
+    experiment_version = ".2"  # "" for locally trained models
+    model_name = "none"
     label = "cancer_type"  # "tumor_tissue_site"  # nan_cols: patient_id, sample_type, cancer_type, tumor_tissue_site, stage_pathologic_stage
     seed = 42
     n_nan_cols = 5
@@ -249,9 +310,9 @@ if __name__ == '__main__':
     filtered_data = dataset[dataset[label].isin(label_subset)]
 
     # Visualization
-    # plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
-    # plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
-    # plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+    plot_pca(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+    plot_tsne(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
+    plot_umap(model, data=filtered_data[filtered_data.columns[n_nan_cols:]], labels=filtered_data[label], seed=seed, colored=colored)
 
     # Quantification
     ss = calculate_silhouette_score(model, dataset[dataset.columns[n_nan_cols:]], dataset[label])
