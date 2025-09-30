@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from goatools.obo_parser import GOTerm
+from scipy.stats import gaussian_kde
 
 from thesis_binn.data_processing.ProxyTerm import ProxyTerm
 from thesis_binn.data_processing.go_preprocessing import construct_go_bp
@@ -113,19 +115,27 @@ def get_top_k_soft_links(soft_links_per_layer: [torch.Tensor], k: int, layer_ind
     return top_links
 
 
-def print_soft_links(soft_link_list: list, go: dict[str, GOTerm]):
+def print_soft_links(soft_link_list: list, go: dict[str, GOTerm], genes: dict[str, str]):
+    """Given a list of soft links as tuples of (source, sink, value), print each soft link including a description of source and sink nodes. Return a list of just values, for further processing."""
+    values = []
     for soft_link in soft_link_list:
         term1, term2, value = soft_link
+        values.append(value)
         for term in (term1, term2):
             if isinstance(term, ProxyTerm):
                 original_term_index = term.item_id.index("_") + 1
                 term_id = term.item_id
                 name = go[term_id[original_term_index:]].name
+                if name == "":
+                    name = genes[term_id[original_term_index:]]
             else:
                 term_id = term.item_id
                 name = go[term_id].name
+                if name == "":
+                    name = genes[term_id]
             print(f"{term_id} -> {name}")
         print(f"Soft Link Value = {value:.3e}\n")
+    return values
 
 
 def histogram_weights_per_module(module_weights, bin_width=0.01, a=1.0, color=None):
@@ -139,12 +149,22 @@ def histogram_weights_per_module(module_weights, bin_width=0.01, a=1.0, color=No
     n_bins = max(1, int(bin_range.item() / bin_width))
     # Plot histogram
     if color:
-        _, bins, _ = plt.hist(values, log=True, bins=n_bins, alpha=a, color=color)
+        _, bins, _ = plt.hist(values, log=True, bins=int(.5*n_bins), alpha=a, color=color)
+        # kde = gaussian_kde(values, bw_method='scott')
+        # x_grid = np.linspace(-1.5, 1.5, 1000)
+        # plt.plot(x_grid, kde(x_grid), color=color, lw=2)
     else:
         _, bins, _ = plt.hist(values, log=True, bins=n_bins, alpha=a)
     plt.xlabel("Value")
     plt.ylabel("# Weights")
     plt.title(f"Distribution of Soft Link Weights")
+
+
+def create_gene_dict():
+    """Create a lookup table from file in the form of a dictionary containing gene function per Uniprot ID."""
+    genes_data = pd.read_excel(f"{project_folder}/../idmapping_2025_06_27.xlsx")
+    gene_dict = {genes_data["From"][i] : genes_data["Function [CC]"][i] for i in range(len(genes_data))}
+    return gene_dict
 
 
 if __name__ == "__main__":
@@ -202,9 +222,10 @@ if __name__ == "__main__":
     soft_FC = SL_weights[module_index][1]
     fixed_FC = FC_weights[module_index][1]
 
-    # # Count soft links which magnitudes exceed threshold
-    # for layer in soft_FC:
-    #     print(sum(abs(layer.values()) > 0.01).item())
+    # Count soft links which magnitudes exceed threshold
+    for layer in soft_FC:
+        print("Number of active sodt links per layer:")
+        print(sum(abs(layer.values()) > 0.01).item())
 
     # # Histogram per layer
     # for i in range(n_go_layers_used - 1):
@@ -220,16 +241,22 @@ if __name__ == "__main__":
     # Histogram per module
     colors = ["#8516D1", "#1171BE", "#EDB120", "#3BAA32"]
     histogram_weights_per_module(fixed_FC, bin_width=0.01, a=0.2, color=colors[0])
-    histogram_weights_per_module(fixed_GO, bin_width=0.01, a=0.3, color=colors[3])
-    histogram_weights_per_module(soft_GO, bin_width=0.01, a=0.4, color=colors[2])
-    histogram_weights_per_module(soft_FC, bin_width=0.01, a=0.8, color=colors[1])
+    histogram_weights_per_module(fixed_GO, bin_width=0.01, a=0.4, color=colors[3])
+    histogram_weights_per_module(soft_GO, bin_width=0.01, a=0.4, color="#DD5400")
+    histogram_weights_per_module(soft_FC, bin_width=0.01, a=0.6, color=colors[1])
     plt.legend(["Fully Connected", "Fixed Links GO", "Soft Links (GO)", "Soft Links (non-GO)"])
     plt.show()
 
     # # Soft Link Identification
+    # gene_dict = create_gene_dict()
     # index_to_go = get_go_terms_by_index(model_GO.encoder if model_name == "encoder" else model_GO.decoder)
     # layer = 0 if model_name == "encoder" else 3
-    # soft_link_terms = get_top_k_soft_links(soft_FC, 10, layer, index_to_go)
-    # print_soft_links(soft_link_terms, go_dict)
+    # k = 10
+    # for i in range(4):
+    #     # if model_name == "decoder": i = 3 - i
+    #     print(f"----- Top {k} soft links from {model_name} layer {i} -----")
+    #     soft_link_terms = get_top_k_soft_links(soft_FC, 10, i, index_to_go)
+    #     values = print_soft_links(soft_link_terms, go_dict, gene_dict)
+    #     print(f"----- Mean soft link value: {np.mean(np.abs(values)):.3e} -----\n")
 
     pass
