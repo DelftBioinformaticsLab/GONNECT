@@ -61,11 +61,11 @@ def bar_plot_final_loss():
     bi_modules = ["encoder", "decoder", "both"]
     versions = ["2", "3", "4", "5", "6"]
 
-    bars = ["Fully Connected", "", "Soft Links", "", "", "Fixed Links", "", "", "Randomized Fixed Links", ""]
-    bar_labels = ["MLP",
-                  "GONNECT enc", "GONNECT dec", "GONNECT both",
-                  "_GONNECT enc", "_GONNECT dec", "_GONNECT both",
-                  "_GONNECT enc", "_GONNECT dec", "_GONNECT both"]
+    bars = ["Fully Connected\nAutoencoder", "", "Soft Links", "", "", "GONNECT\nAutoencoder", "", "", "Randomized Fixed Links", ""]
+    bar_labels = ["dual MLP",
+                  "GONNECT encoder", "GONNECT decoder", "dual GONNECT",
+                  "_GONNECT encoder", "_GONNECT decoder", "_dual GONNECT",
+                  "_GONNECT encoder", "_GONNECT decoder", "_dual GONNECT"]
     bar_colors = ["#8516D1",
                   "#1171BE", "#DD5400", "#EDB120",
                   "#1171BE", "#DD5400", "#EDB120",
@@ -105,6 +105,16 @@ def bar_plot_final_loss():
     mean_losses = [np.mean(losses) for losses in losses_per_model]
     std_losses = [np.std(losses) for losses in losses_per_model]
 
+    # # x_positions = [x_positions[0], x_positions[4], x_positions[5], x_positions[6]]
+    # x_positions = x_positions[:7]
+    # mean_losses = [mean_losses[0], mean_losses[4], mean_losses[5], mean_losses[6], mean_losses[7], mean_losses[8], mean_losses[9]]
+    # std_losses = [std_losses[0], std_losses[4], std_losses[5], std_losses[6], std_losses[7], std_losses[8], std_losses[9]]
+    # # bar_labels = [bar_labels[0], bar_labels[4], bar_labels[5], bar_labels[6]]
+    # bar_labels = bar_labels[:7]
+    # bar_colors = [bar_colors[0], bar_colors[4], bar_colors[5], bar_colors[6], bar_colors[7], bar_colors[8], bar_colors[9]]
+    # bars = ["", "", "", "", "", "", "", "", "", ""] # Presentation style
+
+    # plt.figure(figsize=(10, 8)) # Presentation style
     plt.figure(figsize=(8, 8))
     plt.title(f"Average MSE on Gene Expression Reconstruction")
     plt.bar(x_positions, mean_losses, yerr=std_losses, label=bar_labels, color=bar_colors, capsize=5)
@@ -113,6 +123,7 @@ def bar_plot_final_loss():
     plt.ylabel("MSE")
     plt.legend()
     plt.xticks(x_positions, bars, rotation=0)
+    plt.tight_layout()
     plt.show()
 
 
@@ -151,15 +162,15 @@ if __name__ == "__main__":
     version = "3"
     bi_module = "decoder"
 
-    plot_loss_curves(experiment, version, "train")
+    # plot_loss_curves(experiment, version, "train")
     bar_plot_final_loss()
 
     # Evaluate Soft Link alpha parameter
-    experiments = ["AE_3.0", "AE_3.1", "AE_3.2", "AE_3.3"]
-    plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_none_results.txt", loss_type="test")
-    for experiment in experiments:
-        plot_training_loss(f"../../../out/trained_models/{experiment}/{experiment}.{version}_{bi_module}_results.txt", loss_type="mse")
-    plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_{bi_module}_results.txt", loss_type="test")
-    plt.legend([r"MLP", r"$\alpha$ = 1e2", r"$\alpha$ = 1e3", r"$\alpha$ = 1e4", r"$\alpha$ = 1e5", r"Fixed links"])
-    plt.title(f"MSE during training of GONNECT-SL decoder model")
-    plt.show()
+    # experiments = ["AE_3.0", "AE_3.1", "AE_3.2", "AE_3.3"]
+    # plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_none_results.txt", loss_type="test")
+    # for experiment in experiments:
+    #     plot_training_loss(f"../../../out/trained_models/{experiment}/{experiment}.{version}_{bi_module}_results.txt", loss_type="mse")
+    # plot_training_loss(f"../../../out/trained_models/AE_3.-1/AE_3.-1.2_{bi_module}_results.txt", loss_type="test")
+    # plt.legend([r"MLP", r"$\alpha$ = 1e2", r"$\alpha$ = 1e3", r"$\alpha$ = 1e4", r"$\alpha$ = 1e5", r"Fixed links"])
+    # plt.title(f"MSE during training of GONNECT-SL decoder model")
+    # plt.show()
