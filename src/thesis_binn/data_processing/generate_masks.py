@@ -93,23 +93,24 @@ def load_masks(module, merge_conditions, dataset_name, model_type, random_versio
 
 def save_random_masks(module, merge_conditions, dataset_name, model_type, version):
     """Take an existing edge mask and shuffle the edges in a way that preserves the in- and out-degree of each node and save the new random mask."""
-    n_swaps = 10000
     original_masks = load_masks(module, merge_conditions, dataset_name, model_type, root_dir="../../..")
     randomized_masks = []
     # We skip performing swaps fot the final mask, since this mask is for the GO root, which is fully connected, so there are no valid swaps possible
     if module == "encoder":
         masks = original_masks[0][:-1]
+        links_per_layer = [3080, 3843, 1950, 688]
     else:
         masks = original_masks[0][1:]
+        links_per_layer = [688, 1950, 3843, 3080]
 
-    for edge_mask in masks:
+    for i, edge_mask in enumerate(masks):
         # Copy the original edge mask, and make sparse masks temporarily dense during swapping phase
         randomized_edge_mask = edge_mask.clone()
         if model_type == "sparse":
             randomized_edge_mask = randomized_edge_mask.to_dense()
 
         swaps = 0
-        while swaps < n_swaps:
+        while swaps < 100 * links_per_layer[i]:
             # Randomly pick two edges
             edge_indices = torch.nonzero(randomized_edge_mask)
             edge_a = edge_indices[int(torch.rand(1).item() * len(edge_indices) - 1)]
@@ -144,5 +145,11 @@ if __name__ == "__main__":
     # save_layers(layers, merge_conditions, dataset_name)
     # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="sparse")
     # save_masks(layers, merge_conditions, dataset_name, dtype, model_type="dense")
-
-    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=6)
+    save_random_masks("encoder", merge_conditions, dataset_name, "dense", version=9)
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=9)
+    save_random_masks("encoder", merge_conditions, dataset_name, "dense", version=10)
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=10)
+    save_random_masks("encoder", merge_conditions, dataset_name, "dense", version=11)
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=11)
+    save_random_masks("encoder", merge_conditions, dataset_name, "dense", version=12)
+    save_random_masks("decoder", merge_conditions, dataset_name, "dense", version=12)
