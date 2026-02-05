@@ -137,6 +137,9 @@ def merge_overlap(go: dict[str, GOTerm], layer1: int, layer2: int):
 
 def prune_skip_connections(go: dict[str, GOTerm]):
     """If a node A has parents B and C, and B is also an (indirect) parent of C, remove edge AB."""
+    # Boolean for local modification tracking, used in additional term analysis (local goatools modification required)
+    track_mods = hasattr(next(iter(go.values())), "dag_mods")
+
     pruning_events = 0
     # Define direct and indirect parent sets
     for term_id in sorted(go.keys()):
@@ -152,16 +155,27 @@ def prune_skip_connections(go: dict[str, GOTerm]):
                 go[parent_id].children.remove(go[term_id])
                 pruning_events += 1
 
+                # Optionally track mods
+                if track_mods:
+                    supertree = go[term_id].get_all_parents()
+                    subtree = go[term_id].get_all_children()
+                    for elder_id in supertree:
+                        go[elder_id].dag_mods["subtree_prune"] += 1
+                    for offspring_id in subtree:
+                        go[offspring_id].dag_mods["supertree_prune"] += 1
+
                 # Update level and depth after skip removal
                 update_level_and_depth(go[term_id])
 
-    # print(f"Pruning events: {pruning_events}")
     return pruning_events
 
 
 def merge_chains(go: dict[str, GOTerm], threshold_parents=1, threshold_children=1):
     """If a non-leaf node A has #children <= n and #parents <= m, remove node A.
     Parent(s) of A become(s) the new parent(s) of A's children."""
+    # Boolean for local modification tracking, used in additional term analysis (local goatools modification required)
+    track_mods = hasattr(next(iter(go.values())), "dag_mods")
+
     merge_events = 0
     merged_term_ids = []
     for term_id in sorted(go.keys()):
@@ -176,6 +190,15 @@ def merge_chains(go: dict[str, GOTerm], threshold_parents=1, threshold_children=
         # Check merge conditions (root and leaves are never merged)
         if (len(children) > 0) and (len(parents) > 0):
             if (len(parents) <= threshold_parents) & (len(children) <= threshold_children):
+
+                # Optionally track mods
+                if track_mods:
+                    supertree = term.get_all_parents()
+                    subtree = term.get_all_children()
+                    for elder_id in supertree:
+                        go[elder_id].dag_mods["subtree_merge"] += 1
+                    for offspring_id in subtree:
+                        go[offspring_id].dag_mods["supertree_merge"] += 1
 
                 # Update parent-child relations
                 for parent in parents:
@@ -197,7 +220,6 @@ def merge_chains(go: dict[str, GOTerm], threshold_parents=1, threshold_children=
     for merged_id in merged_term_ids:
         go.pop(merged_id)
 
-    # print(f"Merge events: {merge_events}")
     return merge_events
 
 
@@ -489,12 +511,16 @@ def merge_by_depth(go: dict[str, GOTerm], layer_population_threshold: int):
     return merge_events
 
 
-def remove_latent_proxies(go: dict[str, GOTerm]):
-    """Removes all ProxyTerms in the latent layer, with latent layer being the first layer below the root of the DAG."""
+def remove_latent_proxies(go: dict[str, GOTerm], n_go_layers_used=None):
+    """Removes all ProxyTerms in the embedding layer, with embedding layer by default being the first layer below the root of the DAG."""
     print(f"\n----- START: Remove latent proxies -----")
     pre_go_size = len(go.keys())
     layers = create_layers(go)
-    for term in layers[1]:
+    if n_go_layers_used is None:
+        top_layer_index = 1
+    else:
+        top_layer_index = len(layers) - n_go_layers_used
+    for term in layers[top_layer_index]:
         if isinstance(term, ProxyTerm):
             # Remove term an all children that form a chain from this term downwards
             remove_proxy_branch(go, term)
@@ -521,11 +547,11 @@ def remove_proxy_branch(go: dict[str, GOTerm], term: GOTerm):
                 remove_proxy_branch(go, child)
 
 
-def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False):
-    go = construct_go_bp(genes, merge_conditions, print_go, package_call, cluster)
+def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False, n_go_layers_used=None):
+    go = construct_go_bp(genes, merge_conditions, print_go, package_call, cluster, n_go_layers_used)
     return create_layers(go)
 
-def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False):
+def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False, n_go_layers_used=None):
     default_layer_population_threshold = 0
     # Initialize GO DAG
     if cluster:
@@ -565,7 +591,7 @@ def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_cal
     if print_go:
         print_layers(create_layers(go))
     # Remove latent proxies
-    remove_latent_proxies(go)
+    remove_latent_proxies(go, n_go_layers_used)
     if print_go:
         print_layers(create_layers(go))
     # Layerize DAG
