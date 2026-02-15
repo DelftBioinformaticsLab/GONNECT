@@ -21,7 +21,7 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
 
             print("\n----- START: GO preprocessing -----")
             go_layers = construct_go_bp_layers(genes, merge_conditions, print_go=True, package_call=package_call,
-                                               cluster=cluster)
+                                               cluster=cluster, n_go_layers_used=n_go_layers_used)
         masks = None
         print("----- COMPLETED: GO preprocessing -----")
 
@@ -29,7 +29,7 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
         if cluster:
             root_dir = "/opt/app"
         else:
-            root_dir = f"{package_call * "../../"}.."
+            root_dir = (package_call * "../../") + ".."
         go_layers = torch.load(f"{root_dir}/out/masks/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
                                weights_only=True)
         masks = load_masks(biologically_informed, merge_conditions, dataset_name, model_type,
