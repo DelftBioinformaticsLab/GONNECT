@@ -157,6 +157,17 @@ def calculate_final_loss():
     return loss
 
 
+def calculate_mse(experiment_name, version, bi_module):
+    """Retrieve final loss on test set for provided experiment."""
+    loss_path = f"../../../out/trained_models/{experiment_name}/{experiment_name}.{version}_{bi_module}_results.txt"
+    with open(loss_path, "r") as f:
+        loss_file_content = f.readlines()
+    final_losses = [float(loss) for loss in loss_file_content[-1].split("\t")]
+    # Use regular MSE for SL models (disregarding the regularization term for fair performance comparison)
+    final_test_loss = final_losses[2] if (experiment_name != "AE_2.1") else final_losses[3]
+    return final_test_loss
+
+
 if __name__ == "__main__":
     experiment = "AE_2.2"
     version = "3"
