@@ -4,12 +4,11 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from goatools.obo_parser import GOTerm
-from scipy.stats import gaussian_kde
 
 from thesis_binn.data_processing.ProxyTerm import ProxyTerm
 from thesis_binn.data_processing.GeneTerm import GeneTerm
 from thesis_binn.data_processing.dag_analysis import create_layers
-from thesis_binn.data_processing.go_preprocessing import construct_go_bp, construct_go_bp_layers
+from thesis_binn.data_processing.go_preprocessing import construct_go_bp
 from thesis_binn.model.Autoencoder import Autoencoder
 from thesis_binn.model.Coder import DenseCoder
 from thesis_binn.model.Encoder import DenseBICoder
