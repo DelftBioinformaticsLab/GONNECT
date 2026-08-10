@@ -11,11 +11,6 @@ from thesis_binn.model.Autoencoder import Autoencoder
 from thesis_binn.train.loss import MSE
 
 
-def loss_kl_divergence(inputs, outputs, net):
-    """To be used for VAE training..."""
-    return ((inputs - outputs) ** 2).sum() + net.encoder.kl
-
-
 def split_data(data, n_nan_cols, split=0.7, seed=1):
     """Split the given dataframe in train, validation and test sets. The split argument sets the training fraction, the remainder is split 50/50 between validation and test."""
     validation_test_split = 0.5
@@ -28,7 +23,7 @@ def split_data(data, n_nan_cols, split=0.7, seed=1):
 
 
 def make_data_splits(data, n_nan_cols, n_samples, batch_size, data_split, seed):
-    """Split the data provided fot training into the full, train, validation and test sets, and return them as DataLoader objects."""
+    """Split the data provided for training into the full, train, validation and test sets, and return them as DataLoader objects."""
     train_set, validation_set, test_set = split_data(data, n_nan_cols, data_split, seed)
     data_np = data.iloc[:, n_nan_cols:].to_numpy()
     data_torch = TensorDataset(torch.from_numpy(data_np))
@@ -73,6 +68,9 @@ def train(train_loader, net: Autoencoder, optimizer, loss_fn, device="cpu"):
         loss = loss_fn(outputs, inputs)
         loss.backward()
 
+        # Gradient clipping to prevent explosion
+        torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
+
         optimizer.step()
 
         # Force biologically-informed weights
@@ -114,7 +112,8 @@ def train_with_validation(max_epochs, trainloader, testloader, validationloader,
         train_loss = train(trainloader, net, optimizer, loss_fn=loss_function, device=device)
         validation_loss = test(validationloader, net, loss_fn=loss_function, device=device)
         test_loss = test(testloader, net, loss_fn=loss_function, device=device)
-        mse_loss = test(testloader, net, loss_fn=MSE(), device=device) # Loss without regularization term, used for plotting
+        mse_loss = test(testloader, net, loss_fn=MSE(),
+                        device=device)  # Loss without regularization term, used for plotting
         print(f"Train loss after epoch {epoch + 1}:\t{train_loss}\t\t"
               f"Validation loss after epoch {epoch + 1}:\t{validation_loss}\t\t"
               f"Test loss after epoch {epoch + 1}:\t{test_loss}")
@@ -165,11 +164,8 @@ if __name__ == "__main__":
 
     # Load data (samples, genes)
     data = TensorDataset(torch.randn(n_samples, len(layers[-1]), dtype=dtype))
-
     dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-
     model = Autoencoder(Encoder(layers, dtype=dtype), Decoder(layers, dtype=dtype))
-
     optimizer = optim.SGD(model.parameters(), lr=lr)
 
     # Set the number of epochs for training
