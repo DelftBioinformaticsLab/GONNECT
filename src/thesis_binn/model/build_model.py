@@ -37,6 +37,8 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
         print("\n----- COMPLETED: Loading GO from file -----")
 
     # Model construction
+    if not n_go_layers_used:
+        n_go_layers_used = len(go_layers)
     used_go_layers = go_layers[-min(n_go_layers_used, len(go_layers)):]
     print("Layers used in model:")
     print_layers(used_go_layers)
