@@ -6,3 +6,6 @@
 # large data files
 /data/TCGA_complete_bp_top1k.csv.gz
 /data/goa_human.gaf
+
+# slurm files
+/slurm
