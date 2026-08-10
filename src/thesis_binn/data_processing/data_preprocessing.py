@@ -78,7 +78,6 @@ def split_data_deprecated(data, n_nan_cols, split=0.7, seed=1):
 
 
 if __name__ == '__main__':
-    # Best practice would be to make a separate script for the actual processing, but I didn't...
     save = False
     data_folder = "../../../../GO_TCGA"
     dataset_name = "GE_top1k"

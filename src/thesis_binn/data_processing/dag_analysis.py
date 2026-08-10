@@ -106,17 +106,12 @@ def plot_depth_distribution(go: dict[str, GOTerm], term_ids, sub_fig=None, alpha
         if not show_proxy:
             if isinstance(go[term_id], ProxyTerm):
                 continue
-            # # Does the same as the if statement above, but is less robust
-            # if term_id[:5] == "Proxy":
-            #     continue
         depths.append(go[term_id].depth)
         if go[term_id].depth > go[max_depth_term_id].depth:
             max_depth_term_id = term_id
         if go[term_id].depth < go[min_depth_term_id].depth:
             min_depth_term_id = term_id
 
-    # print(f"max leaf depth: {max(depths)} ({max_depth_term_id})")
-    # print(f"min leaf depth: {min(depths)} ({min_depth_term_id})")
     if sub_fig:
         sub_fig.set_xlabel("Depth")
         sub_fig.set_ylabel("Number of terms")

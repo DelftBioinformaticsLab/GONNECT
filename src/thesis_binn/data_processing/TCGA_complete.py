@@ -12,7 +12,6 @@ def test_mapping(n):
 
 
 if __name__ == '__main__':
-    # Best practice would be to make a separate script for the actual processing, but I didn't...
     save = False
     data_folder = "../../../../GO_TCGA"
     # Load data

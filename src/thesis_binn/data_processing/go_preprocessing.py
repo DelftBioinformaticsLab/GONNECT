@@ -112,10 +112,6 @@ def filter_by_namespace(go, namespaces):
     return filtered_go
 
 
-# 28-11-2024
-# NOTE: Merging overlap between layers is unproductive, since this removes high-order terms
-#       that occur often, but at different depths. Merging should be more vertical than on
-#       a per-layer basis. Also, this method currently does not remove terms from the DAG.
 def merge_overlap(go: dict[str, GOTerm], layer1: int, layer2: int):
     """Removes every term in the intersection of layer1 and layer2,
     transferring all children to parents and all parents to children."""
@@ -228,19 +224,11 @@ def merge_prune_until_convergence(go: dict[str, GOTerm], threshold_parents=1, th
     print("\n----- START: Merge-Prune until convergence -----")
     pruning_events, merge_events = 1, 1
     original_go_size = len(go)
-    # Debug:
-    # removed_terms = []
     while merge_events + pruning_events > 0:
-        # Debug:
-        # merge_events, removed = merge_chains(go, threshold_parents, threshold_children)
         merge_events = merge_chains(go, threshold_parents, threshold_children)
         pruning_events = prune_skip_connections(go)
-        # Debug:
-        # removed_terms += removed
     print(f"Remaining nodes: {len(go)}/{original_go_size}")
     print("----- COMPLETED: Merge-Prune until convergence -----")
-    # Debug:
-    # return removed_terms
 
 
 def update_level_and_depth(term: GOTerm):
@@ -274,7 +262,8 @@ def insert_proxy_terms(go: dict[str, GOTerm], root, original_dag_size):
     if len(imbalanced_children) > 0:
         # If-statement used for correctly naming the new balancing proxy term
         if isinstance(root, ProxyTerm):
-            proxy_item_id = "Proxy:" + str(len(go) - original_dag_size + 1) + "_" + root.item_id[(root.item_id.index("_") + 1):]
+            proxy_item_id = "Proxy:" + str(len(go) - original_dag_size + 1) + "_" + root.item_id[
+                                                                                    (root.item_id.index("_") + 1):]
         else:
             proxy_item_id = "Proxy:" + str(len(go) - original_dag_size + 1) + "_" + root.item_id
 
@@ -300,18 +289,12 @@ def balance_until_convergence(go: dict[str, GOTerm], root_id="GO:0000000"):
         insert_proxy_terms(go, go[root_id], original_size)
         n_imbalanced = sum(is_imbalanced(term) for term in go.values())
 
-        if not stall:
-            # print(f"Proxy terms added: {len(go) - dag_size}")
-            # print(f"Imbalanced terms left: {imbalanced}")
-            pass
-
         # Check if the loop stalls, and terminate if needed
         if (len(go) - dag_size == 0) and (n_imbalanced > 0):
             if stall_counter == 0:
                 break
 
             print(f"WARNING: Imbalance can not be resolved.\nLoop will be terminated in {stall_counter}...")
-            stall = True
             stall_counter -= 1
         dag_size = len(go)
     print(f"Number of inserted balancing proxies: {len(go) - original_size}")
@@ -547,11 +530,14 @@ def remove_proxy_branch(go: dict[str, GOTerm], term: GOTerm):
                 remove_proxy_branch(go, child)
 
 
-def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False, n_go_layers_used=None):
+def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False,
+                           n_go_layers_used=None):
     go = construct_go_bp(genes, merge_conditions, print_go, package_call, cluster, n_go_layers_used)
     return create_layers(go)
 
-def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False, n_go_layers_used=None):
+
+def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False,
+                    n_go_layers_used=None):
     default_layer_population_threshold = 0
     # Initialize GO DAG
     if cluster:
@@ -601,31 +587,4 @@ def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_cal
 
 
 if __name__ == "__main__":
-    # OBSOLETE: Moved to test_go_preprocessing.py
-    t_start = time.time()
-    obo_file = "../../../data/go-basic.obo"
-    use_reference = 0
-    if use_reference:
-        # Original GO DAG metrics for comparison
-        t_ref_start = time.time()
-        go_complete_ref = create_dag(obo_file)  # 44017 terms
-        go_bp_ref = filter_by_namespace(go_complete_ref, "biological_process")  # 28539 terms
-        dag_layers_ref = layers_with_duplicates(go_bp_ref)
-        overlap_ref = layer_overlap(dag_layers_ref)
-        t_ref_end = time.time()
-        print(
-            f"Reference processing time: {(t_ref_end - t_ref_start) // 60:.0f}m {(t_ref_end - t_ref_start) % 60:.0f}s")
-
-    # Full-scale GO DAG, GO-BP, greedy layerization and layer overlap
-    go_complete = create_dag(obo_file)
-    go_bp = filter_by_namespace(go_complete, "biological_process")
-    dag_layers = layers_with_duplicates(go_bp)
-    overlap = layer_overlap(dag_layers)
-
-    # Converged DAG
-    converged_layers = layers_with_duplicates(go_bp)
-    converged_overlap = layer_overlap(converged_layers)
-
-    t_end = time.time()
-
-    print(f"Total runtime: {(t_end - t_start) // 60:.0f}m {(t_end - t_start) % 60:.0f}s")
+    pass
