@@ -20,7 +20,7 @@ from thesis_binn.train.train import split_data
 
 
 def activations_per_term(model: Autoencoder, go_layers: [GOTerm], data: pd.DataFrame, bi_module: str):
-    """Returns a DataFrame with GO-terms as columns and raw sample activations as rows."""
+    """Returns a DataFrame with GO-terms as columns and raw sample activations as rows. GO layers are automatically flipped if needed."""
     # Generate activations by performing a forward pass over the provided data
     model.eval()
     with torch.no_grad():
@@ -71,7 +71,7 @@ def setup_figure(data: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, 
     data = data.sort_values("cancer_type")
     data_values = data[data.columns[n_nan_cols:]]
 
-    # Normalize columns -> Debug: How to properly normalize?
+    # Normalize columns
     data_values = (data_values - data_values.mean()) / (data_values.std() / data_values.mean())
 
     fig, ax = plt.subplots(figsize=(12, 18))
@@ -105,7 +105,8 @@ def setup_figure(data: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, 
     plt.tight_layout()
 
 
-def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20, term_selection=None):
+def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20,
+                       term_selection=None):
     # Remove any sample with NaN as label
     activations = activations.dropna(subset=[label])
 
@@ -137,31 +138,6 @@ def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, g
         f_scores = pd.Series(f_values, index=activation_values.columns, name="f_values")
         top_k_terms = f_scores.nlargest(k).index  # Default k=20
 
-    # Debug:
-    # print(top_k_terms) # Print so that the same GO terms can be displayed for different models
-    # top GO terms
-    # top_k_terms = ['GO:0015810', 'GO:0043487', 'GO:0030194', 'GO:0048690', 'GO:0045763',
-    #        'GO:0010903', 'GO:0048686', 'GO:0031641', 'GO:1900135', 'GO:0048731',
-    #        'GO:0007596', 'GO:0048167', 'GO:0010902', 'GO:0060770', 'GO:0048688',
-    #        'GO:0034377', 'GO:0045834', 'GO:0042445', 'GO:0009069', 'GO:2000504',
-    #        'GO:0002087', 'GO:0048858', 'GO:0070778', 'GO:0008206', 'GO:0060291',
-    #        'GO:0043102', 'GO:0040019', 'GO:0072530', 'GO:1902047', 'GO:0046907',
-    #        'GO:0002034', 'GO:0006886', 'GO:0030195', 'GO:0019227', 'GO:0019229',
-    #        'GO:0031643', 'GO:0090660', 'GO:1905869', 'GO:0010466', 'GO:1990961',
-    #        'GO:0032532', 'GO:1903712', 'GO:0097186', 'GO:0019400', 'GO:0006591',
-    #        'GO:0055086', 'GO:0033626', 'GO:0030516', 'GO:0120036', 'GO:0040029']
-    # top Random terms
-    # top_k_terms = ['GO:0043487', 'GO:0060264', 'GO:1901679', 'GO:2000182', 'GO:0098828',
-    #    'GO:0015810', 'GO:1904015', 'GO:1903449', 'GO:0002018', 'GO:0007632',
-    #    'GO:0008630', 'GO:0046878', 'GO:0060513', 'GO:0001990', 'GO:1905941',
-    #    'GO:1904179', 'GO:0140367', 'GO:0033600', 'GO:0034444', 'GO:0032345',
-    #    'GO:0071393', 'GO:1902459', 'GO:0051798', 'GO:0060253', 'GO:0010718',
-    #    'GO:0032331', 'GO:0050867', 'GO:0045859', 'GO:0033555', 'GO:0071214',
-    #    'GO:0051241', 'GO:1905906', 'GO:0033673', 'GO:0010544', 'GO:1905869',
-    #    'GO:0090190', 'GO:0120163', 'GO:0071869', 'GO:0048167', 'GO:0050891',
-    #    'GO:1902532', 'GO:0071466', 'GO:0045820', 'GO:0150094', 'GO:0071318',
-    #    'GO:0016056', 'GO:0090191', 'GO:0010232', 'GO:2000261', 'GO:0006670']
-
     activation_values = activation_values[top_k_terms]
 
     # Cluster columns using clustermap
@@ -178,14 +154,6 @@ def activation_heatmap(activations: pd.DataFrame, label: str, n_nan_cols: int, g
     print("----- COMPLETED: Clustering columns -----")
     # Extract ordered column indices
     ordered_col_indices = clustermap.dendrogram_col.reordered_ind
-
-    # Debug:
-    # print(ordered_col_indices) # Print so that the same GO terms can be displayed for different models
-    # GO cols Encoder
-    # ordered_col_indices = [26, 49, 7, 17, 36, 22, 33, 1, 24, 48, 29, 4, 6, 14, 45, 44, 18, 10, 16, 23, 39, 27, 28, 40, 46, 42, 43, 38, 32, 2, 19, 12, 5, 15, 25, 30, 8, 13, 35, 20, 34, 41, 37, 31, 0, 3, 47, 21, 9, 11]
-    # Random cols Encoder
-    # ordered_col_indices = [30, 40, 29, 22, 28, 47, 45, 46, 34, 35, 16, 17, 21, 31, 37, 43, 27, 7, 1, 8, 10, 0, 3, 26, 12, 13, 11, 20, 5, 49, 44, 48, 33, 38, 32, 6, 18, 24, 23, 25, 42, 14, 19, 39, 15, 41, 36, 9, 2, 4]
-
     ordered_columns = activation_values.columns[ordered_col_indices]
     ordered_values = activation_values[ordered_columns]
 
@@ -258,15 +226,19 @@ def anova_distribution_per_module(activations: pd.DataFrame, label: str, module:
     plt.title(f"Distribution of ANOVA F-values per node for Biologically-Informed {module.capitalize()}")
     plt.xlabel("F-values")
     plt.ylabel("# nodes")
-    # plt.show()
+    plt.show()
 
 
 def anova_distribution(model: Autoencoder, go_layers: [GOTerm], dataset: pd.DataFrame, label: str, n_nan_cols=5):
     data_values = dataset[dataset.columns[n_nan_cols:]]
     activation_values_enc = activations_per_term(model, go_layers, data_values, "encoder")
     activation_values_dec = activations_per_term(model, go_layers, data_values, "decoder")
-    activations_enc = pd.concat([dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values_enc.reset_index(drop=True)], axis=1)
-    activations_dec = pd.concat([dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values_dec.reset_index(drop=True)], axis=1)
+    activations_enc = pd.concat(
+        [dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values_enc.reset_index(drop=True)],
+        axis=1)
+    activations_dec = pd.concat(
+        [dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True), activation_values_dec.reset_index(drop=True)],
+        axis=1)
     anova_distribution_per_module(activations_enc, label, "encoder")
     anova_distribution_per_module(activations_dec, label, "decoder")
     plt.title(f"Distribution of ANOVA F-values for {model.name}")
@@ -349,54 +321,50 @@ def auc_heatmap(auc_data, terms_list):
 
     # Prepare heatmap data: node_name as index, classes as columns
     heatmap_data = auc_data.set_index('name')[auc_cols]
-    # heatmap_data = auc_data.set_index('term')[auc_cols]
 
     # Rename columns to just class names (remove 'roc_auc_' prefix)
     heatmap_data.columns = [col.replace("roc_auc_", "") for col in heatmap_data.columns]
 
-    # # Cluster columns using clustermap
-    # print("\n----- START: Clustering columns -----")
-    # clustermap = sns.clustermap(heatmap_data,
-    #                             metric='correlation',
-    #                             method='average',
-    #                             col_cluster=True,
-    #                             row_cluster=False,
-    #                             cbar_pos=None,
-    #                             xticklabels=True,
-    #                             yticklabels=False)
-    # print("----- COMPLETED: Clustering columns -----")
-    # # Extract ordered column indices
-    # ordered_col_indices = clustermap.dendrogram_col.reordered_ind
-    # ordered_columns = heatmap_data.columns[ordered_col_indices]
-    ordered_columns = ["BRCA", "LUAD", "LUSC", "KIRC", "KIRP", "KICH", "UCEC", "LGG", "HNSC", "THCA", "PRAD", "SKCM",
-                   "COAD", "OV", "STAD", "BLCA", "LIHC", "CESC", "PCPG", "ACC", "SARC", "ESCA", "PAAD", "READ", "TGCT",
-                   "LAML", "THYM", "MESO", "UVM", "UCS", "DLBC", "CHOL"]
+    perform_clustering = False
+    if perform_clustering:
+        # Cluster columns using clustermap
+        print("\n----- START: Clustering columns -----")
+        clustermap = sns.clustermap(heatmap_data,
+                                    metric='correlation',
+                                    method='average',
+                                    col_cluster=True,
+                                    row_cluster=False,
+                                    cbar_pos=None,
+                                    xticklabels=True,
+                                    yticklabels=False)
+        print("----- COMPLETED: Clustering columns -----")
+        # Extract ordered column indices
+        ordered_col_indices = clustermap.dendrogram_col.reordered_ind
+        ordered_columns = heatmap_data.columns[ordered_col_indices]
+    else:
+        ordered_columns = ["BRCA", "LUAD", "LUSC", "KIRC", "KIRP", "KICH", "UCEC", "LGG", "HNSC", "THCA", "PRAD",
+                           "SKCM",
+                           "COAD", "OV", "STAD", "BLCA", "LIHC", "CESC", "PCPG", "ACC", "SARC", "ESCA", "PAAD", "READ",
+                           "TGCT",
+                           "LAML", "THYM", "MESO", "UVM", "UCS", "DLBC", "CHOL"]
     heatmap_data = heatmap_data[ordered_columns]
 
     # Plot heatmap "selected terms, thesis style"
     plt.figure(figsize=(7, 15))
-    sns.heatmap(heatmap_data.transpose(), xticklabels=False, cbar_kws={'label': 'ROC-AUC'}, vmin=0.5, vmax=1.0, cmap="viridis")
+    sns.heatmap(heatmap_data.transpose(), xticklabels=False, cbar_kws={'label': 'ROC-AUC'}, vmin=0.5, vmax=1.0,
+                cmap="viridis")
     plt.xticks(np.arange(heatmap_data.shape[0]) + 0.5, labels=heatmap_data.index, rotation=270)
-
-    # # Plot heatmap "all terms, thesis style"
-    # plt.figure(figsize=(10, 40))
-    # sns.heatmap(heatmap_data, yticklabels=False, cbar_kws={'label': 'ROC-AUC'}, vmin=0.5, vmax=1.0, cmap="viridis")
-    # plt.yticks(np.arange(heatmap_data.shape[0]) + 0.5, labels=heatmap_data.index)
-
-    # # Plot heatmap "selected terms, defense style"
-    # plt.figure(figsize=(15, 7))
-    # sns.heatmap(heatmap_data, yticklabels=False, cbar_kws={'label': 'ROC-AUC'}, vmin=0.5, vmax=1.0, cmap="viridis")
-    # plt.yticks(np.arange(heatmap_data.shape[0]) + 0.5, labels=heatmap_data.index)
 
     plt.title("Per-Class ROC-AUC of GO-terms in GONNECT Encoder")
     plt.ylabel("GO-Term")
     plt.xlabel("Cancer Type")
     plt.tight_layout()
-    # plt.savefig("../../../../publication/auc_encoder.pdf", format="pdf")
+    plt.savefig("../../../../publication/auc_encoder.pdf", format="pdf")
     plt.show()
 
 
-def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm], k=20, term_selection=None):
+def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, n_nan_cols: int, go: dict[str, GOTerm],
+                                         k=20, term_selection=None):
     # Remove any sample with NaN as label
     activations = activations.dropna(subset=[label])
 
@@ -410,7 +378,8 @@ def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, 
 
     # Normalize before performing ANOVA (skip terms without variance)
     var_terms = [col for col in activation_values if activation_values[col].std() != 0]
-    activation_values[var_terms] = (activation_values[var_terms] - activation_values[var_terms].mean()) / (activation_values[var_terms].std())
+    activation_values[var_terms] = (activation_values[var_terms] - activation_values[var_terms].mean()) / (
+        activation_values[var_terms].std())
 
     if term_selection:
         top_k_terms = [term for term in term_selection if term in activation_values.columns]
@@ -422,21 +391,25 @@ def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, 
 
     activation_values = activation_values[top_k_terms]
 
-    # # Cluster columns using clustermap
-    # print("\n----- START: Clustering columns -----")
-    # clustermap = sns.clustermap(activation_values,
-    #                             metric='correlation',
-    #                             method='average',
-    #                             col_cluster=True,
-    #                             row_cluster=False,
-    #                             cmap='viridis',
-    #                             cbar_pos=None,
-    #                             xticklabels=True,
-    #                             yticklabels=True)
-    # print("----- COMPLETED: Clustering columns -----")
-    # Extract ordered column indices
-    # ordered_col_indices = clustermap.dendrogram_col.reordered_ind
-    ordered_columns = activation_values.columns#[ordered_col_indices]
+    perform_clustering = False
+    if perform_clustering:
+        # Cluster columns using clustermap
+        print("\n----- START: Clustering columns -----")
+        clustermap = sns.clustermap(activation_values,
+                                    metric='correlation',
+                                    method='average',
+                                    col_cluster=True,
+                                    row_cluster=False,
+                                    cmap='viridis',
+                                    cbar_pos=None,
+                                    xticklabels=True,
+                                    yticklabels=True)
+        print("----- COMPLETED: Clustering columns -----")
+        # Extract ordered column indices
+        ordered_col_indices = clustermap.dendrogram_col.reordered_ind
+        ordered_columns = activation_values.columns[ordered_col_indices]
+    else:
+        ordered_columns = activation_values.columns
     ordered_values = activation_values[ordered_columns]
 
     # Ensure symmetric colorbar
@@ -450,8 +423,8 @@ def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, 
     ordered_values = ordered_values.sort_values(by=label, key=lambda x: x.map(label_order.index))
 
     plt.figure(figsize=(7, 10))
-    sns.heatmap(np.abs(ordered_values), cmap="coolwarm", xticklabels=False, cbar_kws={'label': 'Activation'}, vmin=-colorbar_extreme_value, vmax=colorbar_extreme_value)
-    # sns.heatmap(ordered_values, cmap="coolwarm", xticklabels=False, cbar_kws={'label': 'Activation'}, vmin=-colorbar_extreme_value, vmax=colorbar_extreme_value)
+    sns.heatmap(np.abs(ordered_values), cmap="coolwarm", xticklabels=False, cbar_kws={'label': 'Activation'},
+                vmin=-colorbar_extreme_value, vmax=colorbar_extreme_value)
 
     # Set column labels
     term_objects = [go[term_id] for term_id in ordered_columns]
@@ -467,10 +440,65 @@ def activation_heatmap_average_per_label(activations: pd.DataFrame, label: str, 
     plt.show()
 
 
+def temporary_act_extraction(experiment_names):
+    """Store activations of given experiments to csv."""
+    # Experiment params
+    experiment_versions = [2, 3, 4, 5, 6]
+    model_names = ["encoder", "decoder"]
+    # Model params
+    model_type = "dense"
+    random_version = None
+    activation_fn = torch.nn.ReLU
+    # GO params
+    go_preprocessing = False
+    merge_conditions = (1, 30, 50)  # min parents, min children, min terms per layer
+    n_go_layers_used = 5
+    # Data params
+    dataset_name = "TCGA_complete_bp_top1k"
+    n_nan_cols = 5
+
+    # Dataset
+    dataset = pd.read_csv(f"../../../data/{dataset_name}.csv.gz", compression="gzip")
+    data_values = dataset[dataset.columns[n_nan_cols:]]
+
+    # GO graph
+    go_layers = make_layers(merge_conditions, dataset_name, n_nan_cols)[-n_go_layers_used:]
+
+    for experiment_name in experiment_names:
+        soft_links = (experiment_name[-1] == "1")
+
+        for model_name in model_names:
+            biologically_informed = model_name
+
+            for experiment_version in experiment_versions:
+                # Model
+                model = build_model(model_type, biologically_informed, soft_links, dataset_name, go_preprocessing,
+                                    merge_conditions, n_go_layers_used, activation_fn, dtype=torch.float64,
+                                    package_call=True)
+                model.load_state_dict(torch.load(
+                    f"../../../out/trained_models/{experiment_name}/{experiment_name}.{experiment_version}_{model_name}_model.pt",
+                    weights_only=True))
+
+                # All activations
+                activation_values = activations_per_term(model, go_layers, data_values, biologically_informed)
+                activation_data = pd.concat([dataset[dataset.columns[:n_nan_cols]].reset_index(drop=True),
+                                             activation_values.reset_index(drop=True)], axis=1)
+
+                # Save activation data as csv
+                activation_data.to_csv(
+                    f"../../../out/activations/{experiment_name}.{experiment_version}_{model_name}_activations.csv.gz",
+                    compression="gzip", index=False)
+                print(f"Saved activations to file: {experiment_name}.{experiment_version}_{model_name}")
+
+    return 0
+
+
 if __name__ == "__main__":
+    temporary_act_extraction(["AE_2.0", "AE_2.1"])
+    breakpoint = 1 / 0
     # Experiment params
     experiment_name = "AE_2.0"
-    experiment_version = ".6" #.6 for encoder, .2...old2 for decoder
+    experiment_version = ".6"  # .6 for encoder, .2...old2 for decoder
     model_name = "encoder"
     # Model params
     model_type = "dense"
@@ -519,18 +547,13 @@ if __name__ == "__main__":
     plot_data = activation_data[cols]
 
     selected_labels = ["Bladder", "Kidney"]
-
-    # index_selection_ascending = [13, 14, 43, 60, 62, 65, 80, 92, 97, 98, 99, 103]
-    # index_selection = [103, 13, 97, 14, 62, 60, 98, 43, 65, 80, 99]
-    # layer_index = 0
-    # layer_terms = [term for term in go_layers[layer_index] if term.item_id[:3] == "GO:"]
-    # term_selection = [term.item_id for i, term in enumerate(layer_terms) if i in index_selection]
-    # term_selection = ['GO:0032349', 'GO:0042573', 'GO:0030198', 'GO:0008203', 'GO:0030195', 'GO:0007417', 'GO:0003012', 'GO:0032346', 'GO:0008210', 'GO:0033601', 'GO:0002052', 'GO:0033574', 'GO:0061036', 'GO:0033089', 'GO:0031018', 'GO:0007586', 'GO:0060421', 'GO:0042102', 'GO:0045619', 'GO:0031104', 'GO:0030073', 'GO:0060253', 'GO:0008206', 'GO:0006670', 'GO:0072107']
-    term_selection = ["GO:0006631", "GO:0008203", "GO:0008206", "GO:0008207", "GO:0008209", "GO:0008210", "GO:0071870", "GO:0061621", "GO:0090141", "GO:0000077", "GO:0043406", "GO:0042102", "GO:0050671", "GO:0030198", "GO:0030199", "GO:0010718", "GO:0031643", "GO:0070572", "GO:0046951", "GO:0030195"]
-    # Replace activation_data by activation_data[activation_data["tumor_tissue_site"].isin(selected_labels)] to plot only selected labels
-    # activation_heatmap(activation_data, "tumor_tissue_site", n_nan_cols, terms_dict, k=50, term_selection=term_selection)
-
-    # activation_heatmap_average_per_label(activation_data, "cancer_type", n_nan_cols, terms_dict, term_selection=term_selection)
+    term_selection = ["GO:0006631", "GO:0008203", "GO:0008206", "GO:0008207", "GO:0008209", "GO:0008210", "GO:0071870",
+                      "GO:0061621", "GO:0090141", "GO:0000077", "GO:0043406", "GO:0042102", "GO:0050671", "GO:0030198",
+                      "GO:0030199", "GO:0010718", "GO:0031643", "GO:0070572", "GO:0046951", "GO:0030195"]
+    activation_heatmap(activation_data, "tumor_tissue_site", n_nan_cols, terms_dict, k=50,
+                       term_selection=term_selection)
+    activation_heatmap_average_per_label(activation_data, "cancer_type", n_nan_cols, terms_dict,
+                                         term_selection=term_selection)
 
     # Create AUC values
     # auc_all = node_per_class_auc(activation_data, "cancer_type", terms_dict)
@@ -538,17 +561,4 @@ if __name__ == "__main__":
     auc_data = pd.read_excel(f"../../../../{experiment_name}{experiment_version}_{model_name}_per_class_auc.xlsx")
     all_terms = list(sorted(auc_data["term"].values.tolist()))
     print(len(all_terms))
-    # term_selection = all_terms[415:]
     auc_heatmap(auc_data[auc_data.columns[1:]], term_selection)
-
-    # OLD
-    # histogram_for_class_activation(activation_data, "tumor_tissue_site", ["Kidney", "Bladder"], terms_dict["GO:1902047"], a=0.5)
-    # Won't use this
-    # anova_distribution_per_module(activation_data, "tumor_tissue_site", biologically_informed)
-    # anova_distribution(model, go_layers, dataset, "cancer_type")
-
-    # # Deprecated
-    # setup_figure(plot_data, "cancer_type", n_nan_cols, terms_dict)
-    # plt.show()
-
-    pass
