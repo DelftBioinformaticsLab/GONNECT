@@ -7,7 +7,9 @@ from goatools.obo_parser import GOTerm
 from scipy.stats import gaussian_kde
 
 from thesis_binn.data_processing.ProxyTerm import ProxyTerm
-from thesis_binn.data_processing.go_preprocessing import construct_go_bp
+from thesis_binn.data_processing.GeneTerm import GeneTerm
+from thesis_binn.data_processing.dag_analysis import create_layers
+from thesis_binn.data_processing.go_preprocessing import construct_go_bp, construct_go_bp_layers
 from thesis_binn.model.Autoencoder import Autoencoder
 from thesis_binn.model.Coder import DenseCoder
 from thesis_binn.model.Encoder import DenseBICoder
@@ -21,27 +23,6 @@ def get_module_weights(module: DenseCoder):
         if isinstance(layer, nn.Linear):
             module_weights.append(layer.weight.data)
     return module_weights
-
-
-def get_soft_links_by_index(module: DenseBICoder):
-    """DEPRECATED: Very inefficient way to filter soft links and their indices. (Has been replaced with sparse tensor implementation.)"""
-    soft_link_values_per_layer = []
-    soft_link_indices_per_layer = []
-    layer_index = 0
-    for layer in module.net_layers:
-        if isinstance(layer, nn.Linear):
-            soft_link_values = []
-            soft_link_indices = []
-            for i, row in enumerate(layer.weight.data):
-                for j, col in enumerate(row):
-                    if not module.edge_masks[layer_index][i][j]:
-                        soft_link_values.append(col.item())
-                        soft_link_indices.append((i, j))
-
-            soft_link_values_per_layer.append(soft_link_values)
-            soft_link_indices_per_layer.append(soft_link_indices)
-            layer_index += 1
-    return soft_link_values_per_layer, soft_link_indices_per_layer
 
 
 def get_go_terms_by_index(module: DenseBICoder):
@@ -115,6 +96,121 @@ def get_top_k_soft_links(soft_links_per_layer: [torch.Tensor], k: int, layer_ind
     return top_links
 
 
+def get_all_soft_links(model: Autoencoder, go: dict[str, GOTerm], gene_dict=None):
+    layer_index = 0
+    if not gene_dict: gene_dict = create_gene_dict()
+
+    # For models that have loaded GO masks from file, perform GO preprocessing to obtain GOTerm objects (hard-coded exception for AE_9.1)
+    if isinstance(model.encoder.go_layers[0], torch.Tensor):
+        go_from_file = True  # Temporary flag for AE_9.1
+        go_layers = create_layers(go)
+        go_layers = go_layers[-min(5, len(go_layers)):]
+
+    # Check for soft link module (double if-statement prevents errors from calling non-existing attributes)
+    soft_link_modules = []
+    if hasattr(model.encoder, "soft_links"):
+        if model.encoder.soft_links:
+            soft_link_modules.append(model.encoder)
+            if go_from_file: model.encoder.go_layers = list(reversed(go_layers))
+
+            # Track from which layer soft links originate
+        else:
+            layer_index = len(model.encoder.go_layers)
+    else:
+        layer_index = len(model.encoder.go_layers)
+
+    if hasattr(model.decoder, "soft_links"):
+        if model.decoder.soft_links:
+            soft_link_modules.append(model.decoder)
+            if go_from_file: model.decoder.go_layers = go_layers
+
+    # Gather soft links from all SL-weight matrices
+    sl_layer = []
+    sl_row = []
+    sl_col = []
+    sl_value = []
+    sl_source_id = []
+    sl_source_name = []
+    sl_source_dag_mods = []
+    sl_source_super_merges = []
+    sl_source_super_prunes = []
+    sl_source_sub_merges = []
+    sl_source_sub_prunes = []
+    sl_sink_id = []
+    sl_sink_name = []
+    sl_sink_dag_mods = []
+    sl_sink_super_merges = []
+    sl_sink_super_prunes = []
+    sl_sink_sub_merges = []
+    sl_sink_sub_prunes = []
+    for module in soft_link_modules:
+        index_to_go = get_go_terms_by_index(module)
+        _, sparse_sl_weights_per_layer = split_weights(module)
+        for i in range(len(sparse_sl_weights_per_layer)):
+            sparse_sl_weights = sparse_sl_weights_per_layer[i]
+            layer_sl_indices = sparse_sl_weights.indices()
+            layer_sl_values = sparse_sl_weights.values()
+            # Store indexing, corresponding terms and weight value of soft links in current layer
+            for j in range(len(layer_sl_indices[0])):
+                sl_layer.append(layer_index)
+                sl_row.append(layer_sl_indices[0][j].item())
+                sl_col.append(layer_sl_indices[1][j].item())
+                sl_value.append(layer_sl_values[j].item())
+                source_term, sink_term = index_to_go[i][layer_sl_indices[0][j].item(), layer_sl_indices[1][j].item()]
+                sl_source_id.append(source_term.item_id)
+                sl_source_name.append(get_term_name_by_id(source_term, go, gene_dict))
+                sl_source_dag_mods.append(sum(source_term.dag_mods.values()))
+                sl_source_super_merges.append(source_term.dag_mods["supertree_merge"])
+                sl_source_super_prunes.append(source_term.dag_mods["supertree_prune"])
+                sl_source_sub_merges.append(source_term.dag_mods["subtree_merge"])
+                sl_source_sub_prunes.append(source_term.dag_mods["subtree_prune"])
+                sl_sink_id.append(sink_term.item_id)
+                sl_sink_name.append(get_term_name_by_id(sink_term, go, gene_dict))
+                sl_sink_dag_mods.append(sum(sink_term.dag_mods.values()))
+                sl_sink_super_merges.append(sink_term.dag_mods["supertree_merge"])
+                sl_sink_super_prunes.append(sink_term.dag_mods["supertree_prune"])
+                sl_sink_sub_merges.append(sink_term.dag_mods["subtree_merge"])
+                sl_sink_sub_prunes.append(sink_term.dag_mods["subtree_prune"])
+
+            layer_index += 1
+
+    soft_link_data = pd.DataFrame()
+    soft_link_data["layer_index"] = sl_layer
+    soft_link_data["source_index"] = sl_col
+    soft_link_data["source_term_id"] = sl_source_id
+    soft_link_data["source_term_name"] = sl_source_name
+    soft_link_data["source_dag_mods"] = sl_source_dag_mods
+    soft_link_data["sink_index"] = sl_row
+    soft_link_data["sink_term_id"] = sl_sink_id
+    soft_link_data["sink_term_name"] = sl_sink_name
+    soft_link_data["sink_dag_mods"] = sl_sink_dag_mods
+    soft_link_data["weight_value"] = sl_value
+    soft_link_data["weight_magnitude"] = np.abs(sl_value)
+    soft_link_data["source_super_merges"] = sl_source_super_merges
+    soft_link_data["source_super_prunes"] = sl_source_super_prunes
+    soft_link_data["source_sub_merges"] = sl_source_sub_merges
+    soft_link_data["source_sub_prunes"] = sl_source_sub_prunes
+    soft_link_data["sink_super_merges"] = sl_sink_super_merges
+    soft_link_data["sink_super_prunes"] = sl_sink_super_prunes
+    soft_link_data["sink_sub_merges"] = sl_sink_sub_merges
+    soft_link_data["sink_sub_prunes"] = sl_sink_sub_prunes
+    return soft_link_data
+
+
+def get_term_name_by_id(term: GOTerm, go: dict[str, GOTerm], genes: dict[str, str]):
+    """Use GO dictionary and gene dictionary to find the name/description of a certain GO/Proxy/Gene-term"""
+    if isinstance(term, ProxyTerm):
+        original_term_index = term.item_id.index("_") + 1
+        term_name = go[term.item_id[original_term_index:]].name
+        if term_name == "":
+            term_name = genes[term.item_id[original_term_index:]]
+    elif isinstance(term, GeneTerm):
+        term_name = genes[term.item_id]
+    else:
+        term_name = term.name
+    return term_name
+
+
 def print_soft_links(soft_link_list: list, go: dict[str, GOTerm], genes: dict[str, str]):
     """Given a list of soft links as tuples of (source, sink, value), print each soft link including a description of source and sink nodes. Return a list of just values, for further processing."""
     values = []
@@ -149,10 +245,7 @@ def histogram_weights_per_module(module_weights, bin_width=0.01, a=1.0, color=No
     n_bins = max(1, int(bin_range.item() / bin_width))
     # Plot histogram
     if color:
-        _, bins, _ = plt.hist(values, log=True, bins=int(.5*n_bins), alpha=a, color=color)
-        # kde = gaussian_kde(values, bw_method='scott')
-        # x_grid = np.linspace(-1.5, 1.5, 1000)
-        # plt.plot(x_grid, kde(x_grid), color=color, lw=2)
+        _, bins, _ = plt.hist(values, log=True, bins=int(.5 * n_bins), alpha=a, color=color)
     else:
         _, bins, _ = plt.hist(values, log=True, bins=n_bins, alpha=a)
     plt.xlabel("Value")
@@ -163,45 +256,53 @@ def histogram_weights_per_module(module_weights, bin_width=0.01, a=1.0, color=No
 def create_gene_dict():
     """Create a lookup table from file in the form of a dictionary containing gene function per Uniprot ID."""
     genes_data = pd.read_excel(f"{project_folder}/../idmapping_2025_06_27.xlsx")
-    gene_dict = {genes_data["From"][i] : genes_data["Function [CC]"][i] for i in range(len(genes_data))}
+    gene_dict = {genes_data["From"][i]: genes_data["Function [CC]"][i] for i in range(len(genes_data))}
     return gene_dict
 
 
 if __name__ == "__main__":
     project_folder = "../../.."
     dataset_name = "TCGA_complete_bp_top1k"
-    experiment_name = "AE_3.1"
-    experiment_version = ".4"
-    model_name = "encoder"
-    n_nan_cols = 5
+    experiment_name = "AE_9.1"
+    for experiment_version in [".2", ".3", ".4", ".5", ".6"]:
+        print(f"---------- START SOFT LINK COMPUTATION FOR SEED {experiment_version} ----------")
+        model_name = "both"
+        n_nan_cols = 5
 
-    # Model construction
-    model_type = "dense"
-    biologically_informed = model_name  # change this for locally trained models
-    soft_links = True
-    random_version = None
-    go_preprocessing = True
-    merge_conditions = (1, 30, 50)
-    n_go_layers_used = 5
-    activation_fn = torch.nn.ReLU
-    dtype = torch.float64
+        # Model construction
+        model_type = "dense"
+        biologically_informed = model_name  # change this for locally trained models
+        soft_links = True
+        random_version = "10%"  # None
+        go_preprocessing = False
+        merge_conditions = (1, 30, 50)
+        n_go_layers_used = 5
+        activation_fn = torch.nn.ReLU
+        dtype = torch.float64
 
-    print("----- START: Loading data -----")
-    dataset = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", compression="gzip")
-    print("----- COMPLETED: Loading data -----")
+        print("----- START: Loading data -----")
+        dataset = pd.read_csv(f"{project_folder}/data/{dataset_name}.csv.gz", compression="gzip")
+        print("----- COMPLETED: Loading data -----")
 
-    print("----- START: Building model -----")
-    # Genes are only needed if there are no masks available from file for the model of interest
-    if go_preprocessing:
+        print("----- START: Building model -----")
         genes = list(dataset.columns[n_nan_cols:])
-    else:
-        genes = None
+        go_dict = construct_go_bp(genes, merge_conditions, print_go=True, package_call=True)
 
-    go_dict = construct_go_bp(genes, merge_conditions, print_go=True, package_call=True)
+        # Build model
+        model = build_model(model_type, biologically_informed, soft_links, dataset_name, go_preprocessing,
+                            merge_conditions, n_go_layers_used, activation_fn, dtype, genes,
+                            random_version=random_version, package_call=True, preprocessed_go_dict=go_dict)
+        model.load_state_dict(torch.load(
+            f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name + experiment_version}_{model_name}_model.pt",
+            weights_only=True))
 
-    # Build model
-    model = build_model(model_type, biologically_informed, soft_links, dataset_name, go_preprocessing, merge_conditions, n_go_layers_used, activation_fn, dtype, genes, random_version=random_version, package_call=True, preprocessed_go_dict=go_dict)
-    model.load_state_dict(torch.load(f"{project_folder}/out/trained_models/{experiment_name}/{experiment_name + experiment_version}_{model_name}_model.pt", weights_only=True))
+        # Store all soft links
+        soft_link_data = get_all_soft_links(model, go_dict)
+        soft_link_data.to_csv(
+            f"../../../out/soft_link_weights/{experiment_name}{experiment_version}_{model_name}_soft_links.csv.gz",
+            compression="gzip", index=False)
+        print("Soft links saved successfully to file.")
+
 
     # Histogram comparing Fixed Links, Soft Links, FC
     model_GO = build_model(model_type, biologically_informed, False, dataset_name, go_preprocessing, merge_conditions, n_go_layers_used, activation_fn, dtype, genes, random_version=random_version, package_call=True, preprocessed_go_dict=go_dict)
@@ -224,19 +325,8 @@ if __name__ == "__main__":
 
     # Count soft links which magnitudes exceed threshold
     for layer in soft_FC:
-        print("Number of active sodt links per layer:")
+        print("Number of active soft links per layer:")
         print(sum(abs(layer.values()) > 0.01).item())
-
-    # # Histogram per layer
-    # for i in range(n_go_layers_used - 1):
-    # # Debug: Plot weights of a single layer
-    # # if i == 1:
-    #     histogram_weights_per_layer(fixed_FC[i], bin_width=0.01, i=i, a=0.2)
-    #     histogram_weights_per_layer(soft_FC[i], bin_width=0.01, i=i, a=0.3)
-    #     histogram_weights_per_layer(soft_GO[i], bin_width=0.01, i=i, a=0.3)
-    #     histogram_weights_per_layer(fixed_GO[i], bin_width=0.01, i=i, a=0.3)
-    #     plt.legend(["FC Links", "Soft non-GO Links", "Soft GO Links", "Fixed GO Links"])
-    #     plt.show()
 
     # Histogram per module
     colors = ["#8516D1", "#1171BE", "#EDB120", "#3BAA32"]
@@ -246,17 +336,3 @@ if __name__ == "__main__":
     histogram_weights_per_module(soft_FC, bin_width=0.01, a=0.6, color=colors[1])
     plt.legend(["Fully Connected", "Fixed Links GO", "Soft Links (GO)", "Soft Links (non-GO)"])
     plt.show()
-
-    # # Soft Link Identification
-    # gene_dict = create_gene_dict()
-    # index_to_go = get_go_terms_by_index(model_GO.encoder if model_name == "encoder" else model_GO.decoder)
-    # layer = 0 if model_name == "encoder" else 3
-    # k = 10
-    # for i in range(4):
-    #     # if model_name == "decoder": i = 3 - i
-    #     print(f"----- Top {k} soft links from {model_name} layer {i} -----")
-    #     soft_link_terms = get_top_k_soft_links(soft_FC, 10, i, index_to_go)
-    #     values = print_soft_links(soft_link_terms, go_dict, gene_dict)
-    #     print(f"----- Mean soft link value: {np.mean(np.abs(values)):.3e} -----\n")
-
-    pass
