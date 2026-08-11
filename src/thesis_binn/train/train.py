@@ -1,12 +1,10 @@
+import time
+
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset, DataLoader
-import torch.optim as optim
 
 from thesis_binn.data_processing.go_preprocessing import *
-from thesis_binn.data_processing.DAGGenerator import DAGGenerator
-from thesis_binn.model.deprecated.OldEncoder import Encoder
-from thesis_binn.model.deprecated.OldDecoder import Decoder
 from thesis_binn.model.Autoencoder import Autoencoder
 from thesis_binn.train.loss import MSE
 
@@ -145,37 +143,3 @@ def save_training_losses(epoch_losses, file_path):
         f.write("Train loss\tValidation loss\tTest loss\tMSE loss\n")
         for epoch_loss in epoch_losses:
             f.write(f"{epoch_loss[0]}\t{epoch_loss[1]}\t{epoch_loss[2]}\t{epoch_loss[3]}\n")
-
-
-if __name__ == "__main__":
-    n_samples = 10
-    batch_size = 10
-    n_epochs = 1000
-    lr = 1e-1
-    dtype = torch.float32
-
-    # DAG to layers
-    dag = DAGGenerator.dag4()
-    go = copy_dag(dag)
-    balance_until_convergence(go, root_id="A")
-    pull_leaves_down(go, len(dag))
-    print_dag_info(go)
-    layers = create_layers(go)
-
-    # Load data (samples, genes)
-    data = TensorDataset(torch.randn(n_samples, len(layers[-1]), dtype=dtype))
-    dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    model = Autoencoder(Encoder(layers, dtype=dtype), Decoder(layers, dtype=dtype))
-    optimizer = optim.SGD(model.parameters(), lr=lr)
-
-    # Set the number of epochs for training
-    epochs = n_epochs
-    epoch_losses = []
-    for epoch in range(epochs):  # loop over the dataset multiple times
-        train_loss = train(dataloader, model, optimizer, MSE())
-        epoch_losses.append(train_loss.item())
-        print(f"Training loss after epoch {epoch + 1}: {train_loss}")
-
-    plt.plot(epoch_losses)
-    plt.show()
-    pass

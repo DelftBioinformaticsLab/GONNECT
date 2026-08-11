@@ -1,10 +1,18 @@
 [project]
 authors = [
-    { name = "mlieftinck", email = "martijn.lieftinck@hotmail.nl" }
+    { name = "M.A. Lieftinck" },
+    { name = "T. Verlaan", email = "t.verlaan@tudelft.nl" },
+    { name = "M.J.T. Reinders" },
 ]
 name = "thesis_binn"
-version = "0.2.1" # INCREMENT FOR EVERY NEW DEPENDENCY
-requires-python = ">=3.9"
+# INCREMENT FOR EVERY NEW DEPENDENCY.
+# 0.3.0 adds the figure/analysis dependencies (pyarrow, gseapy, ...). The SLURM
+# scripts pin container_pixi_0.2.1.sif, which is the environment the published
+# training runs actually used -- that reference is historical and intentional.
+version = "0.3.0"
+# 3.12 is a hard floor: go_preprocessing.py uses PEP 701 f-strings (nested
+# same-type quotes), which are a SyntaxError on 3.9-3.11.
+requires-python = ">=3.12"
 dependencies = [
     "packaging"
 ]
@@ -15,6 +23,9 @@ platforms = ["win-64", "linux-64"]
 
 [tool.pixi.pypi-dependencies]
 thesis_binn = { path = ".", editable = true }
+# Drives figures/src/prepare/run_gsea*.py. Sourced from PyPI rather than conda:
+# there is no win-64 conda build, and this workspace targets win-64 + linux-64.
+gseapy = ">=1.1"
 
 [tool.pixi.system-requirements]
 linux = "3.10"
@@ -23,11 +34,22 @@ cuda = "12.4"
 [tool.pixi.dependencies]
 pytorch = {version=">2.4.1", channel="pytorch"}
 pytorch-cuda = "12.4.*"
-pixi-pycharm = ">=0.0.8,<0.0.9"
 pandas = ">=2.2.3,<3"
 goatools = ">=1.4.12,<2"
-matplotlib = ">=3.10.0,<4"
+# Pinned to the 3.10 series that produced the published PDFs (3.10.8), with
+# >=3.10.8 as the floor: earlier 3.10.x misplaces rasterized artists, which
+# affects the fig2/figS2 scatter panels. <3.11 keeps figure rendering stable.
+matplotlib = ">=3.10.8,<3.11"
 scikit-learn = ">=1.6.1,<2"
 scanpy = ">=1.10.4,<2"
 plotly = ">=6.0.1,<7"
 fastcluster = ">=1.3.0,<2"
+
+# Required by figures/src. pyarrow backs pd.read_parquet for the OntoVAE
+# baseline activations (fig4.py); gseapy drives figures/src/prepare/run_gsea*.py.
+# The rest were previously pulled in only transitively via scanpy/scikit-learn.
+pyarrow = ">=17"
+seaborn = ">=0.13,<0.14"
+openpyxl = ">=3.1,<4"
+scipy = ">=1.14,<2"
+tqdm = ">=4.66,<5"
