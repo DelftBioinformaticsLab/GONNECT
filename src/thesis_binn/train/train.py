@@ -74,16 +74,20 @@ def train(train_loader, net: Autoencoder, optimizer, loss_fn, device="cpu"):
         # Force biologically-informed weights
         net.mask_weights()
 
-        # keep track of loss and accuracy
-        avg_loss += loss
+        # keep track of loss and accuracy (detached, to avoid retaining the graph for a whole epoch)
+        avg_loss += loss.detach()
 
     return avg_loss / len(train_loader)
 
 
-def test(test_loader, net, loss_fn, device="cpu"):
-    """Test current model performance on a validation or test set. Used to prevent overfitting during training."""
+def test(test_loader, net, loss_fn, device="cpu", extra_loss_fn=None):
+    """Test current model performance on a validation or test set. Used to prevent overfitting during training.
+
+    A second loss function can be passed as extra_loss_fn, which is then evaluated on the same forward
+    pass and returned alongside the first, so that reporting an extra metric costs no extra passes."""
     net.to(device)
     avg_loss = 0
+    avg_extra_loss = 0
     # No gradient computation needed for forward pass only
     with torch.no_grad():
         # Iterate over batches
@@ -97,21 +101,26 @@ def test(test_loader, net, loss_fn, device="cpu"):
 
             # keep track of loss and accuracy
             avg_loss += loss
+            if extra_loss_fn is not None:
+                avg_extra_loss += extra_loss_fn(outputs, inputs)
 
-    return avg_loss / len(test_loader)
+    if extra_loss_fn is None:
+        return avg_loss / len(test_loader)
+    return avg_loss / len(test_loader), avg_extra_loss / len(test_loader)
 
 
 def train_with_validation(max_epochs, trainloader, testloader, validationloader, net, optimizer, loss_function,
                           patience, device="cpu"):
     """Function to execute the full training process. The provided model is trained on the train set, and evaluated on both validation and test sets. The patience argument is used for early stopping based on performance on the validation set."""
     epoch_losses = []
+    mse_loss_fn = MSE()  # Loss without regularization term, used for plotting
     t_start = time.time()
     for epoch in range(max_epochs):  # loop over the dataset multiple times
         train_loss = train(trainloader, net, optimizer, loss_fn=loss_function, device=device)
         validation_loss = test(validationloader, net, loss_fn=loss_function, device=device)
-        test_loss = test(testloader, net, loss_fn=loss_function, device=device)
-        mse_loss = test(testloader, net, loss_fn=MSE(),
-                        device=device)  # Loss without regularization term, used for plotting
+        # Both test metrics come from the same forward pass over the test set
+        test_loss, mse_loss = test(testloader, net, loss_fn=loss_function, device=device,
+                                   extra_loss_fn=mse_loss_fn)
         print(f"Train loss after epoch {epoch + 1}:\t{train_loss}\t\t"
               f"Validation loss after epoch {epoch + 1}:\t{validation_loss}\t\t"
               f"Test loss after epoch {epoch + 1}:\t{test_loss}")

@@ -22,8 +22,10 @@ class DenseCoder(nn.Module):
         # ModuleList conversion should appear here, but by passing that down it allows for additional activations to be added
         self.net_layers = network_layers
 
-        # Hooks to store activations during forward pass
+        # Hooks to store activations during forward pass. Storing is opt-in, because cloning every
+        # intermediate output on every batch is overhead during training; only the analysis code reads it.
         self.activations = {}
+        self.store_activations = False
         self._register_hooks()
 
     def forward(self, x):
@@ -32,9 +34,6 @@ class DenseCoder(nn.Module):
         return x
 
     def mask_weights(self):
-        return
-
-    def mask_gradients(self):
         return
 
     def masks_to(self, device):
@@ -47,7 +46,8 @@ class DenseCoder(nn.Module):
 
     def _get_activation_hook(self, name):
         def hook(module, x, output):
-            self.activations[name] = output.detach().clone()
+            if self.store_activations:
+                self.activations[name] = output.detach().clone()
 
         return hook
 
@@ -67,8 +67,26 @@ class DenseBICoder(DenseCoder):
             self.edge_masks = self._create_edge_masks()
 
         self.soft_links = soft_links
+        self._cache_masks()
         if soft_links:
             self._initialize_soft_links()
+
+    def _cache_masks(self):
+        """Derive the masks used every optimization step once, instead of rebuilding them per step.
+
+        All of these are functions of the edge and proxy masks alone, so they are constant for the
+        lifetime of the module. See mask_weights and thesis_binn.train.loss.soft_link_sum."""
+        # Weights towards proxy terms, fixed at 1
+        self.proxy_weight_masks = [e & p for e, p in zip(self.edge_masks, self.proxy_masks)]
+        # Weights without a GO edge: fixed at 0 for GONNECT, regularized as soft links for GONNECT-SL
+        self.non_edge_masks = [~e for e in self.edge_masks]
+        # Biases of proxy terms, fixed at 0
+        self.proxy_bias_masks = [p.squeeze(-1) for p in self.proxy_masks]
+        # Soft links towards proxy terms, used by MSE_Soft_Link_Proxyless
+        self.non_edge_proxy_masks = [n & p for n, p in zip(self.non_edge_masks, self.proxy_masks)]
+        # The element counts are constants as well, so they must not be recomputed inside the loss
+        self.n_non_edge = int(sum(int(m.sum()) for m in self.non_edge_masks))
+        self.n_non_edge_proxy = int(sum(int(m.sum()) for m in self.non_edge_proxy_masks))
 
     def _initialize_soft_links(self):
         # Re-initialize soft links with small values
@@ -85,42 +103,26 @@ class DenseBICoder(DenseCoder):
                 mask_index += 1
 
     def mask_weights(self):
-        """Using the internal dense mask matrices, mask the dense weights and biases after each training step."""
+        """Using the internal dense mask matrices, mask the dense weights and biases after each training step.
+
+        This runs after every optimization step, so it uses the masks cached by _cache_masks and fills
+        in place. Masking the biases element by element in Python forced a host-device synchronization
+        per node, which dominated the training time."""
+        # Ensure that devices match
+        if self.proxy_weight_masks[0].device != self.net_layers[0].weight.device:
+            self.masks_to(self.net_layers[0].weight.device)
+
         # Mask weights using proxy and edge masks
         mask_index = 0
         for layer in self.net_layers:
             if isinstance(layer, nn.Linear):
-                # Ensure that devices match
-                if self.proxy_masks[mask_index].device != layer.weight.device:
-                    self.proxy_masks[mask_index] = self.proxy_masks[mask_index].to(layer.weight.device)
-                if self.edge_masks[mask_index].device != layer.weight.device:
-                    self.edge_masks[mask_index] = self.edge_masks[mask_index].to(layer.weight.device)
-
-                # Combine edge and proxy masks to set BI-weights to proxies
-                proxy_weight_mask = self.edge_masks[mask_index] * self.proxy_masks[mask_index]
                 # Set weights towards proxies to 1
-                layer.weight.data = torch.masked_fill(layer.weight.data, proxy_weight_mask, value=1)
+                layer.weight.data.masked_fill_(self.proxy_weight_masks[mask_index], value=1)
                 # Set bias of proxy terms to 0
-                for i in range(len(layer.bias.data)):
-                    if self.proxy_masks[mask_index][i]:
-                        layer.bias.data[i] = 0
-
+                layer.bias.data.masked_fill_(self.proxy_bias_masks[mask_index], value=0)
                 # Set weights without edges to 0, unless soft links is enabled
                 if not self.soft_links:
-                    layer.weight.data = torch.masked_fill(layer.weight.data, self.edge_masks[mask_index] == 0, value=0)
-                mask_index += 1
-
-    def mask_gradients(self):
-        """Mask the dense gradients of weights and biases after the backwards pass to prevent masked values getting updates."""
-        # Mask gradients using proxy and edge masks
-        mask_index = 0
-        for layer in self.net_layers:
-            if isinstance(layer, nn.Linear):
-                # Set gradients of proxy weights and biases to 0
-                layer.weight.grad = torch.masked_fill(layer.weight.grad, self.proxy_masks[mask_index], value=0)
-                layer.bias.grad = torch.masked_fill(layer.bias.grad, self.proxy_masks[mask_index].T, value=0)
-                # Set gradients of weights without edges to 0
-                layer.weight.grad = torch.masked_fill(layer.weight.grad, self.edge_masks[mask_index] == 0, value=0)
+                    layer.weight.data.masked_fill_(self.non_edge_masks[mask_index], value=0)
                 mask_index += 1
 
     def _create_proxy_masks(self):
@@ -141,8 +143,12 @@ class DenseBICoder(DenseCoder):
 
     def masks_to(self, device):
         """When model is transferred to another device, this method must be called to move the masks as well."""
+        device = torch.device(device)
+        if self.edge_masks[0].device == device:
+            return
         self.edge_masks = [mask.to(device) for mask in self.edge_masks]
         self.proxy_masks = [mask.to(device) for mask in self.proxy_masks]
+        self._cache_masks()
 
 
 class SparseCoder(nn.Module):
@@ -171,8 +177,9 @@ class SparseCoder(nn.Module):
         # ModuleList conversion should appear here, but by passing that down it allows for additional activations to be added
         self.net_layers = network_layers
 
-        # Hooks to store activations during forward pass
+        # Hooks to store activations during forward pass (opt-in, see DenseCoder)
         self.activations = {}
+        self.store_activations = False
         self._register_hooks()
 
     def forward(self, x):
@@ -225,6 +232,7 @@ class SparseCoder(nn.Module):
 
     def _get_activation_hook(self, name):
         def hook(module, x, output):
-            self.activations[name] = output.detach().clone()
+            if self.store_activations:
+                self.activations[name] = output.detach().clone()
 
         return hook

@@ -127,33 +127,31 @@ class MSE_Soft_Link_Proxyless(nn.Module):
 
 
 def soft_link_sum(module: DenseCoder):
-    """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network."""
+    """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network.
+
+    The inverted edge masks and their element count are constant, so they are taken from the module
+    cache (DenseBICoder._cache_masks) rather than rebuilt on every batch."""
     soft_weight_sum = 0
     mask_index = 0
-    n = 0
     for layer in module.net_layers:
         if isinstance(layer, nn.Linear):
             # For each linear layer of the network, sum the absolute values of the masked weights
-            soft_weight_sum += torch.sum(layer.weight.abs() * ~module.edge_masks[mask_index])
-            n += torch.sum(~module.edge_masks[mask_index])
+            soft_weight_sum += torch.sum(layer.weight.abs() * module.non_edge_masks[mask_index])
             mask_index += 1
-    return soft_weight_sum, n
+    return soft_weight_sum, module.n_non_edge
 
 
 def soft_link_proxy_sum(module: DenseCoder):
     """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that go to ProxyTerms and are considered soft links because they are masked by the edge mask of the network."""
     soft_weight_sum = 0
     mask_index = 0
-    n = 0
     for layer in module.net_layers:
         if isinstance(layer, nn.Linear):
             # For each linear layer of the network, sum the absolute values of the masked weights
-            # The used mask is made by multiplying the inverse GO mask by the proxy mask, resulting in a mask of soft links towards proxies
-            soft_proxy_weight_mask = ~module.edge_masks[mask_index] * module.proxy_masks[mask_index]
-            soft_weight_sum += torch.sum(layer.weight.abs() * soft_proxy_weight_mask)
-            n += torch.sum(soft_proxy_weight_mask)
+            # The used mask is the inverse GO mask combined with the proxy mask, i.e. soft links towards proxies
+            soft_weight_sum += torch.sum(layer.weight.abs() * module.non_edge_proxy_masks[mask_index])
             mask_index += 1
-    return soft_weight_sum, n
+    return soft_weight_sum, module.n_non_edge_proxy
 
 
 def module_weight_sum(module: DenseCoder):
