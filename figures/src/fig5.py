@@ -1,19 +1,23 @@
-"""Figure 5: weight distribution and fixed-link vs soft-link preservation.
+"""Figure 5: weight distribution, and GONNECT vs GONNECT-SL preservation.
 
 Three panels:
 
-  a) Encoder weight-magnitude distribution, layers pooled: the fixed-link GO
-     weights (FL), the soft-link weights at those same GO positions, the
-     remaining soft links, and the fully-connected MLP. Per-layer breakdowns
-     and the decoder version are supplementary figures.
-  b) Encoder, per layer: per-GO-node |Pearson r| of the activations (FL vs SL,
-     same seed) and, beside each, a box of the per-seed weight correlation
-     (Spearman rho of |w|, sign ignored).
+  a) Encoder weight-magnitude distribution, layers pooled: the GO-edge weights
+     of original GONNECT, the GONNECT-SL weights at those same GO positions,
+     the remaining soft links, and the fully connected MLP. Per-layer
+     breakdowns and the decoder version are supplementary figures.
+  b) Encoder, per layer: per-GO-term |Pearson r| of the activations (GONNECT vs
+     GONNECT-SL, same seed) and, beside each, a box of the per-seed weight
+     correlation (Spearman rho of |w|, sign ignored).
   c) Same as (b) for the decoder.
 
-The activation box pools GO nodes x 5 seeds; the weight box is 5 seeds (one
+The activation box pools GO terms x 5 seeds; the weight box is 5 seeds (one
 |w| Spearman per seed over that layer's biological GO edges). Seed dots are
 overlaid on the weight boxes so the n=5 is explicit.
+
+Terminology follows the manuscript: "original GONNECT" or "GONNECT" for the
+fixed-link model, never the abbreviation FL, and "GO term" rather than "GO
+node" for what a network node is coupled to.
 
 Inputs, all under --data-dir:
   model_checkpoints/AE_2.0/AE_2.0.<seed>_both_model.pt   fixed-link checkpoints
@@ -91,7 +95,7 @@ LEGEND_PAD_IN = 0.10
 LEGEND_N_ROWS = 3       # heading + two entries
 LEGEND_HEIGHT_IN = 2 * LEGEND_PAD_IN + LEGEND_N_ROWS * LEGEND_ROW_IN
 LEGEND_EDGE_IN = 0.06   # last block -> canvas edge
-LEGEND_COL_W_IN = [3.95,   # heading + FL weights / SL at those positions
+LEGEND_COL_W_IN = [3.95,   # heading + GONNECT GO edges / GONNECT-SL at those
                    4.55,   # the remaining soft links / the MLP reference
                    4.10]   # heading + the two preservation boxes
 # The first two columns are one block and are set close together; the third is
@@ -114,11 +118,20 @@ WEIGHTED = [0, 2, 4, 6]
 CLIP = 1e-12
 BINS = np.linspace(-10, 1, 111)
 
+# (key, legend label, colour). The key is internal and stable; the label is what
+# the reader sees and is the only part that should change when the manuscript's
+# terminology does. They were one string until Reviewer 3 asked for consistent
+# naming, at which point renaming a label silently renamed a dict key in
+# gather() forty lines away -- hence the split.
+#
+# The labels spell the model names out as the manuscript does: it calls this
+# model "original GONNECT" or "GONNECT" and never uses the abbreviation FL, and
+# writes "fully connected" unhyphenated.
 SERIES = [
-    ("FL weights (GO edges)", "#444444"),
-    ("SL @ FL positions", "#1f77b4"),
-    ("SL remaining (soft links)", "#d62728"),
-    ("MLP (fully-connected)", "#2ca02c"),
+    ("fl_go",    "GONNECT (GO edges)",      "#444444"),
+    ("sl_at_go", "GONNECT-SL @ GO edges",   "#1f77b4"),
+    ("sl_soft",  "GONNECT-SL soft links",   "#d62728"),
+    ("mlp",      "MLP (fully connected)",   "#2ca02c"),
 ]
 ACT_COLOR = "#6a9fd8"
 W_COLOR = "#e8923c"
@@ -159,7 +172,7 @@ def bio_positions(data_dir: Path) -> dict:
 def gather(data_dir: Path):
     """Single pass over checkpoints: encoder weight dist + per-seed |w| corr."""
     pos = bio_positions(data_dir)
-    dist = {name: [] for name, _ in SERIES}                       # encoder, pooled
+    dist = {key: [] for key, _, _ in SERIES}                      # encoder, pooled
     wcorr = {k: [] for k in pos}                                  # per (mod,layer): 5 rhos
     for seed in SEEDS:
         fl = load_sd(data_dir, "AE_2.0", seed)
@@ -170,10 +183,10 @@ def gather(data_dir: Path):
             key = f"encoder.net_layers.{li}.weight"
             wf, ws = fl[key].numpy(), sl[key].numpy()
             mask = wf != 0
-            dist["FL weights (GO edges)"].append(log10_abs(wf[mask]))
-            dist["SL @ FL positions"].append(log10_abs(ws[mask]))
-            dist["SL remaining (soft links)"].append(log10_abs(ws[~mask]))
-            dist["MLP (fully-connected)"].append(log10_abs(fc[key].numpy().ravel()))
+            dist["fl_go"].append(log10_abs(wf[mask]))
+            dist["sl_at_go"].append(log10_abs(ws[mask]))
+            dist["sl_soft"].append(log10_abs(ws[~mask]))
+            dist["mlp"].append(log10_abs(fc[key].numpy().ravel()))
         # panels b/c: per-seed |w| Spearman over biological edges
         for (mod, layer), (r, c) in pos.items():
             key = f"{mod}.net_layers.{_common.NET_IDX[mod][layer]}.weight"
@@ -207,7 +220,7 @@ def add_panel_letter(ax, letter):
             fontsize=PT_PANEL, fontweight="bold", va="bottom", ha="left")
 
 
-ACT_LABEL = "activation |Pearson r| (per GO node)"
+ACT_LABEL = "activation |Pearson r| (per GO term)"
 W_LABEL = r"weight $\rho$ of $|w|$ (per seed)"
 
 
@@ -242,10 +255,10 @@ def draw_legend(ax, dist) -> None:
                 va="center", ha="left", fontsize=PT_SMALL)
 
     heading(0, "Weight distribution (a)")
-    for i, (name, color) in enumerate(SERIES):
+    for i, (key, label, color) in enumerate(SERIES):
         col, row = divmod(i, 2)
-        n = dist[name].size
-        swatch(col, row + 1, f"{name} (n={n:,})",
+        n = dist[key].size
+        swatch(col, row + 1, f"{label} (n={n:,})",
                face="none", edge=color, lw=pt(1.0))
 
     heading(2, "Preservation (b, c)")
@@ -254,8 +267,8 @@ def draw_legend(ax, dist) -> None:
 
 
 def plot_panel_a(ax, dist, letter):
-    for name, color in SERIES:
-        ax.hist(dist[name], bins=BINS, histtype="step", lw=pt(1.0), color=color)
+    for key, _, color in SERIES:
+        ax.hist(dist[key], bins=BINS, histtype="step", lw=pt(1.0), color=color)
     ax.set_yscale("log")
     ax.set_xlabel(r"$\log_{10}|w|$", fontsize=PT_BODY, labelpad=pt(1.5))
     ax.set_ylabel("count", fontsize=PT_BODY, labelpad=pt(1.5))
