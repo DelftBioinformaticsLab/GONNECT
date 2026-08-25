@@ -33,6 +33,30 @@ Support modules, imported by the steps above rather than run directly:
 `plot_activation_vs_gsea.py`, `plot_activation_vs_gsea_baselines.py`,
 `plot_perm_nulls.py`, `gonnect_names.py`, `_paths.py`.
 
+`extract_alpha_sweep_weights.py` and `alpha_sweep_numbers.py` sit apart from
+that chain, and from its no-writing-into-`data/` rule: both are deterministic,
+so a rerun cannot quietly move a figure the way the GSEA and permutation steps
+could.
+
+```
+out/trained_models/AE_3.*/          (training output, not deposited)
+  └─ extract_alpha_sweep_weights.py ──→ data/alpha_sweep_weights/
+```
+
+`extract_alpha_sweep_weights.py` copies out the four weight matrices of the
+module each α-sweep run constrains, discarding the unconstrained counterpart
+module that nothing reads — 592 MB of checkpoints become 296 MB of extracts with
+no value changed. It writes into `data/` directly, because that is where figS8
+reads from and because copying tensors is not a computation that can drift.
+
+`alpha_sweep_numbers.py` sits apart from that chain. It reads `loss_traces/` and
+the `AE_3.x` checkpoints under `model_checkpoints/` and writes one table,
+`out/prepare/alpha_sweep/alpha_sweep_numbers.tsv`, holding every number figures
+S7 and S8 are quoted for: final MSE, epochs to plateau, active soft links at
+|w| > 0.1, and |w| percentiles for GO edges against soft links. Unlike the rest
+of this folder it is deterministic and reads only shipped inputs, so a rerun
+reproduces the table exactly.
+
 ## Running
 
 Defaults come from `_paths.py` and are resolved from this file's location, so a

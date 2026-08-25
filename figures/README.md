@@ -26,11 +26,15 @@ relative to this file's location, so nothing else needs configuring.
 
 The GONNECT model versions are `AE_2.0` (fixed link), `AE_2.1` (soft link), `AE_2.2` (randomized GO graph) and `AE_9.1` (10 % of GO edges held out); the trailing number in `AE_2.1.4` is the seed, and seeds run 2–6.
 
+`AE_3.x` is the soft-link α sweep, and numbers differently: `AE_3.0` to `AE_3.3` are α = 10² to 10⁵ and `AE_3.-1` holds the two references (fixed links, and fully connected), while the trailing number is a re-run label rather than a seed — every sweep run is a single instance at data-split seed 1. See *Figures S7 and S8*.
+
 | Folder | Holds |
 |---|---|
 | `metrics/` | Every model metric. Workbooks (`.xlsx`) for the GONNECT family; one flat `.txt` per true-graph baseline, named for the method (`ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt`); and the two `*_rand.txt` files. See below. |
 | `latent_embeddings/` | Per-model sample embeddings, `.pt`, one folder per model version. Drives every t-SNE and k-NN purity panel. |
 | `model_checkpoints/` | Trained model weights, `.pt`. Only `AE_2.0` and `AE_2.1` are present. |
+| `loss_traces/` | Per-epoch train / validation / test loss, one tab-separated `.txt` per `AE_3.x` α-sweep run. 11 files, 0.8 MB. Read by figS7. |
+| `alpha_sweep_weights/` | The weight matrices of the α-sweep runs, one `.pt` per run and module, holding only the module that run constrains. 11 files, 296 MB. Read by figS8. Extracted from the training checkpoints — see *Figures S7 and S8*. |
 | `go_term_activations/` | Per-GO-node activations per sample, `.csv.gz`, one file per seed and module. |
 | `soft_link_weights/` | Learned soft-link weight matrices, `.csv.gz`, one file per seed and module (~3M rows each). |
 | `gsea_gonnect_layers/` | GSEA enrichment for GONNECT, all layers. |
@@ -143,13 +147,15 @@ pixi run python figures/src/run_all.py
 | S4 | `figS4.py` | `fig_main/fig3.py` (`--output-supp`) |
 | S5 | `figS5.py` | newly written — see *Figures S5 and S6* below |
 | S6 | `figS6.py` | newly written |
+| S7 | `figS7.py` | newly written — see *Figures S7 and S8* below |
+| S8 | `figS8.py` | newly written |
 | S9 | `figS9.py` | `fig_main/fig_sl_stability.py` |
 | S10 | `figS10.py` | `fig_main/fig_sl_recovery_trajectory.py` (encoder) |
 | S11 | `figS11.py` | same script, decoder |
 | S12 | `figS12.py` | `fig_main/fig_sl_edits.py` |
 
-Figures 1 and 6 are hand-drawn schematics with no generating code, and
-Figures S7 and S8 were produced outside this repository — see *Not here*.
+Figures 1 and 6 are hand-drawn schematics with no generating code — see
+*Not here*.
 
 `figS4.py` imports `main()` from `fig3.py`, and `figS11.py` from `figS10.py`,
 because each pair is the same analysis over a different metric or module.
@@ -289,6 +295,34 @@ TCGA_complete_bp_top1k.csv.gz                           cancer-type labels
 hard_links.csv                                          restricts columns to GO-term nodes
 ```
 
+### figS7.py — α-sweep training curves
+
+```
+loss_traces/AE_3.-1/AE_3.-1.2_none_results.txt              MLP
+loss_traces/AE_3.-1/AE_3.-1.2_{encoder,decoder}_results.txt Fixed links
+loss_traces/AE_3.{0,1,2,3}/AE_3.{0,1,2,3}.3_{encoder,decoder}_results.txt   α = 10²–10⁵
+```
+
+Plots the last column of each file. For the four α runs that is `MSE loss`, the
+unregularized reconstruction MSE on the test split; column 3 for those is the
+regularized objective, which reaches ~32 at α = 10⁵ and is not comparable across
+α. The three `AE_3.-1.2` baselines predate that column and carry only three —
+see *Figures S7 and S8*.
+
+### figS8.py — α-sweep weight distributions
+
+```
+alpha_sweep_weights/AE_3.-1.2_none_weights.pt       fully connected
+alpha_sweep_weights/AE_3.-1.2_encoder_weights.pt    fixed links
+alpha_sweep_weights/AE_3.0.3_encoder_weights.pt     α = 10²
+alpha_sweep_weights/AE_3.2.3_encoder_weights.pt     α = 10⁴
+```
+
+Encoder only, layers pooled. GO positions are the nonzero weights of the
+fixed-link checkpoint — that model pins every non-GO weight at exactly 0 and
+every proxy weight at exactly 1, so no mask file is needed and the positions
+cannot drift from the model.
+
 ### figS9.py — soft-link weight stability across seeds
 
 ```
@@ -426,12 +460,10 @@ with every rebuilt AUC matrix identical to the shipped one.
 GO-processing steps). They were drawn by hand, not generated, so there is no
 script to include.
 
-**Figures S7 and S8** — the α-sweep loss curves and the α-sweep weight
-distributions — have no generating code anywhere in this repository. They were
-produced alongside the AE_3.x sweep training runs, and the inputs they need
-(per-epoch loss traces, and checkpoints at α = 10²–10⁵) are not in `data/`
-either: `model_checkpoints/` holds only AE_2.0 and AE_2.1. Reproducing them means
-going back to the training repository.
+That is all that is missing now. **Figures S7 and S8** used to be listed here
+too: they were produced outside this repository, and the inputs they need were
+not in `data/`. Both have since been recovered from the cluster and are shipped
+— see *Figures S7 and S8* below.
 
 ## Figures S5 and S6
 
@@ -498,6 +530,114 @@ letters are lower case (**a**, **b**) to match the rest of the paper.
 The scientific content reproduces: across instances the signed means are
 essentially uncorrelated while the magnitudes are near identical, which is
 exactly what panels A and B are there to show.
+
+## Figures S7 and S8
+
+These two had no generating script and, until recently, no inputs either. The
+training runs behind them survived on the cluster and are now shipped in
+`data/`, so both figures reproduce from `data/` like every other one.
+
+### Which runs they are
+
+`experiment_log` lines 158–241 record the sweep. The full-length runs — 1,000
+epochs with early stopping disabled (`patience = 10000`) — are the ones the
+figures use; lower trailing numbers are earlier attempts that stopped early,
+marked *Too low patience* in the log.
+
+| Curve | Run | Trained on |
+|---|---|---|
+| MLP | `AE_3.-1.2_none` | `mse` |
+| Fixed links | `AE_3.-1.2_{encoder,decoder}` | `mse masked` |
+| α = 10² | `AE_3.0.3_{encoder,decoder}` | `soft links` |
+| α = 10³ | `AE_3.1.3_{encoder,decoder}` | `soft links` |
+| α = 10⁴ | `AE_3.2.3_{encoder,decoder}` | `soft links` |
+| α = 10⁵ | `AE_3.3.3_{encoder,decoder}` | `soft links` |
+
+`AE_3.1.4` is a separate *Proxyless* variant (loss `soft links proxy`, which
+adds a 100× penalty on soft links pointing at proxy terms) and is not part of
+this figure. The later `AE_3.-1.{3..6}_none` runs are an L1-regularized MLP
+experiment, not the S7 baselines.
+
+Every run is a single instance at data-split seed 1, unlike the main text's
+seeds 2–6, and no `torch.manual_seed` is set anywhere in `src/`, so weight
+initialization was never seeded and these traces are not reproducible by
+re-running. That is why the recovered runs are shipped rather than regenerated.
+
+### The fixed-links curves are a masked MSE
+
+The two `AE_3.-1.2_{encoder,decoder}` baselines predate the commit that added
+plain-MSE tracking (`dc3c6ea`), so their files carry three columns and the
+plotted test loss is the objective they trained on, `MSE_Masked`. That zeroes
+the residuals of the 29-of-1000 genes with no GO annotation while still dividing
+by 1000, so it sits below a plain MSE on the same weights. Measured from the
+saved checkpoints:
+
+| Run | Plotted (masked) | Plain MSE |
+|---|---|---|
+| `AE_3.-1.2_none` | 0.21175 | 0.21175 |
+| `AE_3.-1.2_encoder` | 0.23071 | **0.29414** |
+| `AE_3.-1.2_decoder` | 0.67214 | 0.70147 |
+
+`AE_3.-1.2_none` trained on plain `mse`, so it is unaffected. The other two are
+plotted as published and carry a footnote in the figure saying what they are;
+recovering a plain-MSE *trace* would need a re-run, since the per-epoch history
+cannot be recomputed from a final checkpoint.
+
+### What changed against the published version
+
+Both figures keep their data and panels. What changed is the house style —
+`FIG_WIDTH_IN`, the type scale, Type 42 fonts — plus two deliberate choices:
+
+- **Colour.** The published pair used matplotlib's `tab10` defaults, whose red
+  and green sit at deuteranopic ΔE 0.7, i.e. one colour for a red-green
+  colourblind reader. Both now use an Okabe-Ito set verified against the
+  all-pairs CVD comparison, with dash patterns as a secondary encoding. Figure
+  5a's own four fail the same check (ΔE 3.9) and are worth revisiting.
+- **figS8's x axis.** The published version binned the signed weight on a linear
+  axis, which crushes eleven decades into a spike at zero. It now uses
+  `log₁₀|w|`, matching Figure 5a — which is what the S8 caption points the
+  reader at for the early-stopped counterpart of panel a. Set
+  `figS8.SIGNED_LINEAR_X = True` to restore the published rendering.
+
+Panel letters are lowercase here, as in every other regenerated figure; the
+published S7/S8 captions use `A)`/`B)` and need the one-line change.
+
+### What is deposited, and what is not
+
+The α-sweep training runs save a whole autoencoder per checkpoint in float64,
+53.8 MB each. In every run only one module is biologically informed; the other
+is a plain dense counterpart that nothing here reads. So `data/` carries the
+constrained module's four weight matrices instead of the checkpoint —
+`prepare/extract_alpha_sweep_weights.py` cuts them out, halving 592 MB to 296 MB
+without changing a value. That is the same trade `soft_link_weights/` already
+makes.
+
+What each consumer reads, verified by tracing `open()` and `torch.load`:
+
+| | `loss_traces/` | `alpha_sweep_weights/` |
+|---|---|---|
+| `figS7.py` | 11 | — |
+| `figS8.py` | — | 4 |
+| `prepare/alpha_sweep_numbers.py` | 11 | 10 |
+
+The union is exactly what ships: 11 traces (0.8 MB) and 11 weight files
+(296 MB). Dropping `alpha_sweep_numbers.py` would take the deposit to 4 weight
+files and 216 MB, at the cost of making the sweep's numbers unreproducible from
+it — so all 11 are included.
+
+The checkpoints themselves stay in `out/trained_models/AE_3.*`, which is
+training output rather than repository content and is not deposited. Regenerating
+the extracts needs them present; `extract_alpha_sweep_weights.py` says so if
+they are missing.
+
+### The numbers behind the figures
+
+`prepare/alpha_sweep_numbers.py` writes every value the sweep is quoted for —
+final MSE, epochs to plateau, active soft links at |w| > 0.1, and |w|
+percentiles for GO edges against soft links — to
+`out/prepare/alpha_sweep/alpha_sweep_numbers.tsv`. Unlike the rest of
+`prepare/`, it is deterministic and reads only shipped inputs.
+
 
 ## Figure width and type
 

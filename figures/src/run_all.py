@@ -18,10 +18,9 @@ from _common import DATA_DIR, OUT_DIR
 
 SRC = Path(__file__).resolve().parent
 
-# Ordered cheapest-first, so problems surface early. Supplementary figures S7
-# and S8 (the alpha sweep) have no generating code and are not listed.
-FIGURES = ["fig3", "figS4", "figS1", "fig2", "figS2",
-           "figS5", "figS6", "figS9", "figS10", "figS11", "figS12",
+# Ordered cheapest-first, so problems surface early.
+FIGURES = ["fig3", "figS4", "figS1", "figS7", "fig2", "figS2",
+           "figS5", "figS6", "figS8", "figS9", "figS10", "figS11", "figS12",
            "figS3", "fig5", "fig4"]
 
 
