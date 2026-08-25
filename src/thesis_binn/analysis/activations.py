@@ -23,9 +23,11 @@ def activations_per_term(model: Autoencoder, go_layers: [GOTerm], data: pd.DataF
     """Returns a DataFrame with GO-terms as columns and raw sample activations as rows. GO layers are automatically flipped if needed."""
     # Generate activations by performing a forward pass over the provided data
     model.eval()
+    model.set_store_activations(True)
     with torch.no_grad():
         x = torch.tensor(data.values)
         y = model(x)
+    model.set_store_activations(False)
 
     # Select which module we want to retrieve activations from and strip off gene layer
     if bi_module == "encoder":
