@@ -171,7 +171,8 @@ class SparseCoder(nn.Module):
         self.activation_fn = activation_fn
         for i in range(len(self.go_layers) - 1):
             network_layers.append(
-                SparseLinear(len(self.go_layers[i]), len(self.go_layers[i + 1]), self.edge_masks[i], dtype=dtype))
+                SparseLinear(len(self.go_layers[i]), len(self.go_layers[i + 1]), self.edge_masks[i],
+                             proxy_mask=self.proxy_masks[i], dtype=dtype))
             if i < len(self.go_layers) - 2:
                 network_layers.append(self.activation_fn())
         # ModuleList conversion should appear here, but by passing that down it allows for additional activations to be added
@@ -188,26 +189,15 @@ class SparseCoder(nn.Module):
         return x
 
     def mask_weights(self):
-        """Sparse weight matrices ensure that edgeless weights remain zero. Dense proxy masks are used to set the non-zero weights corresponding to a ProxyTerm to 1, and their bias to 0."""
-        mask_index = 0
-        for layer in self.net_layers:
-            if isinstance(layer, SparseLinear):
-                # Ensure that devices match
-                if self.proxy_masks[mask_index].device != layer.weight.device:
-                    self.proxy_masks[mask_index] = self.proxy_masks[mask_index].to(layer.weight.device)
+        """No-op. Unlike the masked-dense modules, this architecture holds only the
+        ontology's edges, and the values the architecture fixes (proxy weights at 1,
+        proxy biases at 0) are buffers rather than parameters, so nothing can drift
+        and there is nothing to reset after an optimization step."""
+        return
 
-                nnz_rows = layer.weight.data.coalesce().indices()[0]
-                proxy_mask = self.proxy_masks[mask_index]
-                # If a row of the sparse weight matrix corresponds to a ProxyTerm, all non-zero values in that row are set to 1
-                for j in range(len(nnz_rows)):
-                    if proxy_mask[nnz_rows[j]]:
-                        layer.weight.data = layer.weight.data.coalesce()
-                        layer.weight.data.values()[j] = 1
-                # Mask ProxyTerm bias
-                for i in range(len(layer.bias.data)):
-                    if self.proxy_masks[mask_index][i]:
-                        layer.bias.data[i] = 0
-                mask_index += 1
+    def masks_to(self, device):
+        """Edge indices travel with the module as buffers, so this is a no-op."""
+        return
 
     def _create_proxy_masks(self):
         """Returns a list of dense 1D boolean tensors that represent each network layer. Each non-zero entry means that the corresponding term in that layer is a ProxyTerm."""
