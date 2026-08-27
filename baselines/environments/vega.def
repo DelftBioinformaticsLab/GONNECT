@@ -1,0 +1,28 @@
+# Apptainer image for the VEGA baseline.
+#
+#     apptainer build baselines/environments/vega.sif baselines/environments/vega.def
+#
+# The image holds only the environment; code and data are bind-mounted at run
+# time, as in the top-level container_pixi.def.
+
+Bootstrap: docker
+From: condaforge/miniforge3:latest
+
+%files
+    baselines/environments/vega.yml /opt/env/vega.yml
+
+%post
+    apt-get update && apt-get install -y git build-essential
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    conda env create -f /opt/env/vega.yml
+    conda clean --all -y
+
+    echo '. "/opt/conda/etc/profile.d/conda.sh"' >> $APPTAINER_ENVIRONMENT
+    echo 'conda activate gonnect-vega' >> $APPTAINER_ENVIRONMENT
+
+%runscript
+    # /workspace is the repository root, bound at run time:
+    #   apptainer run --nv -B $PWD:/workspace vega.sif [args]
+    cd /workspace
+    exec python -u baselines/vega/run_vega.py "$@"

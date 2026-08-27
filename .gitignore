@@ -37,3 +37,4 @@ figures/source_data_for_figures.zip
 # repository root -- a bare `out/` also matches figures/out/, which holds the
 # committed figure PDFs, and would silently untrack every one of them.
 /out/
+/data/

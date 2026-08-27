@@ -1,0 +1,34 @@
+# Environment for the OntoVAE baseline.
+#
+# OntoVAE is installed from upstream at a pinned commit. `a000755` is upstream's
+# HEAD and the commit willsketch/onto-vae forked from; the repository is no
+# longer maintained, so it will not move. The PyPI release predates it.
+#
+# scikit-learn is pinned to the version the published runs used; it decides the
+# k-means initialisation behind the NMI/ARI/silhouette numbers.
+#
+#     conda env create -f ontovae.yml
+
+name: gonnect-ontovae
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.9
+  - pandas>=1.1.0
+  - numpy
+  - scipy
+  - goatools>=1.0.15
+  - tqdm>=4.60.0
+  - colorcet>=3.0.0
+  - seaborn>=0.11.0
+  - matplotlib
+  - statsmodels
+  - scikit-learn==1.3.2
+  - pyarrow            # pathway-activity parquet export
+  - pip
+  - pip:
+      # Pick the PyTorch build matching the target CUDA.
+      - torch>=1.10.0
+      - git+https://github.com/hdsu-bioquant/onto-vae@a000755
