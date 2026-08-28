@@ -4,6 +4,7 @@ import time
 
 from gonnect.data_processing.dag_analysis import *
 from gonnect.data_processing.ProxyTerm import ProxyTerm
+from gonnect.paths import resolve_gaf_path, resolve_obo_path
 
 
 def create_dag(file, rel=False):
@@ -531,28 +532,31 @@ def remove_proxy_branch(go: dict[str, GOTerm], term: GOTerm):
 
 
 def construct_go_bp_layers(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False,
-                           n_go_layers_used=None):
-    go = construct_go_bp(genes, merge_conditions, print_go, package_call, cluster, n_go_layers_used)
+                           n_go_layers_used=None, data_dir=None, obo_path=None, gaf_path=None):
+    go = construct_go_bp(genes, merge_conditions, print_go, package_call, cluster, n_go_layers_used,
+                         data_dir=data_dir, obo_path=obo_path, gaf_path=gaf_path)
     return create_layers(go)
 
 
 def construct_go_bp(genes, merge_conditions=(1, 10), print_go=False, package_call=False, cluster=False,
-                    n_go_layers_used=None):
+                    n_go_layers_used=None, data_dir=None, obo_path=None, gaf_path=None):
+    """Build the biological-process GO DAG used by the encoder/decoder masks.
+
+    ``data_dir`` (or the individual ``obo_path`` / ``gaf_path``) says where
+    go-basic.obo and goa_human.gaf live; see gonnect.paths for the full
+    resolution order. ``package_call`` and ``cluster`` are the deprecated
+    pre-1.0 spellings kept for the src/AE_*.py experiment scripts.
+    """
     default_layer_population_threshold = 0
     # Initialize GO DAG
-    if cluster:
-        go_main = create_dag(f"/opt/app/data/go-basic.obo")
-    else:
-        go_main = create_dag(f"{package_call * "../../"}../data/go-basic.obo")
+    obo_path = resolve_obo_path(obo_path, data_dir, package_call=package_call, cluster=cluster)
+    gaf_path = resolve_gaf_path(gaf_path, data_dir, package_call=package_call, cluster=cluster)
+    go_main = create_dag(str(obo_path))
     go_bp = filter_by_namespace(go_main, {"biological_process"})
     go = copy_dag(go_bp)
     # Process GO DAG
     # Add genes
-    if cluster:
-        link_genes_to_go_by_namespace(go, f"/opt/app/data/goa_human.gaf", "biological_process", genes)
-    else:
-        link_genes_to_go_by_namespace(go, f"{package_call * "../../"}../data/goa_human.gaf", "biological_process",
-                                      genes)
+    link_genes_to_go_by_namespace(go, str(gaf_path), "biological_process", genes)
     if print_go:
         print_layers(create_layers(go))
     remove_geneless_branches(go)

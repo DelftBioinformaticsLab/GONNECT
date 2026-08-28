@@ -6,11 +6,20 @@ from gonnect.data_processing.go_preprocessing import construct_go_bp_layers
 from gonnect.model.Autoencoder import Autoencoder
 from gonnect.model.Decoder import SparseBIDecoder, DenseBIDecoder, Decoder
 from gonnect.model.Encoder import SparseBIEncoder, DenseBIEncoder, Encoder
+from gonnect.paths import resolve_masks_dir
 
 
 def build_model(model_type: str, biologically_informed: str, soft_links: bool, dataset_name: str,
                 go_preprocessing: bool, merge_conditions, n_go_layers_used: int, activation_fn, dtype, genes=None,
-                package_call=False, cluster=False, random_version=None, preprocessed_go_dict=None):
+                package_call=False, cluster=False, random_version=None, preprocessed_go_dict=None,
+                data_dir=None, obo_path=None, gaf_path=None, masks_dir=None):
+    """Assemble an Autoencoder from the GO hierarchy, either preprocessed live or loaded from masks.
+
+    Inputs are located through gonnect.paths: pass ``data_dir`` (or ``obo_path`` /
+    ``gaf_path``) when ``go_preprocessing`` is True, and ``masks_dir`` when it is
+    False. ``package_call`` and ``cluster`` are the deprecated pre-1.0 spellings
+    kept working for the src/AE_*.py experiment scripts.
+    """
     # GO processing
     if go_preprocessing:
         if preprocessed_go_dict:
@@ -21,19 +30,17 @@ def build_model(model_type: str, biologically_informed: str, soft_links: bool, d
 
             print("\n----- START: GO preprocessing -----")
             go_layers = construct_go_bp_layers(genes, merge_conditions, print_go=True, package_call=package_call,
-                                               cluster=cluster, n_go_layers_used=n_go_layers_used)
+                                               cluster=cluster, n_go_layers_used=n_go_layers_used,
+                                               data_dir=data_dir, obo_path=obo_path, gaf_path=gaf_path)
         masks = None
         print("----- COMPLETED: GO preprocessing -----")
 
     else:
-        if cluster:
-            root_dir = "/opt/app"
-        else:
-            root_dir = (package_call * "../../") + ".."
-        go_layers = torch.load(f"{root_dir}/out/masks/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
+        masks_dir = resolve_masks_dir(masks_dir, package_call=package_call, cluster=cluster)
+        go_layers = torch.load(f"{masks_dir}/layers/{str(merge_conditions)}/{dataset_name}_layers.pt",
                                weights_only=True)
         masks = load_masks(biologically_informed, merge_conditions, dataset_name, model_type,
-                           random_version=random_version, root_dir=root_dir)
+                           random_version=random_version, masks_dir=masks_dir)
         print("\n----- COMPLETED: Loading GO from file -----")
 
     # Model construction

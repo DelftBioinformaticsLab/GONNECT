@@ -2,6 +2,10 @@
 .pixi
 *.egg-info
 
+# Build artefacts from `python -m build`; releases are built in CI, never committed
+/dist/
+/build/
+
 # Python bytecode
 __pycache__/
 *.pyc

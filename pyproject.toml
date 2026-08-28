@@ -1,3 +1,8 @@
+# PEP 639 license expressions (`license = "MIT"`) need setuptools 77 or newer.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 [project]
 authors = [
     { name = "T. Verlaan", email = "t.verlaan@tudelft.nl" },
@@ -6,29 +11,94 @@ authors = [
     { name = "M.J.T. Reinders" },
 ]
 name = "gonnect"
+description = "Biologically-informed autoencoders constrained by the Gene Ontology"
 # 1.0.0 is the release accompanying the publication. Bump the minor version for
 # every new dependency, so the environment a run used stays identifiable.
-# The SLURM scripts pin container_pixi_0.2.1.sif, which is the environment the
-# published training runs actually used -- that reference is historical and
-# intentional, and predates this numbering.
+# This version is also the Apptainer image name: the SLURM scripts invoke
+# container_pixi_1.0.0.sif, so bumping it here means rebuilding the image and
+# updating slurm/ to match. (The published runs were produced with the earlier
+# container_pixi_0.2.1.sif, before this numbering was unified.)
 version = "1.0.0"
-# 3.12 is a hard floor: go_preprocessing.py uses PEP 701 f-strings (nested
-# same-type quotes), which are a SyntaxError on 3.9-3.11.
-requires-python = ">=3.12"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = [
+    "gene ontology",
+    "autoencoder",
+    "biologically-informed neural network",
+    "bioinformatics",
+    "transcriptomics",
+]
+# The published runs used 3.12 (what the pixi environment pins), but the library
+# itself needs nothing newer than 3.9: no PEP 604 unions, and the PEP 585 builtin
+# generics it does use (dict[str, GOTerm]) landed in 3.9. The full test suite
+# passes on 3.9 and 3.12 alike; 3.10 and 3.11 are inferred, not exercised.
+requires-python = ">=3.9"
+# Floors are deliberately low and there are no upper caps: the package uses a
+# small, long-stable slice of each API (torch: nn/sparse_coo_tensor/sparse.mm and
+# load(weights_only=), pandas: DataFrame/read_csv, numpy: array/arange, sklearn:
+# train_test_split), so pinning tighter would only cause resolution conflicts in
+# other people's environments. The floors below are the oldest combination the
+# test suite was actually run against; the pixi environment pins the much newer
+# versions the published results used.
 dependencies = [
-    "packaging"
+    "goatools>=1.2",
+    # 1.22, not lower: scikit-learn pulls in scipy, whose wheels are built
+    # against a newer numpy ABI than 1.21 provides, so numpy 1.21 + a current
+    # scipy fails at import with "numpy.core.multiarray failed to import".
+    "numpy>=1.22",
+    "pandas>=1.5",
+    "scikit-learn>=1.0",
+    "torch>=2.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 
+[project.urls]
+Homepage = "https://github.com/DelftBioinformaticsLab/GONNECT"
+Repository = "https://github.com/DelftBioinformaticsLab/GONNECT"
+Issues = "https://github.com/DelftBioinformaticsLab/GONNECT/issues"
+Publication = "https://doi.org/10.1101/2025.11.06.686983"
+Dataset = "https://doi.org/10.4121/0d78788b-6bd7-4941-a942-245309107b6d"
+
 # Only the library ships. Without this, setuptools flat-scans src/ and installs
-# the experiment runner scripts (AE_1/, GO_preprocessing_local) as importable
-# top-level modules alongside the package.
+# the experiment runner scripts (AE_*, GO_preprocessing_local) as importable
+# top-level modules alongside the package. gonnect.analysis is excluded on top of
+# that: it is a leaf nothing else imports, it resolves its inputs relative to a
+# repository checkout, and shipping it would drag seaborn/umap-learn into every
+# install. It stays in the repository for the paper's reproduction path, as does
+# tools/prepare_tcga_dataset.py (the only user of scanpy/anndata anywhere).
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["gonnect*"]
+exclude = ["gonnect.analysis*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Skips are the normal outcome for the tests that need goa_human.gaf, which is
+# not in the repository; -ra keeps the reasons visible instead of silent dots.
+addopts = "-ra"
 
 [tool.pixi.workspace]
 channels = ["nvidia", "conda-forge", "pytorch", "bioconda"]
-platforms = ["win-64", "linux-64"]
+# System requirements are declared per platform (the `[tool.pixi.system-requirements]`
+# table this replaces was deprecated in pixi 0.73). CUDA 12.4 is a hard requirement
+# on both platforms: the environment will not solve on a machine without it. The
+# minimum kernel version applies to linux-64 only.
+platforms = [
+    { platform = "win-64", cuda = "12.4" },
+    { platform = "linux-64", cuda = "12.4", linux = "3.10" },
+]
 
 [tool.pixi.pypi-dependencies]
 gonnect = { path = ".", editable = true }
@@ -36,11 +106,9 @@ gonnect = { path = ".", editable = true }
 # there is no win-64 conda build, and this workspace targets win-64 + linux-64.
 gseapy = ">=1.1"
 
-[tool.pixi.system-requirements]
-linux = "3.10"
-cuda = "12.4"
-
 [tool.pixi.dependencies]
+# Test runner for tests/. Not a runtime dependency of the published package.
+pytest = ">=8,<9"
 pytorch = {version=">2.4.1", channel="pytorch"}
 pytorch-cuda = "12.4.*"
 pandas = ">=2.2.3,<3"

@@ -68,7 +68,7 @@ genes = list(data.columns[N_NAN_COLS:])
 gene_mask = torch.load(
     os.path.join(ROOT, "out", "masks", "genes", str(MERGE_CONDITIONS), f"{DATASET}_gene_mask.pt"),
     weights_only=True)
-os.chdir(os.path.join(ROOT, "src"))  # build_model resolves mask paths relative to src/
+MASKS_DIR = os.path.join(ROOT, "out", "masks")
 
 completed = set()
 if os.path.exists(OUT):
@@ -98,7 +98,7 @@ for seed in SEEDS:
         with contextlib.redirect_stdout(quiet):
             model = build_model("dense", bi_module, soft_links, DATASET, False, MERGE_CONDITIONS,
                                 N_GO_LAYERS, torch.nn.ReLU, DTYPE, genes, cluster=False,
-                                random_version=None)
+                                random_version=None, masks_dir=MASKS_DIR)
         model.to(DEVICE)
         model.masks_to(DEVICE)
         if loss_name == "soft links":

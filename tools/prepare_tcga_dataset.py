@@ -1,6 +1,11 @@
+"""Builds the TCGA expression matrix used by the paper from the raw GO_TCGA drop.
+
+Kept in the repository rather than the published package: it is a one-off
+dataset-preparation step, nothing imports it, and it is the only thing in the
+project that needs scanpy/anndata. Run it with those installed alongside gonnect.
+"""
+
 import pandas as pd
-import scanpy as sc
-import anndata
 from gonnect.data_processing.data_preprocessing import read_gene_names_to_uniprot_ids, read_gene_names_and_ids, \
     read_gene_ids, read_uniprot_ids_to_gene_names, save_list
 
@@ -12,6 +17,9 @@ def test_mapping(n):
 
 
 if __name__ == '__main__':
+    import anndata
+    import scanpy as sc
+
     save = False
     data_folder = "../../../../GO_TCGA"
     # Load data

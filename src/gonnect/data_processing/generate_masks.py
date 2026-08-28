@@ -6,6 +6,7 @@ from goatools.obo_parser import GOTerm
 from gonnect.data_processing.go_preprocessing import construct_go_bp_layers
 from gonnect.model.Decoder import DenseBIDecoder, SparseBIDecoder
 from gonnect.model.Encoder import DenseBIEncoder, SparseBIEncoder
+from gonnect.paths import resolve_masks_dir
 
 
 def make_layers(merge_conditions, dataset_name, n_nan_cols, print_go=True, n_go_layers_used=5):
@@ -61,8 +62,15 @@ def save_masks(layers: [GOTerm], merge_conditions, dataset_name, dtype, model_ty
     print(f"----- Saved {model_type} masks to file -----")
 
 
-def load_masks(module, merge_conditions, dataset_name, model_type, random_version=None, root_dir=".."):
-    """Load edge and proxy masks from file. Arguments are used to find the correct file path for the AE module. Masks are returned as a list of Tensors. The 'random_version' argument should be the integer of the randomized edge mask you want to use."""
+def load_masks(module, merge_conditions, dataset_name, model_type, random_version=None, root_dir=None, masks_dir=None):
+    """Load edge and proxy masks from file. Arguments are used to find the correct file path for the AE module. Masks are returned as a list of Tensors. The 'random_version' argument should be the integer of the randomized edge mask you want to use.
+
+    Pass 'masks_dir' to point straight at a directory laid out like out/masks/.
+    'root_dir' is the pre-1.0 spelling (a repository root, whose out/masks is
+    used) and is still honoured; when neither is given, gonnect.paths falls back
+    to $GONNECT_MASKS_DIR and then ./out/masks.
+    """
+    masks_dir = resolve_masks_dir(masks_dir, root_dir=root_dir)
     suffix = ""
     if random_version is not None:
         suffix = f"_random{str(random_version)}"
@@ -71,20 +79,20 @@ def load_masks(module, merge_conditions, dataset_name, model_type, random_versio
     if (module == "encoder") or (module == "both"):
         masks.append(
             torch.load(
-                f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks{suffix}.pt",
+                f"{masks_dir}/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks{suffix}.pt",
                 weights_only=True))
         masks.append(
             torch.load(
-                f"{root_dir}/out/masks/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
+                f"{masks_dir}/encoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
                 weights_only=True))
     if (module == "decoder") or (module == "both"):
         masks.append(
             torch.load(
-                f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks{suffix}.pt",
+                f"{masks_dir}/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_edge_masks{suffix}.pt",
                 weights_only=True))
         masks.append(
             torch.load(
-                f"{root_dir}/out/masks/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
+                f"{masks_dir}/decoder/{str(merge_conditions)}/{dataset_name}_{model_type}_proxy_masks.pt",
                 weights_only=True))
     if len(masks) == 0:
         return None

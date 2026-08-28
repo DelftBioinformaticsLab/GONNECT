@@ -1,5 +1,4 @@
 from goatools.obo_parser import GOTerm
-import matplotlib.pyplot as plt
 import numpy as np
 
 from gonnect.data_processing.GeneTerm import GeneTerm
@@ -99,6 +98,17 @@ def layer_overlap(layers):
 
 def plot_depth_distribution(go: dict[str, GOTerm], term_ids, sub_fig=None, alpha=0.5, bins=np.arange(20) - 0.5,
                             title="Distribution of GO-term depths", show_proxy=False):
+    # Imported here rather than at module scope: dag_analysis sits on the import
+    # path of build_model, and matplotlib is needed by this function alone. Keeping
+    # it lazy means matplotlib is not a dependency of the package at all.
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as exc:
+        raise ImportError(
+            "plot_depth_distribution needs matplotlib, which gonnect does not "
+            "depend on. Install it with `pip install matplotlib`."
+        ) from exc
+
     depths = []
     max_depth_term_id = "GO:0000001"
     min_depth_term_id = "GO:0000001"

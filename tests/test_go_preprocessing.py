@@ -1,4 +1,6 @@
-from unittest import TestCase
+import os
+from pathlib import Path
+from unittest import SkipTest, TestCase, skipUnless
 from goatools.obo_parser import GODag
 from gonnect.data_processing.DAGGenerator import DAGGenerator
 import matplotlib.pyplot as plt
@@ -12,13 +14,48 @@ from gonnect.data_processing.go_preprocessing import insert_proxy_terms, update_
 from gonnect.data_processing.dag_analysis import layers_with_duplicates, layer_overlap, all_leaf_ids, \
     plot_depth_distribution
 from gonnect.data_processing.ProxyTerm import ProxyTerm
+from gonnect.paths import DATA_DIR_ENV_VAR, GAF_FILENAME, OBO_FILENAME
 
-go_main = create_dag("../../../data/go-basic.obo")
-go_bp_main = filter_by_namespace(go_main, {"biological_process"})
-go_rel_main = create_dag("../../../data/go-basic.obo", rel=True)
-go_rel_main_parentless = copy_dag(go_rel_main)
-relationships_to_parents(go_rel_main)
+# Inputs are resolved rather than hardcoded so the suite runs from any working
+# directory, and so $GONNECT_DATA_DIR can point at copies outside the repository.
+# Falls back to the repository's own data/ directory.
+#
+# go-basic.obo is committed, so it is normally present. goa_human.gaf is not (it
+# is gitignored -- see the README), and neither is GE_matches_bp_id.txt, so the
+# tests needing those skip rather than fail. Nothing here is loaded at import
+# time: the sdist ships tests/ without data/, and a bare `pytest` on an unpacked
+# sdist must skip cleanly instead of erroring during collection.
+DATA_DIR = Path(os.environ.get(DATA_DIR_ENV_VAR) or Path(__file__).resolve().parent.parent / "data")
+OBO_PATH = DATA_DIR / OBO_FILENAME
+GAF_PATH = DATA_DIR / GAF_FILENAME
+GENE_IDS_PATH = DATA_DIR / "GE_matches_bp_id.txt"
+
+
+def _missing(path):
+    return f"{path.name} not found in {DATA_DIR}; set ${DATA_DIR_ENV_VAR} to a directory containing it"
+
+
+requires_gaf = skipUnless(GAF_PATH.is_file(), _missing(GAF_PATH))
+requires_gene_ids = skipUnless(GENE_IDS_PATH.is_file(), _missing(GENE_IDS_PATH))
+
+# Populated by setUpModule. Parsing go-basic.obo twice costs a few seconds, so it
+# happens once per run and only when tests are actually executed.
+go_main = None
+go_bp_main = None
+go_rel_main = None
+go_rel_main_parentless = None
 plot = False
+
+
+def setUpModule():
+    global go_main, go_bp_main, go_rel_main, go_rel_main_parentless
+    if not OBO_PATH.is_file():
+        raise SkipTest(_missing(OBO_PATH))
+    go_main = create_dag(str(OBO_PATH))
+    go_bp_main = filter_by_namespace(go_main, {"biological_process"})
+    go_rel_main = create_dag(str(OBO_PATH), rel=True)
+    go_rel_main_parentless = copy_dag(go_rel_main)
+    relationships_to_parents(go_rel_main)
 
 
 class Test(TestCase):
@@ -284,7 +321,7 @@ class Test(TestCase):
         pull_leaves_down(go, len(go))
 
     def test_load_relationships(self):
-        go_rel_full = GODag("../../../data/go-basic.obo", optional_attrs={"relationship"})
+        go_rel_full = GODag(OBO_PATH, optional_attrs={"relationship"})
         go_rel = filter_by_namespace(go_rel_full, {"biological_process"})
         del go_rel_full
         self.assertIsNotNone(go_rel["GO:0002893"].relationship)
@@ -443,29 +480,32 @@ class Test(TestCase):
         #     other.append(diff_r_i_conv[i])
         # pass
 
+    @requires_gaf
     def test_link_genes_bp(self):
         """Result: Three genes not linked because their annotated GO terms are obsolete."""
         go = copy_dag(go_bp_main)
         print_dag_info(go)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         print_dag_info(go)
         print(f"Genes not on leafs: {len(genes_not_on_leaves_ids(go))}")
 
+    @requires_gaf
     def test_link_genes_all_namespaces(self):
         """Result: Genes are added to non-leaf GO-terms."""
         go = copy_dag(go_rel_main)
         print_dag_info(go)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "cellular_component")
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "molecular_function")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "cellular_component")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "molecular_function")
         print_dag_info(go)
         print(f"Genes not on leafs: {len(genes_not_on_leaves_ids(go))}")
 
+    @requires_gaf
     def test_link_merge_prune_balance_pull_bp(self):
         """Result: All genes with valid annotations are linked (36k)."""
         go = copy_dag(go_bp_main)
         print_dag_info(go)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         merge_prune_until_convergence(go, 1, 10)
         balance_until_convergence(go)
         pull_leaves_down(go, len(go_bp_main))
@@ -474,26 +514,29 @@ class Test(TestCase):
         layers = create_layers(go)
         pass
 
+    @requires_gaf
     def test_unannotated_leaves(self):
         """Result: 36k gene-leaves, 20k term-leaves (57k leaves total)."""
         go = copy_dag(go_main)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         leaf_ids = all_leaf_ids(go)
         non_gene_leaf_ids = [term_id for term_id in leaf_ids if not isinstance(go[term_id], GeneTerm)]
         gene_leaf_ids = [term_id for term_id in leaf_ids if isinstance(go[term_id], GeneTerm)]
         pass
 
+    @requires_gaf
     def test_remove_geneless_branches_bp(self):
         """Result: Works :)"""
         go = copy_dag(go_bp_main)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         print_dag_info(go)
         remove_geneless_branches(go)
         print_dag_info(go)
 
+    @requires_gaf
     def test_full_cycle_bp(self):
         go = copy_dag(go_bp_main)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         remove_geneless_branches(go)
         merge_prune_until_convergence(go, 1, 10)
         balance_until_convergence(go)
@@ -502,13 +545,14 @@ class Test(TestCase):
         print_dag_info(go)
         pass
 
+    @requires_gaf
     def test_full_cycle_bp_dag_shape(self):
         go = copy_dag(go_bp_main)
         print_dag_info(go)
         print("Original GO")
         print_layers(create_layers(go))
 
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         print_layers(create_layers(go))
 
         remove_geneless_branches(go)
@@ -537,15 +581,18 @@ class Test(TestCase):
         objs = create_layers(go)
         ori = create_layers_deprecated(go)
 
+    @requires_gaf
     def test_save_gene_ids(self):
         go = copy_dag(go_bp_main)
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process")
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process")
         # save_gene_ids(go, "../../GO_TCGA/gene_ids_in_go_bp_test.txt")
 
+    @requires_gaf
+    @requires_gene_ids
     def test_link_genes_from_subset(self):
         go = copy_dag(go_bp_main)
-        genes = read_gene_ids("../../../../GO_TCGA/GE_matches_bp_id.txt")
-        link_genes_to_go_by_namespace(go, "../../../../GO_TCGA/goa_human.gaf", "biological_process", genes)
+        genes = read_gene_ids(str(GENE_IDS_PATH))
+        link_genes_to_go_by_namespace(go, str(GAF_PATH), "biological_process", genes)
         remove_geneless_branches(go)
         print_dag_info(go)
         pass

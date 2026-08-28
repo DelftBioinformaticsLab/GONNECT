@@ -5,6 +5,8 @@ the figure pipeline build on. Everything else stays reachable at its full path,
 e.g. ``from gonnect.data_processing.go_preprocessing import construct_go_bp``.
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from gonnect.model.Autoencoder import Autoencoder
 from gonnect.model.build_model import build_model
 from gonnect.train.loss import (
@@ -22,7 +24,10 @@ from gonnect.train.train import (
     train_with_validation,
 )
 
-__version__ = "1.0.0"
+try:
+    __version__ = version("gonnect")
+except PackageNotFoundError:  # running from a source tree that was never installed
+    __version__ = "0.0.0.dev0"
 
 __all__ = [
     "Autoencoder",

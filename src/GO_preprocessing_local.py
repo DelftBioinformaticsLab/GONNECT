@@ -73,7 +73,8 @@ if __name__ == "__main__":
                         dtype,
                         genes,
                         cluster=cluster,
-                        random_version=random_version)
+                        random_version=random_version,
+                        data_dir=f"{project_folder}/data")
     if load_weights:
         model.load_state_dict(
             torch.load(f"{project_folder}/out/trained_models/{experiment_name}/{load_weights_path}_model.pt",

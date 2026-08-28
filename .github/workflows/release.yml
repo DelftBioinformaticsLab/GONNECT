@@ -1,0 +1,105 @@
+name: Publish to PyPI
+
+# Tag-triggered release. The tag is the source of truth for what gets published,
+# and the job refuses to run if it disagrees with the version in pyproject.toml,
+# so a forgotten version bump fails loudly instead of re-uploading a stale build.
+on:
+  push:
+    tags:
+      - "v*"
+  # Lets you produce and inspect the artefacts (and optionally push to TestPyPI)
+  # without cutting a real release.
+  workflow_dispatch:
+    inputs:
+      testpypi:
+        description: "Upload to TestPyPI instead of building only"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+
+      - name: Check the tag matches the packaged version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          packaged=$(python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [ "$tag" != "$packaged" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pyproject.toml version $packaged"
+            exit 1
+          fi
+          echo "Releasing version $packaged"
+
+      - name: Build
+        run: python -m build
+
+      - name: Validate metadata
+        run: twine check --strict dist/*
+
+      # Installs the built wheel on its own and imports the package, so a broken
+      # dependency list or a missing module is caught before anything is uploaded.
+      - name: Smoke-test the wheel
+        run: |
+          python -m venv /tmp/smoke
+          /tmp/smoke/bin/python -m pip install --upgrade pip
+          /tmp/smoke/bin/python -m pip install dist/*.whl
+          /tmp/smoke/bin/python -c "
+          import gonnect
+          from gonnect import Autoencoder, build_model, MSE, train
+          from gonnect.paths import resolve_data_dir
+          print('gonnect', gonnect.__version__, 'imports cleanly')
+          "
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.testpypi
+    runs-on: ubuntu-latest
+    environment: testpypi
+    # Required for trusted publishing: the OIDC token replaces a stored API token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    name: Publish to PyPI
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    # Add a required reviewer to this environment in the repository settings if
+    # you want a manual approval gate before anything reaches PyPI.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
