@@ -15,13 +15,6 @@ GONNECT is a research framework for training biologically-informed autoencoders 
 
 ## Installation
 
-### Conda (preferred)
-
-```bash
-conda install -c conda-forge gonnect
-```
-
-
 ### Pip
 
 ```bash
@@ -35,6 +28,12 @@ the PyPI wheel is already CUDA-enabled. macOS has no CUDA and runs on CPU.
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 pip install gonnect
+```
+
+### Conda (currently under review, NOT WORKING YET)
+
+```bash
+conda install -c conda-forge gonnect
 ```
 
 ## Installation from source (for reproducibility)
