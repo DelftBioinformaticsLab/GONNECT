@@ -8,13 +8,15 @@ curves over the fixed 1,000-epoch schedule:
 The six curves are one ordered sequence, not six unrelated models. Methods puts
 it plainly: a soft-link model at alpha = 0 is a fully connected MLP, and at
 alpha = infinity it is the original ontology-derived GONNECT. So the series run
-MLP -> 1e2 -> 1e3 -> 1e4 -> 1e5 -> Fixed links, from no constraint to full
-constraint, and the panels are read in that order.
+MLP -> 1e2 -> 1e3 -> 1e4 -> 1e5 -> GONNECT, from no constraint to full
+constraint, and the panels are read in that order. "GONNECT" is the series the
+manuscript calls original GONNECT; "fixed link" appears nowhere in the text, so
+it is not used here either.
 
 Inputs (relative to --data-dir)
 ------------------------------
     loss_traces/AE_3.-1/AE_3.-1.2_none_results.txt          MLP
-    loss_traces/AE_3.-1/AE_3.-1.2_<module>_results.txt      Fixed links
+    loss_traces/AE_3.-1/AE_3.-1.2_<module>_results.txt      GONNECT
     loss_traces/AE_3.0/AE_3.0.3_<module>_results.txt        alpha = 1e2
     loss_traces/AE_3.1/AE_3.1.3_<module>_results.txt        alpha = 1e3
     loss_traces/AE_3.2/AE_3.2.3_<module>_results.txt        alpha = 1e4
@@ -77,7 +79,7 @@ SERIES = [
     (r"$\alpha$ = 1e3", "AE_3.1",  "AE_3.1.3",  True),
     (r"$\alpha$ = 1e4", "AE_3.2",  "AE_3.2.3",  True),
     (r"$\alpha$ = 1e5", "AE_3.3",  "AE_3.3.3",  True),
-    ("Fixed links",     "AE_3.-1", "AE_3.-1.2", True),
+    ("GONNECT",         "AE_3.-1", "AE_3.-1.2", True),
 ]
 
 # (module, title, panel letter, direct-label the curves?). Only the decoder
@@ -99,7 +101,7 @@ COLORS = ["#0072B2",  # MLP          blue
           "#009E73",  # alpha = 1e3  bluish green
           "#D55E00",  # alpha = 1e4  vermillion
           "#CC79A7",  # alpha = 1e5  reddish purple
-          "#56B4E9"]  # Fixed links  sky blue
+          "#56B4E9"]  # GONNECT      sky blue
 
 # Dash patterns carry the same six identities as the colours do. Under the
 # all-pairs comparison the worst separation, alpha = 1e3 against alpha = 1e5,

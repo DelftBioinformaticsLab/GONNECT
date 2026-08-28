@@ -2,8 +2,13 @@
 
 Two panels, the two ends of the sweep that the text argues from:
 
-  a  alpha = 1e2   the setting the main text uses -- soft links are numerous
-  b  alpha = 1e4   the setting where the penalty has all but closed them off
+  a  encoder, alpha = 1e2   the setting the main text uses; soft links numerous
+  b  encoder, alpha = 1e4   the setting where the penalty has all but closed
+                            them off -- exactly one soft link stays active
+
+Both panels are the encoder (MODULE below). At alpha = 1e4 the encoder has one
+active soft link and the decoder two, so the caption's "just one soft link
+becomes active" is the encoder's number.
 
 Each panel carries four step histograms of the same encoder module, so the
 soft-link weights can be read against both the GO edges they sit beside and the
@@ -12,7 +17,7 @@ fully connected model they would become if the penalty were dropped:
   Fully connected (MLP)          all 3,360,429 weights of a dense encoder
   GONNECT-SL, GO edges           the 9,561 positions GO does connect
   GONNECT-SL, soft links         the 3,350,868 positions it does not
-  Fixed links, GO edges          the same 9,561 positions in original GONNECT
+  GONNECT, GO edges              the same 9,561 positions in original GONNECT
 
 The axes follow Figure 5a rather than the published version of this figure,
 which binned the signed weight on a linear axis. Two reasons. The claim the
@@ -31,7 +36,7 @@ which is the spike at log10|w| = 0.
 Inputs (relative to --data-dir)
 ------------------------------
     alpha_sweep_weights/AE_3.-1.2_none_weights.pt      fully connected
-    alpha_sweep_weights/AE_3.-1.2_encoder_weights.pt   fixed links
+    alpha_sweep_weights/AE_3.-1.2_encoder_weights.pt   GONNECT
     alpha_sweep_weights/AE_3.0.3_encoder_weights.pt    alpha = 1e2
     alpha_sweep_weights/AE_3.2.3_encoder_weights.pt    alpha = 1e4
 
@@ -69,22 +74,37 @@ MODULE = "encoder"
 # as in fig5. Layers are pooled: the per-layer split is Supplementary Figure S9.
 WEIGHTED = [0, 2, 4, 6]
 
-FIXED_LINKS = "AE_3.-1.2_encoder"
+FIXED_LINKS = f"AE_3.-1.2_{MODULE}"
+# The MLP run constrains neither module, so it has no per-module variant;
+# MODULE picks which half of it is read, as it does for every other series.
 FULLY_CONNECTED = "AE_3.-1.2_none"
-PANELS = [(r"$\alpha$ = 1$\cdot$10$^2$", "AE_3.0.3_encoder", "a"),
-          (r"$\alpha$ = 1$\cdot$10$^4$", "AE_3.2.3_encoder", "b")]
 
-# (legend label, colour, dash). Okabe-Ito, in an order verified to pass every
-# check of the palette validator under the all-pairs comparison; the MLP and
-# fixed-link entries keep the exact colours they carry in figS7, so the two
-# figures read as one family. Figure 5a's own four fail that check badly -- its
-# green and red sit at deuteranopic dE 3.9 -- which is worth fixing there too.
-# Dashes are the secondary encoding the validator's contrast WARN obliges.
+# (alpha label, run stem, panel letter). The title names the module too, built
+# from MODULE below: figS7 titles its panels "GONNECT-SL encoder" and
+# "GONNECT-SL decoder", while this figure said only the alpha and left the
+# reader to infer which module the histograms belong to. Deriving both the stem
+# and the title from MODULE means the title cannot name a module the data did
+# not come from.
+PANELS = [(r"$\alpha$ = 1$\cdot$10$^2$", f"AE_3.0.3_{MODULE}", "a"),
+          (r"$\alpha$ = 1$\cdot$10$^4$", f"AE_3.2.3_{MODULE}", "b")]
+PANEL_TITLE = "GONNECT-SL " + MODULE + ", {alpha}"
+
+# (key, legend label, colour, dash). The key is internal and stable, the label
+# is what the reader sees -- the same split fig5 makes, and for the same reason:
+# these labels were the dict keys of gather(), so a terminology fix would
+# silently rename data.
+#
+# Colours are Okabe-Ito, in an order verified to pass every check of the palette
+# validator under the all-pairs comparison; the MLP and GONNECT entries keep the
+# exact colours they carry in figS7, so the two figures read as one family.
+# Figure 5a's own four fail that check badly -- its green and red sit at
+# deuteranopic dE 3.9 -- which is worth fixing there too. Dashes are the
+# secondary encoding the validator's contrast WARN obliges.
 SERIES = [
-    ("Fully connected (MLP)",  "#0072B2", "solid"),
-    ("GONNECT-SL, GO edges",   "#D55E00", (0, (5, 1.6))),
-    ("GONNECT-SL, soft links", "#009E73", (0, (1.4, 1.4))),
-    ("Fixed links, GO edges",  "#56B4E9", (0, (6, 1.6, 1.4, 1.6))),
+    ("mlp",      "Fully connected (MLP)",  "#0072B2", "solid"),
+    ("sl_go",    "GONNECT-SL, GO edges",   "#D55E00", (0, (5, 1.6))),
+    ("sl_soft",  "GONNECT-SL, soft links", "#009E73", (0, (1.4, 1.4))),
+    ("go_edges", "GONNECT, GO edges",      "#56B4E9", (0, (6, 1.6, 1.4, 1.6))),
 ]
 
 SIGNED_LINEAR_X = False   # True restores the published linear signed-value axis
@@ -146,32 +166,38 @@ def gather(data_dir: Path, stem: str) -> dict:
     dense = load_weights(data_dir, FULLY_CONNECTED)
     soft = load_weights(data_dir, stem)
 
-    out = {label: [] for label, _, _ in SERIES}
+    out = {key: [] for key, _, _, _ in SERIES}
     for w_fixed, w_dense, w_soft in zip(fixed, dense, soft):
         go = w_fixed != 0
-        out["Fixed links, GO edges"].append(transform(w_fixed[go]))
-        out["GONNECT-SL, GO edges"].append(transform(w_soft[go]))
-        out["GONNECT-SL, soft links"].append(transform(w_soft[~go]))
-        out["Fully connected (MLP)"].append(transform(w_dense.ravel()))
+        out["go_edges"].append(transform(w_fixed[go]))
+        out["sl_go"].append(transform(w_soft[go]))
+        out["sl_soft"].append(transform(w_soft[~go]))
+        out["mlp"].append(transform(w_dense.ravel()))
     return {k: np.concatenate(v) for k, v in out.items()}
 
 
 def plot_panel(ax, data: dict, title: str, letter: str) -> None:
     bins = BINS_LINEAR if SIGNED_LINEAR_X else BINS_LOG
-    for label, color, dash in SERIES:
-        ax.hist(data[label], bins=bins, histtype="step", lw=LW, color=color,
-                ls=dash, label=f"{label} (n = {len(data[label]):,})", zorder=3)
+    for key, label, color, dash in SERIES:
+        ax.hist(data[key], bins=bins, histtype="step", lw=LW, color=color,
+                ls=dash, label=f"{label} (n = {len(data[key]):,})", zorder=3)
 
     thresh = ACTIVE_THRESH if SIGNED_LINEAR_X else np.log10(ACTIVE_THRESH)
     ax.axvline(thresh, color="0.45", lw=LW * 0.7, ls=(0, (2, 2)), zorder=2)
-    ax.text(thresh, 1.006, r"$|w|$ > 0.1", transform=ax.get_xaxis_transform(),
-            fontsize=PT_SMALL, color="0.35", ha="center", va="bottom")
+    # Inside the axes, just under the top spine, rather than above it: the panel
+    # title now carries the module name as well and is wide enough to reach
+    # this label in the band over the axes. The top of both panels is empty at
+    # the threshold -- every series has fallen far below its peak by |w| = 0.1.
+    ax.text(thresh, 0.97, r"$|w|$ > 0.1", transform=ax.get_xaxis_transform(),
+            fontsize=PT_SMALL, color="0.35", ha="center", va="top",
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.75,
+                      pad=1.5), zorder=4)
 
     ax.set_yscale("log")
     ax.set_xlim(bins[0], bins[-1])
     ax.set_xlabel("weight value" if SIGNED_LINEAR_X else r"$\log_{10}|w|$")
     ax.set_ylabel("count")
-    ax.set_title(title, fontsize=PT_TITLE)
+    ax.set_title(PANEL_TITLE.format(alpha=title), fontsize=PT_TITLE)
     ax.grid(color="0.9", zorder=0)
     ax.set_axisbelow(True)
     for side in ("top", "right"):
