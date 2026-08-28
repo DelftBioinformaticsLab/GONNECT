@@ -1,40 +1,32 @@
 
-# GONNECT: Coupling Biological Systems to Neural Networks for Improved Model Interpretability
+# GONNECT
 
-**Authors**: M.A. Lieftinck, T. Verlaan, and M.J.T. Reinders
+Code for the paper **"A critical evaluation of Gene Ontology priors in
+biologically-informed neural networks"**.
+
+**Authors**: T. Verlaan\*, M.A. Lieftinck\*, W. Mwine, and M.J.T. Reinders
+(\* equal contribution)
 
 **Affiliation**: Delft University of Technology, Computer Science Department, Delft Bioinformatics Lab (Delft, 2628XE, The Netherlands)
 
 **Corresponding author**: T. Verlaan (t.verlaan@tudelft.nl)
 
-GONNECT is a research framework for training biologically-informed autoencoders that leverage Gene Ontology (GO) structure to analyze gene expression data. This project implements various autoencoder architectures that incorporate biological knowledge through GO-based network constraints. The associated publication is currently in pre-print and available at: [link to publication].
+GONNECT is a research framework for training biologically-informed autoencoders that leverage Gene Ontology (GO) structure to analyze gene expression data. This project implements various autoencoder architectures that incorporate biological knowledge through GO-based network constraints. The associated publication is currently in pre-print and available at: https://doi.org/10.1101/2025.11.06.686983
 
-## Overview
-
-GONNECT implements biologically-informed neural networks (BINNs) that use Gene Ontology biological process (BP) hierarchies to constrain autoencoder architectures.
-
-Key features:
-
-- **Multiple Architecture Types**: Dense and sparse biologically-informed encoders/decoders
-- **Flexible Training**: Support for encoder-only, decoder-only, or full autoencoder training
-- **GO Integration**: Automatic processing of Gene Ontology hierarchies for network structure
-- **Loss Functions**: MSE, masked MSE, and soft-link regularization
-- **HPC Support**: SLURM job scripts for high-performance computing environments
-- **Containerization**: Singularity container support with Pixi package management
 
 ## Project Structure
 
 ```
 GONNECT/
-├── src/                          # Source code
-│   ├── thesis_binn/             # Core library (imported as `thesis_binn`)
+├── src/                         # Source code
+│   ├── gonnect/                 # Core library (imported as `gonnect`)
 │   │   ├── model/               # Model architectures (Autoencoder, Encoder, Decoder)
 │   │   ├── train/               # Training utilities and loss functions
 │   │   ├── data_processing/     # GO preprocessing and data handling
 │   │   └── analysis/            # Analysis tools for trained models
-│   ├── AE_*.py                  # Experiment scripts (various versions)
-│   ├── AE_1/                    # Experiment scripts for the AE_1.x series
-│   └── old_scripts/             # Legacy experimental code (unmaintained)
+│   ├── AE_*.py                  # Experiment scripts (AE_2.x, AE_3.x)
+│   ├── GO_preprocessing_local.py  # Build GO layers/masks outside the cluster
+│   └── benchmark_training_time.py # Training-time benchmark
 ├── figures/                     # Everything needed to reproduce the paper's figures
 │   ├── src/                     # One figN.py per figure (see figures/README.md)
 │   ├── out/                     # Generated figures
@@ -48,10 +40,6 @@ GONNECT/
 └── experiment_log               # Experiment tracking log
 ```
 
-> **Note on the package name.** The project is called GONNECT, but the Python
-> package is still named `thesis_binn` for historical reasons. Imports therefore
-> read `from thesis_binn... import ...`.
-
 ## Installation
 
 ### Using Pixi (Recommended)
@@ -63,7 +51,7 @@ This project uses [Pixi](https://pixi.sh) for dependency management:
 curl -fsSL https://pixi.sh/install.sh | bash
 
 # Clone the repository
-git clone https://github.com/mlieftinck/GONNECT.git
+git clone https://github.com/DelftBioinformaticsLab/GONNECT.git
 cd GONNECT
 
 # Install dependencies
@@ -131,9 +119,7 @@ Train a biologically-informed autoencoder:
 import pandas as pd
 import torch
 
-from thesis_binn.model.build_model import build_model
-from thesis_binn.train.loss import MSE
-from thesis_binn.train.train import make_data_splits, train_with_validation
+from gonnect import MSE, build_model, make_data_splits, train_with_validation
 
 dataset_name = "TCGA_complete_bp_top1k"
 merge_conditions = (1, 30, 50)  # min parents, min children, min terms per layer
@@ -194,7 +180,6 @@ than directly on a workstation.
 
 The project includes multiple experiment series:
 
-- **AE_1.x**: Basic autoencoder models with different data splits
 - **AE_2.x**: Models with masked MSE loss and various patience/seed settings
 - **AE_3.x**: Experiments with soft-link regularization
 
@@ -237,10 +222,11 @@ Released under the MIT License — see [LICENSE](LICENSE).
 
 ## Citation
 
-If you use this code in your research, please cite the associated paper.
-Machine-readable metadata is in [CITATION.cff](CITATION.cff); GitHub's
-"Cite this repository" button reads it directly.
+Please cite the paper, not this repository:
 
-[TODO: add the paper citation and DOI here once available, and uncomment the
-`preferred-citation` block in `CITATION.cff`.]
+> Verlaan T.\*, Lieftinck M.A.\*, Mwine W., Reinders M.J.T. *A critical
+> evaluation of Gene Ontology priors in biologically-informed neural networks.*
+> bioRxiv (2025). <https://doi.org/10.1101/2025.11.06.686983>
 
+[CITATION.cff](CITATION.cff) declares this as the `preferred-citation`, so
+GitHub's "Cite this repository" button and `cffconvert` both resolve to it.

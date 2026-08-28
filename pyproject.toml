@@ -1,15 +1,17 @@
 [project]
 authors = [
-    { name = "M.A. Lieftinck" },
     { name = "T. Verlaan", email = "t.verlaan@tudelft.nl" },
+    { name = "M.A. Lieftinck" },
+    { name = "W. Mwine" },
     { name = "M.J.T. Reinders" },
 ]
-name = "thesis_binn"
-# INCREMENT FOR EVERY NEW DEPENDENCY.
-# 0.3.0 adds the figure/analysis dependencies (pyarrow, gseapy, ...). The SLURM
-# scripts pin container_pixi_0.2.1.sif, which is the environment the published
-# training runs actually used -- that reference is historical and intentional.
-version = "0.3.0"
+name = "gonnect"
+# 1.0.0 is the release accompanying the publication. Bump the minor version for
+# every new dependency, so the environment a run used stays identifiable.
+# The SLURM scripts pin container_pixi_0.2.1.sif, which is the environment the
+# published training runs actually used -- that reference is historical and
+# intentional, and predates this numbering.
+version = "1.0.0"
 # 3.12 is a hard floor: go_preprocessing.py uses PEP 701 f-strings (nested
 # same-type quotes), which are a SyntaxError on 3.9-3.11.
 requires-python = ">=3.12"
@@ -17,12 +19,19 @@ dependencies = [
     "packaging"
 ]
 
+# Only the library ships. Without this, setuptools flat-scans src/ and installs
+# the experiment runner scripts (AE_1/, GO_preprocessing_local) as importable
+# top-level modules alongside the package.
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["gonnect*"]
+
 [tool.pixi.workspace]
 channels = ["nvidia", "conda-forge", "pytorch", "bioconda"]
 platforms = ["win-64", "linux-64"]
 
 [tool.pixi.pypi-dependencies]
-thesis_binn = { path = ".", editable = true }
+gonnect = { path = ".", editable = true }
 # Drives figures/src/prepare/run_gsea*.py. Sourced from PyPI rather than conda:
 # there is no win-64 conda build, and this workspace targets win-64 + linux-64.
 gseapy = ">=1.1"

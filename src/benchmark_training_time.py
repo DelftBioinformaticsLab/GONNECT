@@ -23,9 +23,9 @@ import torch
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from thesis_binn.model.build_model import build_model
-from thesis_binn.train.loss import MSE, MSE_Masked, MSE_Soft_Link_Sum
-from thesis_binn.train.train import make_data_splits
+from gonnect.model.build_model import build_model
+from gonnect.train.loss import MSE, MSE_Masked, MSE_Soft_Link_Sum
+from gonnect.train.train import make_data_splits
 
 # Hyperparameters, matching the AE_2.0.* / AE_2.1.* experiment scripts
 DATASET = "TCGA_complete_bp_top1k"

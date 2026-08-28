@@ -1,8 +1,8 @@
 import pandas as pd
 import torch
 import argparse
-from thesis_binn.model.build_model import build_model
-from thesis_binn.train.train import make_data_splits
+from gonnect.model.build_model import build_model
+from gonnect.train.train import make_data_splits
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -162,7 +162,7 @@ def load_mean_activations(
     across seeds (only over CTs present in all seeds).
 
     This handles the case where each seed has a different test split, which is
-    how William's runs are structured.
+    how the OntoVAE/VEGA baseline runs are structured.
 
     Returns:
       act_df       : DataFrame indexed by cancer_type, columns = pathways

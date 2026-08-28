@@ -1,9 +1,9 @@
 cff-version: 1.2.0
 title: >-
-  GONNECT: A Critical Evaluation of Biologically-informed Neural Networks
+  A critical evaluation of Gene Ontology priors in biologically-informed neural networks
 message: >-
-  If you use this software, please cite both the software and the
-  associated publication.
+  If you use this software, please cite the associated publication
+  (see preferred-citation below).
 type: software
 authors:
   - given-names: T.
@@ -15,7 +15,7 @@ authors:
     family-names: Lieftinck
     affiliation: >-
       Delft Bioinformatics Lab, Delft University of Technology
-  - given-names: M.
+  - given-names: W.
     family-names: Mwine
     affiliation: >-
       Delft Bioinformatics Lab, Delft University of Technology
@@ -23,38 +23,42 @@ authors:
     family-names: Reinders
     affiliation: >-
       Delft Bioinformatics Lab, Delft University of Technology
-repository-code: https://github.com/mlieftinck/GONNECT
+repository-code: https://github.com/DelftBioinformaticsLab/GONNECT
 license: MIT
-version: 0.3.0
+version: 1.0.0
 
-# TODO: fill in once the manuscript has a DOI, then drop this comment.
-# preferred-citation:
-#   type: article
-#   title: >-
-#     GONNECT: A Critical Evaluation of Biologically-informed Neural Networks
-#   authors:
-#     - given-names: T. 
-#       family-names: Verlaan
-#     - given-names: M. A.
-#       family-names: Lieftinck
-#     - given-names: M.
-#       family-names: Mwine
-#     - given-names: M. J. T.
-#       family-names: Reinders
-#   journal: TBD
-#   year: 2026
-#   doi: TBD
+# The paper is what should be cited. GitHub and cffconvert render this in place
+# of the software record above. This points at the bioRxiv preprint; update the
+# DOI, `journal:` and `year:` if it is accepted in a peer-reviewed venue.
+preferred-citation:
+  type: article
+  title: >-
+    A critical evaluation of Gene Ontology priors in biologically-informed neural networks
+  authors:
+    - given-names: T.
+      family-names: Verlaan
+    - given-names: M. A.
+      family-names: Lieftinck
+    - given-names: W.
+      family-names: Mwine
+    - given-names: M. J. T.
+      family-names: Reinders
+  journal: bioRxiv
+  year: 2025
+  doi: 10.1101/2025.11.06.686983
+  notes: >-
+    T. Verlaan and M. A. Lieftinck contributed equally to this work.
 
 references:
   - type: data
     title: >-
-      Data underlying the publication: "A Critical Evaluation of Biologically-informed Neural Networks"
+      Data underlying the publication: "A critical evaluation of Gene Ontology priors in biologically-informed neural networks"
     authors:
       - given-names: T.
         family-names: Verlaan
       - given-names: M. A.
         family-names: Lieftinck
-      - given-names: M.
+      - given-names: W.
         family-names: Mwine
       - given-names: M. J. T.
         family-names: Reinders

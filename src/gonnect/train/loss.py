@@ -1,0 +1,196 @@
+import torch
+import torch.nn as nn
+
+from gonnect.model.Autoencoder import Autoencoder
+from gonnect.model.Coder import SparseCoder, DenseCoder
+from gonnect.model.Decoder import Decoder, DenseBIDecoder
+from gonnect.model.Encoder import DenseBIEncoder
+
+
+class MSE(nn.Module):
+    """Wrapper class for torch.nn.MSELoss to allow additional arguments for easy swapping of loss functions."""
+
+    def __init__(self):
+        super(MSE, self).__init__()
+        self.name = "MSE Loss"
+        self.mse = nn.MSELoss()
+
+    def forward(self, y, x):
+        return self.mse(y, x)
+
+
+class MSE_L1(MSE):
+    """Regular MSE with L1 regularization on all model weights."""
+
+    def __init__(self, model: Autoencoder, alpha=1.0):
+        super(MSE_L1, self).__init__()
+        self.name = "MSE Loss with L1 Regularization"
+        self.model = model
+        self.alpha = alpha
+
+    def forward(self, y, x):
+        mse = self.mse(y, x)
+        weight_sum_enc, n_enc = module_weight_sum(self.model.encoder)
+        weight_sum_dec, n_dec = module_weight_sum(self.model.decoder)
+        weight_sum = weight_sum_enc + weight_sum_dec
+        n_weights = n_enc + n_dec
+        return mse + self.alpha * (weight_sum / n_weights)
+
+
+class MSE_Masked(nn.Module):
+    """Mean Squared Error loss for reconstructed gene expression where genes without GO-terms are masked."""
+
+    def __init__(self, mask, device="cpu"):
+        super(MSE_Masked, self).__init__()
+        self.name = "MSE Loss over GO-linked genes"
+        self.mask = mask.to(device)
+        self.device = device
+        self.mse = nn.MSELoss()
+
+    def forward(self, y, x):
+        mask = ~self.mask
+        if self.mask.dim() == 1:
+            mask = mask.unsqueeze(0)
+        y_masked = y * mask
+        x_masked = x * mask
+        return self.mse(y_masked, x_masked)
+
+
+class MSE_Soft_Link_Sum(nn.Module):
+    """Standard MSE with an additional term, weighted by alpha, for the sum of soft link weights."""
+
+    def __init__(self, model, alpha=1.0):
+        super(MSE_Soft_Link_Sum, self).__init__()
+        self.name = "MSE Loss with L1 over Soft Links"
+        self.alpha = alpha
+        self.mse = nn.MSELoss()
+        self.model = model
+
+    def forward(self, y, x):
+        if isinstance(self.model.encoder, SparseCoder) or isinstance(self.model.decoder, SparseCoder):
+            raise Exception("Soft links are not supported for models containing SparseTensors")
+
+        mse_loss = self.mse(y, x)
+        soft_weight_sum = 0
+        n_soft_weights = 0
+        if hasattr(self.model.encoder, "edge_masks"):
+            layer_sum_enc, layer_n_enc = soft_link_sum(self.model.encoder)
+            soft_weight_sum += layer_sum_enc
+            n_soft_weights += layer_n_enc
+        if hasattr(self.model.decoder, "edge_masks"):
+            layer_sum_dec, layer_n_dec = soft_link_sum(self.model.decoder)
+            soft_weight_sum += layer_sum_dec
+            n_soft_weights += layer_n_dec
+
+        return mse_loss + self.alpha * (soft_weight_sum / n_soft_weights)
+
+
+class MSE_Soft_Link_Proxyless(nn.Module):
+    """Standard MSE with an additional term, weighted by alpha, for the sum of soft link weights, plus extra regularization on soft links towards ProxyTerms."""
+
+    def __init__(self, model, alpha=1.0):
+        super(MSE_Soft_Link_Proxyless, self).__init__()
+        self.name = "MSE Loss with L1 over Soft Links"
+        self.alpha = alpha
+        self.mse = nn.MSELoss()
+        self.model = model
+
+    def forward(self, y, x):
+        if isinstance(self.model.encoder, SparseCoder) or isinstance(self.model.decoder, SparseCoder):
+            raise Exception("Soft links are not supported for models containing SparseTensors")
+
+        mse_loss = self.mse(y, x)
+        soft_weight_sum = 0
+        n_soft_weights = 0
+        soft_weights_proxy_sum = 0
+        n_soft_weights_proxy = 0
+        if hasattr(self.model.encoder, "edge_masks"):
+            layer_sum_enc, layer_n_enc = soft_link_sum(self.model.encoder)
+            soft_weight_sum += layer_sum_enc
+            n_soft_weights += layer_n_enc
+            # Separately find soft links towards proxies
+            proxy_sum_enc, proxy_n_enc = soft_link_proxy_sum(self.model.encoder)
+            soft_weights_proxy_sum += proxy_sum_enc
+            n_soft_weights_proxy += proxy_n_enc
+        if hasattr(self.model.decoder, "edge_masks"):
+            layer_sum_dec, layer_n_dec = soft_link_sum(self.model.decoder)
+            soft_weight_sum += layer_sum_dec
+            n_soft_weights += layer_n_dec
+            # Separately find soft links towards proxies
+            proxy_sum_dec, proxy_n_dec = soft_link_proxy_sum(self.model.decoder)
+            soft_weights_proxy_sum += proxy_sum_dec
+            n_soft_weights_proxy += proxy_n_dec
+
+        # Additionally weigh soft links towards proxies in order to discourage gene-gene soft links
+        return (mse_loss + self.alpha * (soft_weight_sum / n_soft_weights) +
+                100 * self.alpha * (soft_weights_proxy_sum / n_soft_weights_proxy))
+
+
+def soft_link_sum(module: DenseCoder):
+    """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that are considered soft links because they are masked by the edge mask of the network.
+
+    The inverted edge masks and their element count are constant, so they are taken from the module
+    cache (DenseBICoder._cache_masks) rather than rebuilt on every batch."""
+    soft_weight_sum = 0
+    mask_index = 0
+    for layer in module.net_layers:
+        if isinstance(layer, nn.Linear):
+            # For each linear layer of the network, sum the absolute values of the masked weights
+            soft_weight_sum += torch.sum(layer.weight.abs() * module.non_edge_masks[mask_index])
+            mask_index += 1
+    return soft_weight_sum, module.n_non_edge
+
+
+def soft_link_proxy_sum(module: DenseCoder):
+    """For a given network (encoder or decoder), return the sum and amount of absolute values of the weights that go to ProxyTerms and are considered soft links because they are masked by the edge mask of the network."""
+    soft_weight_sum = 0
+    mask_index = 0
+    for layer in module.net_layers:
+        if isinstance(layer, nn.Linear):
+            # For each linear layer of the network, sum the absolute values of the masked weights
+            # The used mask is the inverse GO mask combined with the proxy mask, i.e. soft links towards proxies
+            soft_weight_sum += torch.sum(layer.weight.abs() * module.non_edge_proxy_masks[mask_index])
+            mask_index += 1
+    return soft_weight_sum, module.n_non_edge_proxy
+
+
+def module_weight_sum(module: DenseCoder):
+    weight_sum = 0
+    n = 0
+    for layer in module.net_layers:
+        if isinstance(layer, nn.Linear):
+            # For each linear layer of the network, sum the absolute values of the masked weights
+            weight_sum += torch.sum(layer.weight.abs())
+            n += layer.weight.shape[0] * layer.weight.shape[1]
+    return weight_sum, n
+
+
+if __name__ == '__main__':
+    layers = torch.randn((2, 3))
+    mask_e = [torch.Tensor([
+        [0, 1, 1],
+        [1, 0, 1],
+        [1, 1, 0]]).bool()]
+    encoder_weights = torch.Tensor([
+        [1, 2, 3],
+        [4, -5, 6],
+        [7, 8, 9]])
+    masks = [mask_e, [torch.randn(3, 1) > 0.5]]
+    encoder = DenseBIEncoder(layers, nn.ReLU(), torch.float64, masks)
+    encoder.net_layers[0].weight.data = encoder_weights
+    print(f"Test result should be 15. Result: {soft_link_sum(encoder)}")
+
+    decoder = Decoder(layers, nn.ReLU(), torch.float64)
+    decoder.net_layers[0].weight.data = encoder_weights
+    ae = Autoencoder(encoder, decoder)
+    loss_fn = MSE_L1(ae)
+    x = torch.Tensor([1, 2, 3]).requires_grad_()
+    print(f"Test result should be 15/3. Result: {loss_fn(torch.Tensor([1, 2, 3]), x)}")
+    print(f"Test result should be 1+15/3. Result: {loss_fn(torch.Tensor([0, 1, 2]), x)}")
+    decoder = DenseBIDecoder(layers, nn.ReLU(), torch.float64, masks)
+    decoder.net_layers[0].weight.data = encoder_weights
+    ae = Autoencoder(encoder, decoder)
+    print(
+        f"Test result should be 30/6. Result: {loss_fn(torch.Tensor([1, 2, 3]), x)}")
+    print(
+        f"Test result should be 1+30/6. Result: {loss_fn(torch.Tensor([0, 1, 2]), x)}")

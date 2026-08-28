@@ -1,11 +1,3 @@
-AE_1.0
-Basic AE models, trained twice with different datasplit seeds
-All four models are dense
-
-AE_1.1
-Basic AE models, trained twice with different datasplit seeds
-Three sparse BI models (sparse BA not possible)
-
 AE_2.0
 General idea: retrain the 4 AE models, now with ignoring unlinked genes in bi-models
 merge_conditions = (1, 30, 50)
@@ -23,7 +15,6 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 11502012    AE_2.0.0_encoder    gpu32       00:19:35    1.1G        -
 11502013    AE_2.0.0_decoder    gpu33       02:03:18    1.1G        -
 11507225    AE_2.0.0_none       influ1      00:08:16    909M        Trained with MSE
-11506701    AE_2.0.0_both       influ2      --:--:--                Crashed...
 11507675    AE_2.0.0_both       influ1      22:53:44    1.2G        -
 ------------------------------------------------------------------- Rerun all AE_2 experiments to test robustness (with increased patience)
 11572566    AE_2.0.1_none       gpu35       00:04:39    885.5M      -
@@ -38,7 +29,6 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11578207    AE_2.0.3_encoder    influ3      00:41:09    1.1G        -
 11578208    AE_2.0.3_decoder    influ2      05:09:11    1G          -
-11578209    AE_2.0.3_both       insy15      30:00:24    1.2G        Timeout -> needs to be retrained with higher limit (2)
 11583443    AE_2.0.3_both       gpu21       24:54:02	1.1G        -
 11578210    AE_2.0.3_none       influ2      00:11:16    904.5M      -
 -------------------------------------------------------------------
@@ -49,7 +39,6 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11579221    AE_2.0.5_encoder    influ1      00:49:21    1.1G        -
 11579222    AE_2.0.5_decoder    insy16      04:08:28    1.1G        -
-11579223    AE_2.0.5_both       influ3      30:00:04    1.1G        Timeout -> needs to be retrained with higher limit (2)
 11582273    AE_2.0.5_both       gpu09       13:53:26    1.1G        -
 11579224    AE_2.0.5_none       influ3      00:09:57    898.3M      -
 -------------------------------------------------------------------
@@ -64,8 +53,6 @@ merge_conditions = (1, 30, 50)
 no FC model (covered in AE_2.0)
 Soft links and SL loss (not masked) soft_link_alpha=100
 Job_ID      Model_name          Node        Time        Memory      Notes
-11504174    AE_2.1.0_encoder    gpu26       00:22:47    1.1G        Needs to be redone because of faulty loss function
-11504396    AE_2.1.0_decoder    gpu33       00:23:05    1.1G        Needs to be redone because of faulty loss function
 11507049    AE_2.1.0_encoder    gpu34       00:34:02    1G          -
 11507050    AE_2.1.0_decoder    gpu31       00:24:49    1G          -
 11507051    AE_2.1.0_both       gpu31       01:44:58    1.2G        -
@@ -84,18 +71,14 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11578706    AE_2.1.4_encoder    gpu33       00:29:15    1G          -
 11578707    AE_2.1.4_decoder    gpu33       00:35:49    1G          -
-11578708    AE_2.1.4_both       gpu35       03:00:10    1.1G        Timeout -> needs to be retrained with higher limit
 11579322    AE_2.1.4_both       influ2      02:28:57    1.1G        -
 -------------------------------------------------------------------
 11579225    AE_2.1.5_encoder    influ1      00:52:05    1.1G        -
 11579226    AE_2.1.5_decoder    insy16      00:39:45    1.1G        -
-11579227    AE_2.1.5_both       influ2      03:00:29    1.1G        Timeout -> needs to be retrained with higher limit
-11579323    AE_2.1.5_both       influ3      04:00:01    1.1G        Timeout -> needs to be retrained with higher limit (2)
 11582275    AE_2.1.5_both       gpu35       02:24:35    1G          -
 -------------------------------------------------------------------
 11579256    AE_2.1.6_encoder    gpu21       00:53:30    1G          -
 11579257    AE_2.1.6_decoder    gpu21       00:49:36    1G          -
-11579258    AE_2.1.6_both       gpu21       03:00:04    1G          Timeout -> needs to be retrained with higher limit (2)
 11582274    AE_2.1.6_both       influ1      06:28:33    1G          -
 
 AE_2.2
@@ -123,7 +106,6 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 -------------------------------------------------------------------
 11578838    AE_2.2.4_encoder    gpu32       00:50:10    1G          -
 11578839    AE_2.2.4_decoder    insy16      03:26:42    1.1G        -
-11578840    AE_2.2.4_both       insy16      30:00:21    1.2G        Timeout -> needs to be retrained with higher limit (2)
 11583444    AE_2.2.4_both       gpu21       26:04:31    1.1G        -
 -------------------------------------------------------------------
 11579228    AE_2.2.5_encoder    influ1      01:20:49    1.1G        -
@@ -166,8 +148,6 @@ Soft links and SL loss
 .4 patience = 10000, n_epochs = 1000, now tracking MSE without regularization, MSE_Soft_Link_Proxyless
 alpha = 100
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560162    AE_3.0.0_encoder    awi02       00:46:25    1.1G        Too low patience
-11560163    AE_3.0.0_decoder    gpu07       01:09:57    1G          Too low patience
 11560194    AE_3.0.0_encoder    gpu07       00:43:21    1G          -
 11560195    AE_3.0.0_decoder    gpu07       00:38:24    1G          -
 -------------------------------------------------------------------
@@ -183,8 +163,6 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 AE_3.1
 alpha = 1000
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560167    AE_3.1.0_encoder    gpu12       00:13:57    1G          Too low patience
-11560168    AE_3.1.0_decoder    gpu15       00:01:34    1G          Too low patience
 11560196    AE_3.1.0_encoder    gpu12       00:36:32    1G          -
 11560197    AE_3.1.0_decoder    gpu07       00:58:43    1G          -
 -------------------------------------------------------------------
@@ -199,8 +177,6 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 AE_3.2
 alpha = 10000
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560184    AE_3.2.0_encoder    gpu07       00:01:39    1G          Too low patience
-11560173    AE_3.2.0_decoder    gpu18       00:01:08    1G          Too low patience
 11560198    AE_3.2.0_encoder    gpu12       00:22:46    1G          -
 11560199    AE_3.2.0_decoder    gpu32       00:03:03    1G          Too low patience
 -------------------------------------------------------------------
@@ -213,8 +189,7 @@ Job_ID      Model_name          Node        Time        Memory      Notes
 AE_3.3
 alpha = 100000
 Job_ID      Model_name          Node        Time        Memory      Notes
-11560200    AE_3.3.0_encoder    gpu09       00:01:49    1G          Too low patience
-11560211    AE_3.3.0_encoder    gpu31       00:01:50    1G          Still too fast... (good example for Timo) -> increase patience!!
+11560211    AE_3.3.0_encoder    gpu31       00:01:50    1G          Still too fast -> increase patience
 11560201    AE_3.3.0_decoder    -----       00:01:49    1G          Too low patience
 -------------------------------------------------------------------
 11562239    AE_3.3.1_encoder    gpu33       00:07:16    1G          -

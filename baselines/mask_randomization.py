@@ -1,6 +1,6 @@
 """Graph-randomization nulls, shared by both baselines.
 
-Mirrors `thesis_binn.data_processing.generate_masks`, so the baseline nulls
+Mirrors `gonnect.data_processing.generate_masks`, so the baseline nulls
 match GONNECT's own AE_2.2 arm:
 
   degree_preserving  Espinoza (2012) edge swaps. Preserves every node's in- and

@@ -21,7 +21,7 @@ python baselines/make_splits.py --verify
 
 `--verify` asserts the split is identical to what was used in the GONNECT
 experiments. It has to be run from GONNECT's own environment, since it imports
-`thesis_binn`; the baseline runs then use their own environments.
+`gonnect`; the baseline runs then use their own environments.
 
 Then each baseline, via its container (see `slurm/` for the cluster form):
 
@@ -59,5 +59,5 @@ The rest of the environment is defined separately from the GONNECT environment, 
 
 `ontovae/ontovae_compat.py` carries the small adaptations OntoVAE needs on top
 of upstream, each documented in place. `mask_randomization.py` is shared by both
-baselines, and mirrors `thesis_binn/data_processing/generate_masks.py` so the
+baselines, and mirrors `gonnect/data_processing/generate_masks.py` so the
 randomized arms are built the same way as GONNECT's own AE_2.2 arm.

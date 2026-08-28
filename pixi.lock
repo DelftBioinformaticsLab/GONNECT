@@ -2286,6 +2286,13 @@ packages:
   - pkg:pypi/goatools?source=hash-mapping
   size: 9387933
   timestamp: 1736463915447
+- pypi: ./
+  name: gonnect
+  version: 1.0.0
+  sha256: cd49838c44ff804682dca5ceb42395ab363a1d51929268f9fe6eccf6cbd74130
+  requires_dist:
+  - packaging
+  requires_python: '>=3.12'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/graphite2-1.3.15-h54a6638_1.conda
   sha256: 7fa3b6a9c081fa3e545573152a788d061a0a0ba57df7251cc0f4f75225fc93e7
   md5: f9fe2984587fa8235a6af6004760cd18
@@ -6982,13 +6989,6 @@ packages:
   purls: []
   size: 178574
   timestamp: 1668617991077
-- pypi: ./
-  name: thesis-binn
-  version: 0.3.0
-  sha256: 426a898c7e1bd16791b54655cf34b121ae0d24b59159d1eb76d5fddcaea6b3de
-  requires_dist:
-  - packaging
-  requires_python: '>=3.12'
 - conda: https://conda.anaconda.org/conda-forge/noarch/threadpoolctl-3.6.0-pyhecae5ae_0.conda
   sha256: 6016672e0e72c4cf23c0cf7b1986283bd86a9c17e8d319212d78d8e9ae42fdfd
   md5: 9d64911b31d57ca443e9f1e36b04385f

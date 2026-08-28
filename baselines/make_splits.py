@@ -3,8 +3,8 @@
 Writes `<out>/run_seed-<seed>/{train,val,test}_ids.npy`.
 
 `--verify` asserts the partition is identical to
-`thesis_binn.train.train.split_data`, which is what makes the comparison
-like-for-like. It imports `thesis_binn`, so run this from GONNECT's own
+`gonnect.train.train.split_data`, which is what makes the comparison
+like-for-like. It imports `gonnect`, so run this from GONNECT's own
 environment.
 """
 
@@ -32,10 +32,10 @@ def split_ids(data, id_col, seed):
 
 
 def verify_against_gonnect(data, id_col, n_nan_cols, seed):
-    """Check the row partition matches `thesis_binn.train.train.split_data`."""
+    """Check the row partition matches `gonnect.train.train.split_data`."""
     import sys
     sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
-    from thesis_binn.train.train import split_data
+    from gonnect.train.train import split_data
 
     gonnect = split_data(data, n_nan_cols, split=TRAIN_FRACTION, seed=seed)
     ours = split_ids(data, id_col, seed)
@@ -54,7 +54,7 @@ def main():
     p.add_argument("--id-col", default="patient_id")
     p.add_argument("--n-nan-cols", type=int, default=5)
     p.add_argument("--verify", action="store_true",
-                   help="Assert the partition matches thesis_binn.train.train.split_data")
+                   help="Assert the partition matches gonnect.train.train.split_data")
     args = p.parse_args()
 
     data = pd.read_csv(args.expr_data)

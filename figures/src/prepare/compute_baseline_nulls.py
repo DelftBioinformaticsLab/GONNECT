@@ -94,7 +94,7 @@ def make_combos(
 
 def load_cancer_type_per_row(tcga_path: Path) -> dict[int, str]:
     """{positional_row_index: cancer_type} — matches the indexing used by
-    William's z_test_*.csv files (first column = positional TCGA row index)."""
+    the baseline z_test_*.csv files (first column = positional TCGA row index)."""
     with gzip.open(tcga_path, "rt") as fh:
         meta = pd.read_csv(fh, usecols=["cancer_type"])
     return {i: ct for i, ct in enumerate(meta["cancer_type"].tolist())}

@@ -2,9 +2,9 @@ import os
 import pandas as pd
 import torch
 
-from thesis_binn.model.build_model import build_model
-from thesis_binn.train.loss import MSE_Soft_Link_Sum, MSE, MSE_Masked, MSE_Soft_Link_Proxyless
-from thesis_binn.train.train import make_data_splits, train_with_validation, save_training_losses
+from gonnect.model.build_model import build_model
+from gonnect.train.loss import MSE_Soft_Link_Sum, MSE, MSE_Masked, MSE_Soft_Link_Proxyless
+from gonnect.train.train import make_data_splits, train_with_validation, save_training_losses
 
 if __name__ == "__main__":
     experiment_name = "AE_3.1"
