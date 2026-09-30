@@ -14,14 +14,20 @@ star is drawn a line higher than its left-hand neighbour where the two would
 otherwise run into each other: at the paper's shared type scale "***" is wider
 than the gap between two bars.
 
+Every value is on held-out samples, as in Figure 2: MSE is each run's test loss,
+and SS / ARI / NMI score its test split, with the silhouette taken against the
+true cancer types for every model. The true-graph bars are Figure 2's.
+
 Inputs, relative to --data-dir (default figures/data):
-  metrics/*.txt                          true OntoVAE / VEGA baselines
   metrics/metric_data_TCGA_1000_30_new.xlsx
-                                             wide GONNECT family (incl. -R-,
-                                             -RR- and -SL- variants)
-  metrics/ontovae_rand.txt    randomized OntoVAE arms
-  metrics/vega_rand.txt       randomized VEGA arms (hallmark +
-                                             reactome)
+                                             MSE of the true-graph and
+                                             degree-preserving GONNECT arms
+  metrics/test_split/gonnect_clustering.csv  their SS / ARI / NMI
+  metrics/test_split/randomized_metrics.csv  all four metrics of the fully
+                                             random and randomized soft-link
+                                             arms (-RR-, -R-SL-, -RR-SL-)
+  metrics/test_split/ontovae_rand.txt        OntoVAE, every graph arm (rescored)
+  metrics/test_split/vega_rand.txt           VEGA Hallmark + Reactome, every arm
 
 Supplementary Figure S4 (ARI + NMI) is the same figure over the other two
 metrics; figS4.py renders it by calling main() from here.
@@ -58,16 +64,14 @@ from _common import (
     compute_summary,
     display,
     figsize,
-    is_arm_file,
     pt,
-    read_txt_metrics,
     read_baseline_ontovae,
     read_baseline_vega,
     read_xlsx_metrics,
     report_text_overlaps,
     save_figure,
     stars,
-    baseline_arm_paths,
+    test_split_paths,
 )
 
 METRIC_FILE = "metric_data_TCGA_1000_30_new.xlsx"
@@ -167,34 +171,35 @@ GROUP_BASELINES: set = {grp[0] for grp in DISPLAY_GROUPS}
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
-def load_data(data_dir: Path, split: str) -> pd.DataFrame:
+def load_data(data_dir: Path) -> pd.DataFrame:
     """Every source that contributes a bar, restricted to the plotted methods.
 
-    The true-graph baselines come from the per-method metrics/*.txt files;
-    the randomized OntoVAE / VEGA arms come from the two metrics/*_rand.txt
-    files. The repeat filter is deliberately non-strict, matching the original
-    script: ids that do not look like ``run-N`` are kept.
+    All on held-out samples. The workbook gives MSE only, and only for the arms
+    whose runs have deposited embeddings (true graph, degree-preserving); the
+    other three GONNECT arms take all four metrics from randomized_metrics.csv,
+    which reads MSE from the training logs. Every baseline arm, the true graph
+    included, comes from the rescored files, as Figure 2's true-graph bars do.
+    The repeat filter is deliberately non-strict, matching the original script:
+    ids that do not look like ``run-N`` are kept.
     """
-    frames: List[pd.DataFrame] = []
-    perf_dir = data_dir / "metrics"
-    for txt_path in perf_dir.glob("*.txt"):
-        # The *_rand.txt files sit in the same directory but are nested by
-        # graph arm; they are read below with an explicit graph_types.
-        if is_arm_file(txt_path):
-            continue
-        frames.append(read_txt_metrics(txt_path, split=split))
-    metric_file = perf_dir / METRIC_FILE
-    if metric_file.exists():
-        frames.append(read_xlsx_metrics(metric_file, strict_repeats=False))
-    ontovae_path, vega_path = baseline_arm_paths(data_dir)
-    if ontovae_path.exists():
-        frames.append(read_baseline_ontovae(
-            ontovae_path, split=split, graph_types=RANDOMIZED_GRAPH_ARMS,
-            strict_repeats=False))
-    if vega_path.exists():
-        frames.append(read_baseline_vega(
-            vega_path, split=split, graph_types=RANDOMIZED_GRAPH_ARMS,
-            strict_repeats=False))
+    paths = test_split_paths(data_dir)
+    for key, step in (("gonnect", "test_split_metrics.py"),
+                      ("randomized", "cluster_test_metrics.py fig3"),
+                      ("ontovae", "rescore_baselines.py"), ("vega", "rescore_baselines.py")):
+        if not paths[key].exists():
+            raise SystemExit(f"missing {paths[key]}; build it with prepare/{step}")
+    columns = ["metric", "method", "repeat", "value"]
+    randomized = pd.read_csv(paths["randomized"])
+    workbook = read_xlsx_metrics(data_dir / "metrics" / METRIC_FILE, strict_repeats=False)
+    arms = ("true",) + tuple(RANDOMIZED_GRAPH_ARMS)
+    frames: List[pd.DataFrame] = [
+        workbook[(workbook["metric"] == "MSE")
+                 & ~workbook["method"].isin(randomized["method"].unique())],
+        pd.read_csv(paths["gonnect"], usecols=columns),
+        randomized[columns],
+        read_baseline_ontovae(paths["ontovae"], graph_types=arms, strict_repeats=False),
+        read_baseline_vega(paths["vega"], graph_types=arms, strict_repeats=False),
+    ]
 
     data = pd.concat(frames, ignore_index=True)
     all_methods = [m for grp in DISPLAY_GROUPS for m in grp]
@@ -500,8 +505,6 @@ def render(metrics: Sequence[str], summary: pd.DataFrame, stats_table: pd.DataFr
 def parse_args(description: str) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=description)
     add_io_args(parser)
-    parser.add_argument("--split", type=str, default="test",
-                        choices=["train", "test"])
     return parser.parse_args()
 
 
@@ -514,7 +517,7 @@ def main(metrics: Sequence[str] = ("MSE", "SS"), out_name: str = "fig3",
     args = parse_args(title)
 
     print("Loading metric data ...")
-    data = load_data(args.data_dir, args.split)
+    data = load_data(args.data_dir)
     if data.empty:
         raise SystemExit("No data loaded — check the input file paths.")
 

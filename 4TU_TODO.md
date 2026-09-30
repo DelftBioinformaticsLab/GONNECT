@@ -79,9 +79,28 @@ mislabelled ones. None of it can go before then.
       deposited files under the old labelling, so switch it to the corrected
       labelling.
 
+## Test-split clustering metrics (figures 2, 3, S1, S3, S4)
+
+These figures now read `metrics/test_split/` (see `figures/README.md`), which
+exists locally but is not in the published deposit.
+
+- [ ] Deposit `metrics/test_split/` as present locally: `gonnect_clustering.csv`,
+      `per_type_ss.csv`, `per_type_purity_k{10,20,30}.csv`
+      (`prepare/test_split_metrics.py`), `ontovae_rand.txt`, `vega_rand.txt`
+      (`prepare/rescore_baselines.py`), `sweep_metrics.csv` and
+      `randomized_metrics.csv` (`prepare/cluster_test_metrics.py s1` / `fig3`,
+      from the item below).
+- [ ] Deposit `latent_embeddings/cluster_test_split/`
+      (`{s1,fig3}_test_embeddings.npz`, `{s1,fig3}_report.json`): the held-out
+      rows' embeddings of S1's ct=5, ct=10 and 2k runs and of Figure 3's FR,
+      DPR-SL and FR-SL arms, written on the cluster by
+      `prepare/embed_cluster_runs.py`. Their checkpoints (~62 GB) are not
+      deposited, so these are the shipped inputs the two csv files rebuild from.
+- [ ] Regenerate figures 3, S1, S3 and S4 alongside Figure 2.
+
 ## Publishing the new version
 
-- [ ] Regenerate the figures that read replaced inputs (4, 5 and S6), from
+- [ ] Regenerate the figures that read replaced inputs (4, 5, S6 and 2), from
       the updated `figures/data/`, and commit their PDFs.
 - [ ] Repackage `figures/data/` for upload. `.gitignore` reserves
       `figures/source_data_for_figures.zip` for that copy.

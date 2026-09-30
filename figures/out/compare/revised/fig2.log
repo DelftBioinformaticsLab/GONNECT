@@ -1,0 +1,51 @@
+Loading metric data ...
+metric           method  n     t_stat      p_value        p_adj  significant
+   ARI  GONNECT-SL-both  5   2.284936 8.432632e-02 1.264895e-01        False
+   ARI   GONNECT-SL-dec  5   1.681982 1.678642e-01 1.888472e-01        False
+   ARI   GONNECT-SL-enc  5   0.036484 9.726449e-01 9.726449e-01        False
+   ARI     GONNECT-both  5 -14.539555 1.301288e-04 5.855797e-04         True
+   ARI      GONNECT-dec  5  -6.528703 2.843126e-03 8.529379e-03         True
+   ARI      GONNECT-enc  5 -21.563084 2.735939e-05 2.462345e-04         True
+   ARI          ontovae  5   3.913024 1.734949e-02 3.903634e-02         True
+   ARI    vega_hallmark  5  -2.994540 4.015768e-02 7.228383e-02        False
+   ARI vega_reactome674  5   1.975781 1.193766e-01 1.534842e-01        False
+   MSE  GONNECT-SL-both  5 -23.146943 2.064392e-05 3.096587e-05         True
+   MSE   GONNECT-SL-dec  5  -3.530856 2.421188e-02 2.723837e-02         True
+   MSE   GONNECT-SL-enc  5  -7.171490 2.001774e-03 2.573710e-03         True
+   MSE     GONNECT-both  5  48.081522 1.119405e-06 2.518660e-06         True
+   MSE      GONNECT-dec  5 106.852383 4.600032e-08 2.070014e-07         True
+   MSE      GONNECT-enc  5   0.456202 6.719162e-01 6.719162e-01        False
+   MSE          ontovae  5 -28.026283 9.643000e-06 1.735740e-05         True
+   MSE    vega_hallmark  5 188.425065 4.758992e-09 4.283093e-08         True
+   MSE vega_reactome674  5  96.326523 6.963952e-08 2.089185e-07         True
+   NMI  GONNECT-SL-both  5   2.859579 4.594899e-02 5.169261e-02        False
+   NMI   GONNECT-SL-dec  5   3.688615 2.104426e-02 3.156639e-02         True
+   NMI   GONNECT-SL-enc  5  -0.930238 4.049050e-01 4.049050e-01        False
+   NMI     GONNECT-both  5 -11.862285 2.891859e-04 1.208988e-03         True
+   NMI      GONNECT-dec  5 -10.894584 4.029960e-04 1.208988e-03         True
+   NMI      GONNECT-enc  5 -45.777479 1.361957e-06 1.225761e-05         True
+   NMI          ontovae  5   6.072299 3.715616e-03 8.360137e-03         True
+   NMI    vega_hallmark  5  -4.086099 1.502308e-02 2.704155e-02         True
+   NMI vega_reactome674  5   2.896788 4.426031e-02 5.169261e-02        False
+    SS  GONNECT-SL-both  5  -5.421066 5.613039e-03 8.419558e-03         True
+    SS   GONNECT-SL-dec  5   3.155032 3.434751e-02 3.434751e-02         True
+    SS   GONNECT-SL-enc  5  -6.424436 3.018052e-03 6.790618e-03         True
+    SS     GONNECT-both  5 -16.263976 8.363292e-05 3.763481e-04         True
+    SS      GONNECT-dec  5  -3.493462 2.504409e-02 2.865543e-02         True
+    SS      GONNECT-enc  5 -35.742251 3.657301e-06 3.291571e-05         True
+    SS          ontovae  5  -5.513515 5.281136e-03 8.419558e-03         True
+    SS    vega_hallmark  5  -7.259452 1.912056e-03 5.736167e-03         True
+    SS vega_reactome674  5  -3.474827 2.547149e-02 2.865543e-02         True
+Loading per-cancer-type data ...
+  repaired 28 locale-coerced cell(s) in mse_per_cluster_TCGA_1000_30.xlsx (x1000 by Excel; see _common._decoerce)
+Loading TCGA labels ...
+Loading k-NN purity ...
+Loading / computing t-SNEs ...
+  cache hit:  tsne_AE_2.0.2_none.npz
+  cache hit:  tsne_AE_2.0.2_decoder.npz
+  cache hit:  tsne_AE_2.0.2_encoder.npz
+  cache hit:  tsne_AE_2.0.2_both.npz
+Drawing figure ...
+  no text overlaps in fig2
+  wrote ..\out\compare\revised\fig2.png
+  wrote ..\out\compare\revised\fig2.pdf

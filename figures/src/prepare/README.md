@@ -180,6 +180,84 @@ Without the checkpoints, run `relabel_decoder_activations.py` in place of the
 first command, use `decoder_relabelled` for `decoder_reextracted` throughout,
 and pass `--fixed-dir figures/out/prepare/decoder_relabelled` to the last one.
 
+## The test-split clustering metrics
+
+As first published, Figure 2's clustering metrics were not on one footing. The
+GONNECT workbooks took SS, ARI and NMI (panels b–d) and the per-cancer-type SS
+and purity (j, k) over all 9,797 samples, training data included. Its MSE
+panels (a, i) and every baseline metric came from the test split. The deposited
+OntoVAE and VEGA metrics also took the silhouette against the k-means clusters,
+where GONNECT's SS takes it against the true cancer types, which put the
+baselines on a higher scale. Two steps make every metric panel score held-out
+samples, with the label silhouette:
+
+```
+latent_embeddings/ + metric_data_TCGA_1000_30_new.xlsx + TCGA_complete_bp_top1k.csv.gz
+  └─ test_split_metrics.py ────────────→ out/prepare/test_split_metrics/
+
+baseline_activations/ + metrics/*_rand.txt + TCGA_complete_bp_top1k.csv.gz
+  └─ rescore_baselines.py ─────────────→ out/prepare/rescore_baselines/
+```
+
+`test_split_metrics.py` scores the MLP and GONNECT embeddings on the rows
+`gonnect.train.train.split_data` held out at each seed. `gonnect_clustering.csv`
+holds b–d. `per_type_ss.csv` holds j, the per-sample silhouette over the same test
+split averaged per cancer type, so it is the per-type breakdown of b.
+`per_type_purity_k30.csv` holds k. There the test samples' 30 neighbours come from
+the training split, not the test split: at 15% of the data, half the cancer
+types have fewer than 30 test samples in some seed, and a search among those
+would cap their purity at their size. CHOL is the one type with fewer than 30
+training samples (23–28); none of its held-out samples reaches that limit. A
+`Random` column holds chance level, the type's share of the training split. The
+step covers all ten models with embeddings, so S3 and Figure 3 read it too. The
+randomized AE_2.2 arm is numbered 22–26 but trained on splits 2–6, so it is
+scored on those. Each run's logged test loss reproduces on its split and no
+other. The purity tables exist for k = 10, 20 and 30.
+
+`rescore_baselines.py` handles the baselines. The runners in `baselines/` now
+default to the label definition, but retraining cannot reproduce the deposited
+models, so it scores the test-split latents they already produced: NMI, ARI and
+the label silhouette, for every seed and graph arm. MSE needs reconstructions,
+which were not deposited, and is carried over. It writes `ontovae_rand.txt` and
+`vega_rand.txt` in the shape of their `data/metrics/` namesakes (test split
+only), plus a table setting each rescored value beside the deposited one. That
+table also carries the k-means silhouette of the same latents, which lands
+within ~0.01 of the deposited SS on every model and arm. That is the check that
+the deposited values used that definition.
+
+Two sets of runs have no deposited embeddings, and their checkpoints stay on the
+cluster. One is Supplementary Figure S1's ct=5, ct=10 and 2,000-gene runs
+(AE_4.x, 5.x, 6.x, ~60 GB). The other is Figure 3's fully random and randomized
+soft-link arms (AE_10.2, AE_11.1, AE_10.1, ~2.4 GB). Two more steps cover them,
+each with a preset per set, `s1` and `fig3`:
+
+```
+(cluster) out/trained_models/AE_{4,5,6}.{0,1}/, AE_{10.1,10.2,11.1}/ + data/TCGA_complete_bp_top{1,2}k.csv.gz
+  └─ embed_cluster_runs.py <preset> ───→ latent_embeddings/cluster_test_split/
+
+latent_embeddings/cluster_test_split/ + the preset's metric workbooks
+  └─ cluster_test_metrics.py <preset> ─→ out/prepare/cluster_test_metrics/
+```
+
+`embed_cluster_runs.py` runs on the cluster, next to the checkpoints. It rebuilds
+nothing: it applies each checkpoint's weights directly. It keeps a run only after
+two checks: the run's reconstruction MSE on its held-out rows must equal its
+training log, and that log must equal the S1 workbook's value for that run. It
+writes the held-out rows' embeddings plus a report on both checks. Later runs'
+file names carry a slurm job id; where a rerun left two checkpoints, the one
+whose log matches the workbook is kept. `cluster_test_metrics.py` scores them
+into `sweep_metrics.csv` (s1) or `randomized_metrics.csv` (fig3), with each
+run's MSE from its log. For Figure 3, every workbook value matches that
+convention. That corrects two S1 bars: for ct=10 SL-enc and SL-dec the workbook
+had the test loss including the soft-link penalty. The ct=30 and
+1,000-gene references are Figure 2's own runs, so figS1 takes those from
+`gonnect_clustering.csv`.
+
+All steps use the same k-means (k = number of classes, seed 42, n_init=10), and
+all are deterministic. Figures 2, 3, S1, S3 and S4 read their output files from
+`data/metrics/test_split/`, a subdirectory so fig3's `metrics/*.txt` glob does
+not take the arm files for flat baselines. Copy them there after a rebuild.
+
 ## Running
 
 Defaults come from `_paths.py` and are resolved from this file's location, so a

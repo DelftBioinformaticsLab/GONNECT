@@ -6,25 +6,36 @@ row. Each row holds three sections, separated by dashed vertical lines:
               VEGA-Reactome / GONNECT enc,dec,both / GONNECT-SL enc,dec,both),
               coloured by which module carries the GO prior. No randomized
               variants, and no significance stars (those are in Figure 2).
-  2. Middle — CT sensitivity: cancer-type count 5 / 10 / 30 per GONNECT model.
+  2. Middle — child-term threshold (ct) 5 / 10 / 30 per GONNECT model.
   3. Right  — Gene count: 1k vs 2k per GONNECT model.
 Sections 2 and 3 outline their reference bar (ct=30 resp. 1k, the setting used
 in the main figure) and star the other bars by FDR-adjusted paired t-test
 against it. Pure baselines (MLP, OntoVAE, VEGA*) appear only in section 1, and
 the -both models only in section 1 and 2 (no ct=5/10 or 2k data).
 
+Every value is on held-out samples, as in Figure 2: MSE is each run's test loss,
+and SS / ARI / NMI score its test split, with the silhouette taken against the
+true cancer types. Section 1 is exactly Figure 2a-d. The ct=30 and 1k reference
+bars are Figure 2's runs, so they come from the same files. The sweep runs' MSE
+comes from their training logs, which corrects ct=10 SL-enc / SL-dec: the
+workbook had their loss including the soft-link penalty.
+
 The canvas is the paper's shared figure width, so the bars get all of it: the
 legend is a four-column strip across the top rather than a column beside the
 rows, and the height grows with the number of metrics.
 
 Inputs, relative to --data-dir (default figures/data):
-  metrics/*.txt                              OntoVAE / VEGA true baselines
-  metrics/metric_data_TCGA_1000_30_new.xlsx  section 1 GONNECT family
+  metrics/metric_data_TCGA_1000_30_new.xlsx  section 1 GONNECT MSE
   metrics/metric_data_TCGA_1000_{5,10,30}.xlsx
-                                                 section 2 (ct sweep); the
-                                                 ct=30 file is also section 3's
+                                                 section 2 (ct sweep): which models
+                                                 each setting has, and ct=30's MSE;
+                                                 the ct=30 file is also section 3's
                                                  1k reference
-  metrics/metric_data_TCGA_2000_30.xlsx      section 3 (2k genes)
+  metrics/metric_data_TCGA_2000_30.xlsx      section 3 (2k genes): which models
+  metrics/test_split/gonnect_clustering.csv  SS / ARI / NMI of section 1 and
+                                                 of the ct=30 / 1k references
+  metrics/test_split/{ontovae,vega}_rand.txt section 1 baselines (rescored)
+  metrics/test_split/sweep_metrics.csv       all four metrics of ct=5, ct=10, 2k
 
 Run: python figS1.py   ->   out/figS1.png, out/figS1.pdf
 """
@@ -56,14 +67,15 @@ from _common import (
     compute_summary,
     display,
     figsize,
-    is_arm_file,
     paired_t_tests,
     pt,
-    read_txt_metrics,
+    read_baseline_ontovae,
+    read_baseline_vega,
     read_xlsx_metrics,
     report_text_overlaps,
     save_figure,
     stars,
+    test_split_paths,
 )
 
 OUT_NAME = "figS1"
@@ -112,7 +124,7 @@ BASELINE_METHOD = "GONNECT-SL-dec"
 
 # Section 1: wide GONNECT family workbook.
 MAIN_METRIC_FILE = "metric_data_TCGA_1000_30_new.xlsx"
-# Section 2: CT sensitivity files (ct = cancer-type count).
+# Section 2: child-term threshold (ct) files.
 CT_CONFIG_FILES: List[Tuple[str, str]] = [
     ("metric_data_TCGA_1000_5.xlsx",  "ct=5"),
     ("metric_data_TCGA_1000_10.xlsx", "ct=10"),
@@ -120,6 +132,9 @@ CT_CONFIG_FILES: List[Tuple[str, str]] = [
 ]
 # Section 3: gene-count files (1k = reference from ct=30).
 GENE_CONFIG_FILE: Tuple[str, str] = ("metric_data_TCGA_2000_30.xlsx", "2k")
+# The `setting` each sweep configuration carries in sweep_metrics.csv. The
+# ct=30 / 1k references are absent: they are Figure 2's runs.
+SWEEP_SETTINGS: Dict[str, str] = {"ct=5": "ct=5", "ct=10": "ct=10", "2k": "2k genes"}
 
 # Wide enough that the dashed section separators read as a bigger break than
 # the gaps between the model groups inside sections 2 and 3.
@@ -209,21 +224,35 @@ def keep_main_methods(df: pd.DataFrame) -> pd.DataFrame:
     return df[df["method"].isin(KEEP_METHODS)].reset_index(drop=True)
 
 
-def collect_orig_data(perf_dir: Path, metric_file: Path, split: str) -> pd.DataFrame:
-    """Section 1 data: GONNECT family from the wide xlsx + OntoVAE/VEGA 'true'
-    baselines from the per-method txt files in data/metrics/."""
-    frames: List[pd.DataFrame] = []
-    for txt_path in perf_dir.glob("*.txt"):
-        # These per-method txt files (ontovae.txt, vega_*.txt) hold the 'true'
-        # baseline. The *_rand.txt files alongside them are nested by graph arm
-        # and belong to fig3, so they are skipped here.
-        if is_arm_file(txt_path):
-            continue
-        frames.append(read_txt_metrics(txt_path, split=split))
-    if metric_file.exists():
-        frames.append(read_config_frame(metric_file))
-    if not frames:
-        return pd.DataFrame(columns=["metric", "method", "repeat", "value"])
+def on_test_split(workbook: pd.DataFrame, held_out: pd.DataFrame) -> pd.DataFrame:
+    """A workbook's models, with their metrics taken from ``held_out``.
+
+    The workbooks' MSE is each run's test loss, but their other three metrics
+    span all samples. ``held_out`` always replaces SS / ARI / NMI. It replaces
+    MSE too where it carries one, as sweep_metrics.csv does; see
+    prepare/cluster_test_metrics.py for why. Only models the workbook has an MSE
+    for are taken, so the set of bars does not change.
+    """
+    mse = workbook[workbook["metric"] == "MSE"]
+    rows = held_out[held_out["method"].isin(mse["method"].unique())]
+    if (rows["metric"] == "MSE").any():
+        mse = mse.iloc[0:0]
+    return pd.concat([mse, rows[["metric", "method", "repeat", "value"]]], ignore_index=True)
+
+
+def collect_orig_data(data_dir: Path, gonnect_clustering: pd.DataFrame) -> pd.DataFrame:
+    """Section 1 data, read exactly as Figure 2 reads it: the GONNECT family's
+    MSE from the wide xlsx and its SS / ARI / NMI from the test split, plus the
+    rescored OntoVAE / VEGA 'true' arms."""
+    paths = test_split_paths(data_dir)
+    frames = [on_test_split(read_config_frame(data_dir / "metrics" / MAIN_METRIC_FILE),
+                            gonnect_clustering)]
+    for path, reader in ((paths["ontovae"], read_baseline_ontovae),
+                         (paths["vega"], read_baseline_vega)):
+        if path.exists():
+            frames.append(reader(path))
+        else:
+            print(f"WARNING: missing {path}; its baseline bars will be skipped.")
     return pd.concat(frames, ignore_index=True)
 
 
@@ -614,8 +643,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Supplementary Figure S1: multi-section supp bars (no randomization).")
     add_io_args(parser)
-    parser.add_argument("--split", type=str, default="test",
-                        choices=["train", "test"])
     return parser.parse_args()
 
 
@@ -626,8 +653,21 @@ def main() -> None:
     # the cache keeps it to a single parse.
     xlsx_cache: Dict[Path, pd.DataFrame] = {}
 
+    # Held-out metrics: SS / ARI / NMI of Figure 2's runs, and all four of the sweep runs'.
+    paths = test_split_paths(args.data_dir)
+    for key, step in (("gonnect", "test_split_metrics.py"), ("sweep", "cluster_test_metrics.py s1")):
+        if not paths[key].exists():
+            raise SystemExit(f"missing {paths[key]}; build it with prepare/{step}")
+    gonnect_clustering = pd.read_csv(paths["gonnect"])
+    sweep_metrics = pd.read_csv(paths["sweep"])
+
+    def clustering_for(label: str) -> pd.DataFrame:
+        if label in SWEEP_SETTINGS:
+            return sweep_metrics[sweep_metrics["setting"] == SWEEP_SETTINGS[label]]
+        return gonnect_clustering
+
     # ── Section 1 data ─────────────────────────────────────────────────────
-    data_orig = collect_orig_data(perf_dir, perf_dir / MAIN_METRIC_FILE, args.split)
+    data_orig = collect_orig_data(args.data_dir, gonnect_clustering)
     if data_orig.empty:
         raise SystemExit("No original data found.")
     data_orig = keep_main_methods(data_orig)
@@ -645,7 +685,8 @@ def main() -> None:
         if not path.exists():
             print(f"WARNING: {path} not found, skipping {label}")
             continue
-        df = keep_main_methods(read_config_frame(path, xlsx_cache))
+        df = keep_main_methods(on_test_split(read_config_frame(path, xlsx_cache),
+                                             clustering_for(label)))
         if df.empty:
             print(f"WARNING: {filename} produced no records, skipping {label}")
             continue
@@ -656,7 +697,8 @@ def main() -> None:
     ct30_path = perf_dir / "metric_data_TCGA_1000_30.xlsx"
     gene_raw: List[Tuple[str, pd.DataFrame]] = []
     if ct30_path.exists():
-        df_1k = keep_main_methods(read_config_frame(ct30_path, xlsx_cache))
+        df_1k = keep_main_methods(on_test_split(read_config_frame(ct30_path, xlsx_cache),
+                                                clustering_for("1k")))
         gene_configs: List[Tuple[str, pd.DataFrame]] = [("1k", compute_summary(df_1k))]
         gene_raw.append(("1k", df_1k))
     else:
@@ -664,7 +706,8 @@ def main() -> None:
     gene_filename, gene_label = GENE_CONFIG_FILE
     gene_path = perf_dir / gene_filename
     if gene_path.exists():
-        df_2k = keep_main_methods(read_config_frame(gene_path, xlsx_cache))
+        df_2k = keep_main_methods(on_test_split(read_config_frame(gene_path, xlsx_cache),
+                                                clustering_for(gene_label)))
         if not df_2k.empty:
             gene_configs.append((gene_label, compute_summary(df_2k)))
             gene_raw.append((gene_label, df_2k))

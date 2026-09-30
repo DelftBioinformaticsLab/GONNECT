@@ -30,7 +30,7 @@ The GONNECT model versions are `AE_2.0` (fixed link), `AE_2.1` (soft link), `AE_
 
 | Folder | Holds |
 |---|---|
-| `metrics/` | Every model metric. Workbooks (`.xlsx`) for the GONNECT family; one flat `.txt` per true-graph baseline, named for the method (`ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt`); and the two `*_rand.txt` files. See below. |
+| `metrics/` | Every model metric. Workbooks (`.xlsx`) for the GONNECT family; one flat `.txt` per true-graph baseline, named for the method (`ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt`); and the two `*_rand.txt` files. See below. `metrics/test_split/` holds the revised clustering metrics Figure 2 reads: every model on its test split, silhouette against the true cancer types. |
 | `latent_embeddings/` | Per-model sample embeddings, `.pt`, one folder per model version. Drives every t-SNE and k-NN purity panel. |
 | `model_checkpoints/` | Trained model weights, `.pt`. Only `AE_2.0` and `AE_2.1` are present. |
 | `loss_traces/` | Per-epoch train / validation / test loss, one tab-separated `.txt` per `AE_3.x` α-sweep run. 11 files, 0.8 MB. Read by figS7. |
@@ -106,9 +106,20 @@ raising, since the split key is not at the top level — so the globs filter on
 `_common.is_arm_file` instead of relying on that silence. The `_rand` suffix is
 the marker; `ARM_FILE_SUFFIX` holds it in one place.
 
-Figure 2 reads `graph_types=("true",)` from the `*_rand.txt` pair (the default),
-while Figure 3 asks the same files for `RANDOMIZED_GRAPH_ARMS` and takes its
-true-graph bars from the flat files.
+Figure 2 reads `graph_types=("true",)` from the `*_rand.txt` pair in
+`metrics/test_split/` (the default), while Figure 3 asks the originals for
+`RANDOMIZED_GRAPH_ARMS` and takes its true-graph bars from the flat files.
+
+The `test_split/` pair has the same shape, but its NMI, ARI and silhouette were
+rescored from `baseline_activations/`. The deposited ones took the silhouette
+against the k-means clusters rather than the true cancer types. Its MSE is carried
+over unchanged. Beside them, `gonnect_clustering.csv` holds SS, ARI and NMI for the
+MLP and the GONNECT family on each seed's test split, in long form (`metric`,
+`method`, `repeat`, `value`). `per_type_ss.csv` and `per_type_purity_k30.csv` hold
+the per-cancer-type SS and purity, cancer types × methods, averaged over seeds; the
+purity file adds a `Random` column. The workbooks took all of these over every
+sample, so Figure 2 now takes only MSE from them. See `src/prepare/README.md`, *The
+test-split clustering metrics*.
 
 ## Running
 
@@ -168,34 +179,43 @@ All paths are relative to `figures/data`.
 ### fig2.py — performance metrics, t-SNE embeddings, per-cancer-type heatmaps
 
 ```
-metrics/metric_data_TCGA_1000_30_new.xlsx     GONNECT family, all metrics
-metrics/mse_per_cluster_TCGA_1000_30.xlsx     panels i, j (MSE/SS per c.t.; repaired on read)
-metrics/ontovae_rand.txt                      OntoVAE baseline ('true' arm)
-metrics/vega_rand.txt                         VEGA Hallmark + Reactome ('true' arm)
+metrics/metric_data_TCGA_1000_30_new.xlsx     GONNECT family, MSE only
+metrics/test_split/gonnect_clustering.csv     GONNECT family, SS / ARI / NMI
+metrics/test_split/ontovae_rand.txt           OntoVAE baseline ('true' arm, rescored)
+metrics/test_split/vega_rand.txt              VEGA Hallmark + Reactome ('true' arm, rescored)
+metrics/mse_per_cluster_TCGA_1000_30.xlsx     panel i (MSE per c.t.; repaired on read)
+metrics/test_split/per_type_ss.csv            panel j (SS per c.t.)
+metrics/test_split/per_type_purity_k30.csv    panel k (purity per c.t., plus chance)
 TCGA_complete_bp_top1k.csv.gz                     cancer-type labels, abundance (panel l)
 latent_embeddings/AE_2.0/AE_2.0.2_{none,decoder,encoder,both}_full_dataset.pt   panels e-h
-latent_embeddings/AE_{2.0,2.1}/*_full_dataset.pt         panel k (purity, all 5 seeds)
 cache/tsne/                                       t-SNE coordinates (regenerable)
-cache/knn_purity.csv                              panel k (regenerable, ~25 s)
 ```
 
 Panels: a–d metric bars, e–h t-SNE, i–k the per-cancer-type heatmaps
-(MSE, SS, k-NN purity at k=30), l the abundance bar. The purity panel is
-computed from the embeddings by `_common.knn_purity` over the same seven
-methods as i and j; the randomized arm is deliberately absent, since it is
-Figure 3's subject and appears per cancer type in figS3.
+(MSE, SS, k-NN purity at k=30), l the abundance bar. Every metric panel scores
+held-out samples only; the t-SNE panels show every sample. Panels i and j are the
+per-type breakdowns of a and b, on the same test split. Panel k scores the test
+samples, but draws their 30 neighbours from the training split. A search inside
+the test split would cap the purity of every cancer type with fewer than 30 test
+samples — half of them in some seed — at its size rather than its separation.
+Its last column, `Random`, is chance level: the cancer type's share of the
+training split. The randomized arm is deliberately absent, since it is Figure 3's
+subject and appears per cancer type in figS3.
 
 ### fig3.py and figS4.py — GO-graph randomization
 
 ```
-metrics/{ontovae,vega_hallmark,vega_reactome674}.txt   true-graph baselines
-metrics/metric_data_TCGA_1000_30_new.xlsx              GONNECT + DPR/FR variants
-metrics/ontovae_rand.txt                               randomized OntoVAE (arms
-                                                       degree_preserving, random)
-metrics/vega_rand.txt                                  randomized VEGA (same arms)
+metrics/metric_data_TCGA_1000_30_new.xlsx              MSE of the true-graph and DPR GONNECT arms
+metrics/test_split/gonnect_clustering.csv              their SS / ARI / NMI
+metrics/test_split/randomized_metrics.csv              all four metrics of the FR, DPR-SL and FR-SL arms
+metrics/test_split/{ontovae,vega}_rand.txt             every baseline arm, true graph included (rescored)
 ```
 
 `fig3.py` plots MSE and SS; `figS4.py` plots ARI and NMI from the same inputs.
+Every value is on held-out samples, and the true-graph bars are Figure 2's, so
+the baselines no longer come from the flat per-method files. Those were a
+separate training run from Figure 2's. The FR, DPR-SL and FR-SL arms (AE_10.2,
+AE_11.1, AE_10.1) have no deposited embeddings; see `src/prepare/README.md`.
 
 ### fig4.py — activation–enrichment agreement
 
@@ -262,17 +282,25 @@ one rebuilt from the relabelled decoder activations (see *fig4.py*).
 ### figS1.py — GO-processing hyperparameter sweep
 
 ```
-metrics/{ontovae,vega_hallmark,vega_reactome674}.txt   section 1 baselines
-metrics/metric_data_TCGA_1000_30_new.xlsx              section 1 GONNECT family
-metrics/metric_data_TCGA_1000_5.xlsx                   section 2, ct=5
-metrics/metric_data_TCGA_1000_10.xlsx                  section 2, ct=10
-metrics/metric_data_TCGA_1000_30.xlsx                  section 2 ct=30, and section 3 "1k"
-metrics/metric_data_TCGA_2000_30.xlsx                  section 3, "2k"
+metrics/metric_data_TCGA_1000_30_new.xlsx              section 1 GONNECT family, MSE
+metrics/test_split/{ontovae,vega}_rand.txt             section 1 baselines (rescored)
+metrics/test_split/gonnect_clustering.csv              SS / ARI / NMI: section 1, and the ct=30 / 1k references
+metrics/metric_data_TCGA_1000_5.xlsx                   section 2, ct=5, MSE
+metrics/metric_data_TCGA_1000_10.xlsx                  section 2, ct=10, MSE
+metrics/metric_data_TCGA_1000_30.xlsx                  section 2 ct=30, and section 3 "1k", MSE
+metrics/metric_data_TCGA_2000_30.xlsx                  section 3, "2k", MSE
+metrics/test_split/sweep_metrics.csv                   all four metrics: ct=5, ct=10, 2k
 ```
 
-Note that `metric_data_TCGA_1000_30.xlsx` and `metric_data_TCGA_1000_30_new.xlsx`
-are different files: the first drives the sweep sections, the second the
-main-text model set.
+Every value is on held-out samples, as in Figure 2. Section 1 is exactly
+Figure 2a–d, and the ct=30 / 1k reference bars are Figure 2's runs. The
+workbooks' SS, ARI and NMI spanned all samples, so only their MSE is used, for
+the ct=30 / 1k references. The sweep runs' MSE comes from their training logs
+with the rest, which corrects ct=10 SL-enc / SL-dec: their workbook MSE included
+the soft-link penalty. Note that `metric_data_TCGA_1000_30.xlsx` and
+`metric_data_TCGA_1000_30_new.xlsx` are different files: the first drives the
+sweep sections, the second the main-text model set. They hold identical values
+for every run both contain.
 
 ### figS2.py — soft-link t-SNE embeddings
 
@@ -290,11 +318,17 @@ file with three AE_2.1 files.
 ### figS3.py — per-cancer-type embedding quality, all ten models
 
 ```
-latent_embeddings/AE_{2.0,2.1,2.2}/*_full_dataset.pt   all 50; purity comes from these
-TCGA_complete_bp_top1k.csv.gz                   cancer-type labels, abundance (panel f)
-metrics/mse_per_cluster_TCGA_1000_30.xlsx   panels d, e (SS and MSE sheets; repaired on read)
-cache/knn_purity.csv                            panels a-c (regenerable, ~25 s)
+metrics/test_split/per_type_purity_k{10,20,30}.csv   panels a-c
+metrics/test_split/per_type_ss.csv                   panel d
+metrics/mse_per_cluster_TCGA_1000_30.xlsx            panel e (MSE sheet; repaired on read)
+TCGA_complete_bp_top1k.csv.gz                        cancer-type labels, abundance (panel f)
 ```
+
+As in Figure 2j–k, every panel scores held-out samples: purity draws each
+test sample's neighbours from its run's training split, and SS is taken
+within the test split. The degree-preserving arm (AE_2.2.22–26) trained on
+splits 2–6, like the others. Each purity panel ends in a `Random` column, as in
+Figure 2k: chance level, the cancer type's share of the training split.
 
 Panels a–e are the five heatmaps (purity at k = 10/20/30, SS, MSE) and f the
 abundance bar. The figure carries no title — what it shows belongs in the
@@ -455,7 +489,7 @@ builds all four from `data/` and every figure pays the rebuild cost once:
 |---|---|---|
 | `cache/tsne/` | fig2, figS2 | minutes per panel |
 | `cache/sl_edits/` | figS12 | minutes per module |
-| `cache/knn_purity.csv` | fig2, figS3 | ~25 s for all 50 embeddings |
+| `cache/knn_purity.csv` | figS3 | ~25 s for all 50 embeddings |
 | `cache/auc_4row/` | fig4 | ~13 min, rereads every activation file |
 
 **All four are safe to delete** at any point; the scripts recompute and rewrite

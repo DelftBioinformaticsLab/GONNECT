@@ -22,22 +22,33 @@ plus the three degree-preserving randomized models (GONNECT-DPR enc/dec/both,
 the AE_2.2 arm), which the main text shows only in aggregate. Putting the
 randomized arm next to the true-graph models per cancer type is the point of
 this figure: it shows whether the GO prior helps or hurts on a *type-by-type*
-basis, not just on the dataset mean.
+basis, not just on the dataset mean. The three purity panels add an eleventh
+column, ``Random``: chance level, the purity a type would get if its
+neighbours were drawn at random from the training split, which is the type's
+share of that split. It is the same for every k and every model, and it is
+what a purity value should be read against: a rare type's 0.3 is far above its
+chance of ~0.01, while BRCA's chance level alone is ~0.11, as in Figure 2k.
 
 THE METRICS, AND WHY THEY CAN DISAGREE
 --------------------------------------
 The three metrics ask genuinely different questions, so a model can win one and
 lose another. Read them together, not as three copies of one ranking.
 
-*k-NN purity* (panels a-c) is the fraction of a sample's k nearest neighbours
-(Euclidean, in the full latent space, the sample itself excluded) that carry
-its own cancer-type label, averaged over the samples of that type and then over
-the five model seeds. It is purely local: it sees whether the immediate
+Every metric scores held-out samples: the rows each run's split left out of
+training (splits 2-6; the randomized arm, numbered 22-26, trained on the same
+five). *k-NN purity* (panels a-c) is the fraction of a held-out sample's k
+nearest neighbours (Euclidean, in the full latent space) that carry its own
+cancer-type label, averaged over the held-out samples of that type and then over
+the five model seeds. The neighbours are drawn from the run's training split,
+not from the held-out rows themselves: a test split holds 15% of the data, too
+few for many types to fill k = 30 neighbours with their own kind. It is purely local: it sees whether the immediate
 neighbourhood is contaminated, and nothing else. A cluster that is enormous and
 diffuse but uncontaminated scores 1.0. Showing k = 10, 20 and 30 side by side
 makes the *slope* visible -- a type whose purity falls off quickly with k sits
 in a small, tight island close to other types, while a flat profile means a
-genuinely isolated region. Computed by ``_common.knn_purity``.
+genuinely isolated region. Computed by ``prepare/test_split_metrics.py``, which
+also writes the chance level (the type's share of the training split) that
+Figure 2k shows.
 
 *Silhouette score* (panel d) is geometric where purity is topological: for each
 sample, (distance to the nearest other cluster - mean distance within its own
@@ -45,13 +56,16 @@ cluster) / max of the two, so it rewards clusters that are simultaneously tight
 and far from their neighbours, and goes negative when a type's samples sit
 closer to some other type's centre than to their own. Purity can be high while
 SS is near zero (a clean but sprawling cluster), which is exactly the kind of
-disagreement this figure is meant to expose. Read from the workbook.
+disagreement this figure is meant to expose. It is computed over each run's
+held-out rows, so it is the per-type breakdown of Figure 2b, as MSE is of 2a.
+Computed by ``prepare/test_split_metrics.py``.
 
 *Reconstruction MSE* (panel e) is the only metric here that does not mention
 the labels at all -- it is the autoencoder's own training objective, per cancer
 type. It is included because a model can buy label structure with
 reconstruction fidelity, and the reader should be able to see that trade
-directly. This is the one panel where lower is better. Read from the workbook.
+directly. This is the one panel where lower is better. Read from the workbook,
+which took it on each run's held-out rows.
 Cells above ``MSE_DIVERGED_THRESHOLD`` would be runs that did not converge, and
 are drawn grey with an "x" rather than being allowed to flatten the colour
 scale, following the main-text figure. As of the locale repair in
@@ -74,7 +88,7 @@ figure. Each heatmap has its own colourbar, immediately above it.
 LAYOUT
 ------
 One row of five heatmaps plus the abundance bar, laid out in absolute inches
-(see the "layout" block). Five panels x ten method columns on a 16.5 in canvas
+(see the "layout" block). Five panels of ten or eleven columns on a 16.5 in canvas
 is the width problem this figure has to solve, and two things solve it: the
 colourbars are horizontal and sit in the band *above* each heatmap, so they
 cost height rather than the ~1 in of width each a vertical colourbar would take
@@ -90,17 +104,15 @@ twice as tall for the same information.
 
 Inputs (relative to --data-dir)
 -------------------------------
-    latent_embeddings/AE_<version>/AE_<version>.<seed>_<module>_full_dataset.pt
-        the 50 saved embeddings (10 models x 5 seeds); purity is computed from
-        these
-    TCGA_complete_bp_top1k.csv.gz
-        cancer-type labels, one per embedding row, and the abundance
+    metrics/test_split/per_type_purity_k{10,20,30}.csv
+        panels a-c, cancer types x methods
+    metrics/test_split/per_type_ss.csv
+        panel d
     metrics/mse_per_cluster_TCGA_1000_30.xlsx
-        sheets "SS" and "MSE", indexed on "Cluster"; its columns are already
+        sheet "MSE" (panel e), indexed on "Cluster"; its columns are already
         named to match the method keys
-    cache/knn_purity.csv
-        written by _common on first use (~25 s for all 50 embeddings); this
-        script does not add a cache of its own
+    TCGA_complete_bp_top1k.csv.gz
+        cancer-type labels and the abundance
 
 Outputs
 -------
@@ -111,7 +123,6 @@ Outputs
 Usage
 -----
     python figS3.py [--data-dir figures/data] [--out-dir figures/out]
-                    [--recompute]
 """
 
 from __future__ import annotations
@@ -138,12 +149,12 @@ from _common import (
     add_io_args,
     display,
     figsize,
-    knn_purity,
     load_cancer_types,
     pt,
     read_per_cluster_workbook,
     report_text_overlaps,
     save_figure,
+    test_split_paths,
 )
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -184,8 +195,8 @@ DIVERGED_TEXTCOLOR = "#666666"
 # up to 16.5 exactly: a leftover margin becomes white space in the paper and
 # anything past the edge is lost.
 #
-# The width is the whole problem here. Five heatmaps of ten columns each, at
-# the paper's shared 6 pt tick size, leaves about 0.28 in per column against a
+# The width is the whole problem here. Five heatmaps of 53 columns in all, at
+# the paper's shared 6 pt tick size, leaves about 0.25 in per column against a
 # rotated method label 0.19 in across, so the columns have room to spare; the
 # two decisions that bought that width still hold, and would be needed again if
 # a panel were ever added back: horizontal colourbars above each heatmap
@@ -228,8 +239,14 @@ N_HEATMAPS = 5
 HEAD_H = LETTER_H + TITLE_H + TITLE_GAP + CBAR_LABEL_H + CBAR_H + CBAR_GAP
 FIG_H = PAD_TOP + HEAD_H + HEAT_H + XTICK_H + MARGIN_B
 
-HEAT_W = (FIG_WIDTH_IN - MARGIN_L - MARGIN_R - ABUND_W - GAP_AB
-          - (N_HEATMAPS - 1) * GAP_X) / N_HEATMAPS
+# Width shared by the five heatmaps. Each gets a share in proportion to its
+# column count, so a cell is equally wide in every panel: the purity panels
+# carry one more column than the others (chance level).
+HEATS_W = FIG_WIDTH_IN - MARGIN_L - MARGIN_R - ABUND_W - GAP_AB - (N_HEATMAPS - 1) * GAP_X
+
+# Purity's extra column: chance level, the cancer type's share of the training
+# split the neighbours are drawn from, as in Figure 2k.
+PURITY_CHANCE = "Random"
 
 
 def _rect(x: float, top: float, w: float, h: float) -> list:
@@ -237,9 +254,10 @@ def _rect(x: float, top: float, w: float, h: float) -> list:
     return [x / FIG_WIDTH_IN, 1.0 - (top + h) / FIG_H, w / FIG_WIDTH_IN, h / FIG_H]
 
 
-def _panel_x(i: int) -> float:
-    """Left edge of heatmap ``i`` (0-based)."""
-    return MARGIN_L + i * (HEAT_W + GAP_X)
+def _panel_widths(n_cols: List[int]) -> List[float]:
+    """Heatmap widths in inches, in proportion to their column counts."""
+    cell = HEATS_W / sum(n_cols)
+    return [n * cell for n in n_cols]
 
 
 # ── inputs ────────────────────────────────────────────────────────────────────
@@ -263,29 +281,27 @@ def _require_complete(frame: pd.DataFrame, what: str) -> pd.DataFrame:
     return frame
 
 
-def load_purity(emb_dir, tcga_path, cache_dir, cancer_types: List[str],
-                recompute: bool = False) -> Dict[int, pd.DataFrame]:
-    """k-NN purity per (cancer type, method) for every k, all ten models.
+def load_per_type_table(path, cancer_types: List[str], columns: List[str]) -> pd.DataFrame:
+    """One held-out per-type table (cancer types x ``columns``).
 
-    _common.knn_purity rebuilds its own cache when it does not cover the
-    request, so a stale or partial knn_purity.csv costs a recompute rather than
-    a figure full of holes. The check below is only a last guard.
+    The purity tables carry a chance-level ``Random`` column after the ten
+    models; the SS table does not.
     """
-    frames = knn_purity(emb_dir, tcga_path, cache_dir, recompute=recompute,
-                        methods=METHODS, ks=PURITY_K_VALUES,
-                        cancer_types=cancer_types)
-    for k, frame in frames.items():
-        if list(frame.columns) != METHODS or frame.isna().to_numpy().any():
-            raise SystemExit(
-                f"purity for k={k} came back with columns {list(frame.columns)} "
-                f"and {int(frame.isna().to_numpy().sum())} missing cells; "
-                f"expected {METHODS}. Delete {cache_dir/'knn_purity.csv'} "
-                f"and rerun.")
-    return frames
+    if not path.exists():
+        raise SystemExit(f"Input file not found: {path}; build it with "
+                         f"prepare/test_split_metrics.py")
+    frame = pd.read_csv(path, index_col=0)
+    missing = [m for m in columns if m not in frame.columns]
+    if missing:
+        raise SystemExit(f"{path.name} is missing column(s): {', '.join(missing)}")
+    return _require_complete(frame[columns].reindex(cancer_types), path.name)
 
 
 def load_workbook_metrics(path, cancer_types: List[str]) -> Dict[str, pd.DataFrame]:
-    """The "SS" and "MSE" sheets of the per-cluster workbook, as ten-column frames.
+    """The "MSE" sheet of the per-cluster workbook, as a ten-column frame.
+
+    Its "SS" sheet is not read: it spans all samples, where panel d scores the
+    held-out ones.
 
     The workbook's columns are already the method keys used everywhere else, so
     no renaming is needed -- only selection and reordering.
@@ -294,7 +310,7 @@ def load_workbook_metrics(path, cancer_types: List[str]) -> Dict[str, pd.DataFra
         raise SystemExit(f"Input file not found: {path}")
     book = read_per_cluster_workbook(path)
     out = {}
-    for sheet in ("SS", "MSE"):
+    for sheet in ("MSE",):
         if sheet not in book:
             raise SystemExit(f"{path.name} has no sheet {sheet!r} "
                              f"(sheets: {', '.join(book)})")
@@ -394,24 +410,28 @@ def plot_figure(panels: List[dict], cancer_types: List[str],
                 abundance: pd.Series):
     """The whole figure: five heatmaps then the abundance bar, in one row."""
     fig = plt.figure(figsize=figsize(FIG_H))
-    method_labels = [display(m) for m in METHODS]
 
     heat_top = PAD_TOP + HEAD_H
     cbar_top = heat_top - CBAR_GAP - CBAR_H
 
-    for i, panel in enumerate(panels):
-        x = _panel_x(i)
-        ax = fig.add_axes(_rect(x, heat_top, HEAT_W, HEAT_H))
-        cax = fig.add_axes(_rect(x + CBAR_INSET * HEAT_W, cbar_top,
-                                 (1.0 - 2 * CBAR_INSET) * HEAT_W, CBAR_H))
-        draw_heatmap(fig, ax, cax, panel["data"], cancer_types, method_labels,
+    x = MARGIN_L
+    for i, (panel, w) in enumerate(zip(panels, _panel_widths([len(p["methods"]) for p in panels]))):
+        ax = fig.add_axes(_rect(x, heat_top, w, HEAT_H))
+        cax = fig.add_axes(_rect(x + CBAR_INSET * w, cbar_top,
+                                 (1.0 - 2 * CBAR_INSET) * w, CBAR_H))
+        draw_heatmap(fig, ax, cax, panel["data"], cancer_types,
+                     [display(m) for m in panel["methods"]],
                      cmap=panel["cmap"], vmin=panel["vmin"], vmax=panel["vmax"],
                      norm=panel.get("norm"), cbar_ticks=panel.get("cbar_ticks"),
                      y_labels=(i == 0), diverged=panel.get("diverged"))
+        if PURITY_CHANCE in panel["methods"]:
+            # Split chance level off from the models, as Figure 2k does.
+            ax.axvline(panel["methods"].index(PURITY_CHANCE) - 0.5, color="white", linewidth=2.5)
         _panel_letter(fig, x, "abcde"[i])
-        _panel_title(fig, x, HEAT_W, panel["title"])
+        _panel_title(fig, x, w, panel["title"])
+        x += w + GAP_X
 
-    x_ab = _panel_x(N_HEATMAPS - 1) + HEAT_W + GAP_AB
+    x_ab = x - GAP_X + GAP_AB
     ax_ab = fig.add_axes(_rect(x_ab, heat_top, ABUND_W, HEAT_H))
     draw_abundance(ax_ab, cancer_types, abundance)
     _panel_letter(fig, x_ab, "f")
@@ -430,7 +450,7 @@ def build_csv(panels: List[dict], cancer_types: List[str],
     for panel in panels:
         diverged = panel.get("diverged")
         for i, ct in enumerate(cancer_types):
-            for j, method in enumerate(METHODS):
+            for j, method in enumerate(panel["methods"]):
                 rows.append({
                     "cancer_type": ct,
                     "abundance": int(abundance[ct]),
@@ -452,14 +472,10 @@ def main() -> None:
         description="Per-cancer-type embedding quality across all ten models "
                     f"-> {FIG_NAME}")
     add_io_args(parser)
-    parser.add_argument("--recompute", action="store_true",
-                        help="ignore the cached purity table and recompute it "
-                             "from the embeddings")
     args = parser.parse_args()
 
-    emb_dir = args.data_dir / "latent_embeddings"
     tcga_path = args.data_dir / "TCGA_complete_bp_top1k.csv.gz"
-    cache_dir = args.data_dir / "cache"
+    paths = test_split_paths(args.data_dir)
     per_ct_file = args.data_dir / "metrics" / "mse_per_cluster_TCGA_1000_30.xlsx"
     for path in (tcga_path, per_ct_file):
         if not path.exists():
@@ -472,14 +488,13 @@ def main() -> None:
     print(f"  {len(labels)} samples, {len(cancer_types)} cancer types, "
           f"{len(METHODS)} methods")
 
-    print("Loading k-NN purity ...")
-    purity = load_purity(emb_dir, tcga_path, cache_dir, cancer_types,
-                         recompute=args.recompute)
-
-    print("Loading per-cancer-type SS / MSE ...")
-    sheets = load_workbook_metrics(per_ct_file, cancer_types)
-    ss_vals = sheets["SS"].to_numpy(dtype=float)
-    mse_vals = sheets["MSE"].to_numpy(dtype=float)
+    print("Loading per-cancer-type purity / SS (held out) and MSE ...")
+    purity = {k: load_per_type_table(paths[f"purity_per_type_k{k}"], cancer_types,
+                                     METHODS + [PURITY_CHANCE])
+              for k in PURITY_K_VALUES}
+    ss_vals = load_per_type_table(paths["ss_per_type"], cancer_types,
+                                  METHODS).to_numpy(dtype=float)
+    mse_vals = load_workbook_metrics(per_ct_file, cancer_types)["MSE"].to_numpy(dtype=float)
 
     # MSE: hide the diverged runs from the colour scale but keep them on the
     # figure as marked cells, so an empty-looking column is never ambiguous
@@ -511,20 +526,20 @@ def main() -> None:
         vals = purity[k].to_numpy(dtype=float)
         panels.append({
             "metric": f"knn_purity_k{k}", "direction": "up",
-            "data": vals, "raw": vals,
+            "methods": METHODS + [PURITY_CHANCE], "data": vals, "raw": vals,
             "cmap": UNIT_CMAP, "vmin": 0.0, "vmax": 1.0,
             "cbar_ticks": UNIT_TICKS,
             "title": f"k-NN purity [↑]\nk = {k}",
         })
     panels.append({
         "metric": "SS", "direction": "up",
-        "data": ss_vals, "raw": ss_vals,
+        "methods": METHODS, "data": ss_vals, "raw": ss_vals,
         "cmap": SS_CMAP, "vmin": ss_lo, "vmax": ss_hi, "norm": ss_norm,
         "cbar_ticks": ss_ticks, "title": "Silhouette [↑]\n(SS)",
     })
     panels.append({
         "metric": "MSE", "direction": "down",
-        "data": mse_display, "raw": mse_vals, "diverged": mse_diverged,
+        "methods": METHODS, "data": mse_display, "raw": mse_vals, "diverged": mse_diverged,
         "cmap": MSE_CMAP,
         "vmin": float(np.nanmin(mse_display)),
         "vmax": float(np.nanpercentile(mse_display, MSE_UPPER_PERCENTILE)),

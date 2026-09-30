@@ -7,9 +7,9 @@ only the two clustering metrics instead of MSE and SS:
 
 All data loading, statistics and plotting live in fig3.py; this script only
 picks the metrics and the output name, so the two figures cannot drift apart.
-Inputs are exactly the files fig3.py reads (metrics/*.txt,
-metrics/metric_data_TCGA_1000_30_new.xlsx and the two metrics/*_rand.txt
-files under --data-dir).
+Inputs are exactly the files fig3.py reads: the held-out metrics under
+metrics/test_split/, and the MSE of metrics/metric_data_TCGA_1000_30_new.xlsx
+(which this figure does not show).
 
 Run: python figS4.py   ->   out/figS4.png, out/figS4.pdf
 """

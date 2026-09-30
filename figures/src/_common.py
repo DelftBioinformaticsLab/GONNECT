@@ -772,6 +772,38 @@ def baseline_arm_paths(data_dir: Path) -> tuple:
             data_dir / "metrics" / f"vega{ARM_FILE_SUFFIX}.txt")
 
 
+def test_split_paths(data_dir: Path) -> Dict[str, Path]:
+    """The held-out metric inputs of figures 2, 3, S1, S3 and S4, by name.
+
+    Every model is scored on held-out samples, with the silhouette taken against
+    the true cancer types. The originals took GONNECT's SS / ARI / NMI and its
+    per-type SS and purity over all samples, and the baselines' silhouette
+    against their k-means clusters. Built by:
+      ``prepare/test_split_metrics.py``   ``gonnect`` (SS / ARI / NMI of the ten
+          models with embeddings), ``ss_per_type``, ``purity_per_type_k{k}``
+          (``purity_per_type`` is k = 30, the main text's)
+      ``prepare/rescore_baselines.py``    ``ontovae``, ``vega``: every graph arm,
+          in the shape of their ``baseline_arm_paths`` namesakes, MSE included
+      ``prepare/cluster_test_metrics.py`` ``sweep`` (figS1's ct=5, ct=10 and 2k
+          runs, with a ``setting`` column) and ``randomized`` (fig3's fully
+          random and randomized soft-link arms), all four metrics each
+    The ``gonnect`` file has no MSE, which stays with the workbooks. A
+    subdirectory, so the ``metrics/*.txt`` glob in fig3 does not pick the arm
+    files up as flat baselines.
+    """
+    d = data_dir / "metrics" / "test_split"
+    return {
+        "gonnect": d / "gonnect_clustering.csv",
+        "ontovae": d / f"ontovae{ARM_FILE_SUFFIX}.txt",
+        "vega": d / f"vega{ARM_FILE_SUFFIX}.txt",
+        "ss_per_type": d / "per_type_ss.csv",
+        "purity_per_type": d / f"per_type_purity_k{PURITY_K_MAIN}.csv",
+        **{f"purity_per_type_k{k}": d / f"per_type_purity_k{k}.csv" for k in PURITY_K_VALUES},
+        "sweep": d / "sweep_metrics.csv",
+        "randomized": d / "randomized_metrics.csv",
+    }
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Statistics
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,115 @@
+Section 1 t-tests vs GONNECT-SL-dec
+metric           method  n     t_stat      p_value        p_adj  significant
+   ARI  GONNECT-SL-both  5  -0.674138 5.371757e-01 5.371757e-01        False
+   ARI   GONNECT-SL-enc  5  -1.701195 1.641249e-01 2.461874e-01        False
+   ARI     GONNECT-both  5  -8.763410 9.346915e-04 4.206112e-03         True
+   ARI      GONNECT-dec  5  -7.121756 2.054804e-03 5.193660e-03         True
+   ARI      GONNECT-enc  5 -17.894948 5.731150e-05 5.158035e-04         True
+   ARI              MLP  5  -2.612568 5.925990e-02 1.066678e-01        False
+   ARI          ontovae  5   1.039607 3.572315e-01 4.018855e-01        False
+   ARI    vega_hallmark  5  -6.904132 2.308293e-03 5.193660e-03         True
+   ARI vega_reactome674  5  -1.221132 2.890889e-01 3.716857e-01        False
+   MSE  GONNECT-SL-both  5 -14.704494 1.244738e-04 1.867106e-04         True
+   MSE   GONNECT-SL-enc  5  -4.617676 9.898359e-03 1.255711e-02         True
+   MSE     GONNECT-both  5  78.347787 1.590643e-07 4.045508e-07         True
+   MSE      GONNECT-dec  5  85.503821 1.121536e-07 4.045508e-07         True
+   MSE      GONNECT-enc  5   4.459817 1.116188e-02 1.255711e-02         True
+   MSE              MLP  5   3.530856 2.421188e-02 2.421188e-02         True
+   MSE          ontovae  5 -18.309392 5.234412e-05 9.421942e-05         True
+   MSE    vega_hallmark  5 117.647998 3.130430e-08 2.817387e-07         True
+   MSE vega_reactome674  5  75.982722 1.798004e-07 4.045508e-07         True
+   NMI  GONNECT-SL-both  5  -3.463204 2.574247e-02 3.309746e-02         True
+   NMI   GONNECT-SL-enc  5  -8.458701 1.070328e-03 1.926591e-03         True
+   NMI     GONNECT-both  5  -8.776167 9.294918e-04 1.926591e-03         True
+   NMI      GONNECT-dec  5 -17.716113 5.963600e-05 2.683620e-04         True
+   NMI      GONNECT-enc  5 -41.002429 2.114427e-06 1.902984e-05         True
+   NMI              MLP  5  -7.753095 1.491271e-03 2.236907e-03         True
+   NMI          ontovae  5   2.462320 6.951784e-02 7.820757e-02        False
+   NMI    vega_hallmark  5  -9.802108 6.071902e-04 1.821571e-03         True
+   NMI vega_reactome674  5  -0.103353 9.226573e-01 9.226573e-01        False
+    SS  GONNECT-SL-both  5 -10.569612 4.533496e-04 1.020037e-03         True
+    SS   GONNECT-SL-enc  5 -11.629422 3.124700e-04 9.374099e-04         True
+    SS     GONNECT-both  5 -17.853216 5.784369e-05 2.602966e-04         True
+    SS      GONNECT-dec  5  -5.451367 5.501515e-03 8.252272e-03         True
+    SS      GONNECT-enc  5 -35.119243 3.923077e-06 3.530769e-05         True
+    SS              MLP  5  -2.796537 4.898419e-02 4.898419e-02         True
+    SS          ontovae  5  -3.493952 2.503296e-02 2.816208e-02         True
+    SS    vega_hallmark  5  -4.865052 8.249118e-03 1.060601e-02         True
+    SS vega_reactome674  5  -6.708259 2.570182e-03 4.626327e-03         True
+
+Section 2 (CT) per-model t-tests vs ct=30:
+metric          method config  n     t_stat      p_value        p_adj  significant
+   ARI GONNECT-SL-both   ct=5  5   3.168405 3.390960e-02 5.813074e-02        False
+   ARI GONNECT-SL-both  ct=10  5   2.281058 8.468769e-02 1.129169e-01        False
+   ARI  GONNECT-SL-dec   ct=5  5  -2.531968 6.452940e-02 9.679411e-02        False
+   ARI  GONNECT-SL-dec  ct=10  5  -2.172266 9.556753e-02 1.146810e-01        False
+   ARI  GONNECT-SL-enc   ct=5  5  -1.984675 1.181679e-01 1.289104e-01        False
+   ARI  GONNECT-SL-enc  ct=10  5  -3.758288 1.980424e-02 3.960849e-02         True
+   ARI     GONNECT-dec   ct=5  5   0.290538 7.858454e-01 7.858454e-01        False
+   ARI     GONNECT-dec  ct=10  5   3.934690 1.703566e-02 3.960849e-02         True
+   ARI     GONNECT-enc   ct=5  5   5.607158 4.969104e-03 1.490731e-02         True
+   ARI     GONNECT-enc  ct=10  5   7.945652 1.358658e-03 1.490731e-02         True
+   ARI             MLP   ct=5  5  -5.677999 4.747955e-03 1.490731e-02         True
+   ARI             MLP  ct=10  5  -6.087914 3.680730e-03 1.490731e-02         True
+   MSE GONNECT-SL-both   ct=5  5   0.445977 6.786901e-01 6.786901e-01        False
+   MSE GONNECT-SL-both  ct=10  5  -2.716102 5.320061e-02 6.384074e-02        False
+   MSE  GONNECT-SL-dec   ct=5  5   9.219135 7.692555e-04 1.153883e-03         True
+   MSE  GONNECT-SL-dec  ct=10  5  10.957380 3.940819e-04 6.755690e-04         True
+   MSE  GONNECT-SL-enc   ct=5  5  12.881145 2.094509e-04 4.189018e-04         True
+   MSE  GONNECT-SL-enc  ct=10  5  29.952636 7.399302e-06 1.775833e-05         True
+   MSE     GONNECT-dec   ct=5  5  97.274715 6.696463e-08 2.047694e-07         True
+   MSE     GONNECT-dec  ct=10  5  96.810985 6.825647e-08 2.047694e-07         True
+   MSE     GONNECT-enc   ct=5  5   1.797344 1.466911e-01 1.600267e-01        False
+   MSE     GONNECT-enc  ct=10  5   5.241608 6.333315e-03 8.444420e-03         True
+   MSE             MLP   ct=5  5 269.766324 1.132819e-09 6.810717e-09         True
+   MSE             MLP  ct=10  5 269.629534 1.135119e-09 6.810717e-09         True
+   NMI GONNECT-SL-both   ct=5  5   3.550741 2.378276e-02 4.077045e-02         True
+   NMI GONNECT-SL-both  ct=10  5   2.977405 4.084365e-02 5.445820e-02        False
+   NMI  GONNECT-SL-dec   ct=5  5  -5.668774 4.776059e-03 9.552118e-03         True
+   NMI  GONNECT-SL-dec  ct=10  5  -3.076456 3.705920e-02 5.445820e-02        False
+   NMI  GONNECT-SL-enc   ct=5  5  -2.351323 7.840195e-02 8.552940e-02        False
+   NMI  GONNECT-SL-enc  ct=10  5  -6.047479 3.771907e-03 9.076099e-03         True
+   NMI     GONNECT-dec   ct=5  5  -2.574536 6.168232e-02 7.401879e-02        False
+   NMI     GONNECT-dec  ct=10  5   1.638893 1.765784e-01 1.765784e-01        False
+   NMI     GONNECT-enc   ct=5  5   6.043204 3.781708e-03 9.076099e-03         True
+   NMI     GONNECT-enc  ct=10  5  11.582967 3.173908e-04 1.269563e-03         True
+   NMI             MLP   ct=5  5 -12.469004 2.379183e-04 1.269563e-03         True
+   NMI             MLP  ct=10  5 -19.343037 4.210694e-05 5.052833e-04         True
+    SS GONNECT-SL-both   ct=5  5   0.349632 7.442465e-01 7.442465e-01        False
+    SS GONNECT-SL-both  ct=10  5   2.359204 7.773034e-02 1.332520e-01        False
+    SS  GONNECT-SL-dec   ct=5  5  -0.675727 5.362658e-01 6.063259e-01        False
+    SS  GONNECT-SL-dec  ct=10  5  -2.014373 1.142279e-01 1.713419e-01        False
+    SS  GONNECT-SL-enc   ct=5  5  -0.642031 5.557988e-01 6.063259e-01        False
+    SS  GONNECT-SL-enc  ct=10  5   0.764449 4.872067e-01 6.063259e-01        False
+    SS     GONNECT-dec   ct=5  5 -20.555023 3.308702e-05 1.323481e-04         True
+    SS     GONNECT-dec  ct=10  5 -17.167253 6.754408e-05 2.026322e-04         True
+    SS     GONNECT-enc   ct=5  5   4.739568 9.040078e-03 1.808016e-02         True
+    SS     GONNECT-enc  ct=10  5  13.268244 1.864780e-04 4.475473e-04         True
+    SS             MLP   ct=5  5 -49.087322 1.030560e-06 1.220931e-05         True
+    SS             MLP  ct=10  5 -41.398150 2.034886e-06 1.220931e-05         True
+
+Section 3 (gene) per-model t-tests vs 1k:
+metric         method config  n     t_stat  p_value    p_adj  significant
+   ARI GONNECT-SL-dec     2k  5   2.551898 0.063178 0.078973        False
+   ARI GONNECT-SL-enc     2k  5   4.152354 0.014233 0.035583         True
+   ARI    GONNECT-dec     2k  5   6.354761 0.003142 0.015712         True
+   ARI    GONNECT-enc     2k  5  -3.456419 0.025902 0.043170         True
+   ARI            MLP     2k  5   0.841163 0.447603 0.447603        False
+   MSE GONNECT-SL-dec     2k  5   0.437743 0.684172 0.684172        False
+   MSE GONNECT-SL-enc     2k  5  -7.844447 0.001426 0.003566         True
+   MSE    GONNECT-dec     2k  5  -2.179449 0.094803 0.118504        False
+   MSE    GONNECT-enc     2k  5   3.533151 0.024162 0.040270         True
+   MSE            MLP     2k  5   7.951332 0.001355 0.003566         True
+   NMI GONNECT-SL-dec     2k  5   2.347220 0.078754 0.098443        False
+   NMI GONNECT-SL-enc     2k  5   9.849356 0.000596 0.001490         True
+   NMI    GONNECT-dec     2k  5  10.873437 0.000406 0.001490         True
+   NMI    GONNECT-enc     2k  5  -6.843147 0.002386 0.003977         True
+   NMI            MLP     2k  5  -0.076431 0.942746 0.942746        False
+    SS GONNECT-SL-dec     2k  5  -3.205666 0.032724 0.040905         True
+    SS GONNECT-SL-enc     2k  5   5.627291 0.004905 0.008175         True
+    SS    GONNECT-dec     2k  5   7.866346 0.001411 0.003529         True
+    SS    GONNECT-enc     2k  5 -21.861399 0.000026 0.000130         True
+    SS            MLP     2k  5   1.701957 0.163979 0.163979        False
+  no text overlaps in figS1
+  wrote figures\out\compare\published\figS1.png
+  wrote figures\out\compare\published\figS1.pdf

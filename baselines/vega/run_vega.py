@@ -62,6 +62,8 @@ def parse_args():
                         "They carry the genes no gene set annotates: 602 of 1000 for "
                         "Reactome, 552 for Hallmark.")
     p.add_argument("--max-eval-cells", type=int, default=10_000)
+    p.add_argument("--silhouette-against", choices=("labels", "kmeans"), default="labels",
+                   help="What the silhouette scores; see evaluate")
     p.add_argument("--id-col", default="patient_id")
     p.add_argument("--label-col", default="cancer_type")
     p.add_argument("--n-nan-cols", type=int, default=5)
@@ -93,8 +95,14 @@ def build_adata(frame, labels, label_col):
 
 # ---------------------------------------------------------------- metrics
 
-def evaluate(model, frame, labels, device, max_cells):
-    """NMI, ARI, silhouette on the latent space, plus MSE over the shared genes."""
+def evaluate(model, frame, labels, device, max_cells, silhouette_against="labels"):
+    """NMI, ARI, silhouette on the latent space, plus MSE over the shared genes.
+
+    `silhouette_against` picks what the silhouette scores: `labels`, the true
+    classes, as GONNECT's SS does, or `kmeans`, the k-means clusters, as the
+    original runs did -- a definition that runs higher, so the deposited values
+    are not comparable with GONNECT's. Both are returned alongside the metrics.
+    """
     if len(frame) > max_cells:
         frame, labels = _stratified_subsample(frame, labels, max_cells)
 
@@ -105,17 +113,21 @@ def evaluate(model, frame, labels, device, max_cells):
 
     n_clusters = int(labels.nunique())
     if n_clusters <= 1:
-        return {"NMI": float("nan"), "ARI": float("nan"),
-                "Silhouette": float("nan"), "mse": float(mse)}
+        return ({"NMI": float("nan"), "ARI": float("nan"),
+                 "Silhouette": float("nan"), "mse": float(mse)},
+                {"labels": float("nan"), "kmeans": float("nan")})
 
     z = latent.numpy()
     assignments = KMeans(n_clusters=n_clusters, random_state=METRIC_SEED).fit_predict(z)
-    return {
+    silhouettes = {"labels": float(silhouette_score(z, labels)),
+                   "kmeans": float(silhouette_score(z, assignments))}
+    metrics = {
         "NMI": float(normalized_mutual_info_score(labels, assignments)),
         "ARI": float(adjusted_rand_score(labels, assignments)),
-        "Silhouette": float(silhouette_score(z, assignments)),
+        "Silhouette": silhouettes[silhouette_against],
         "mse": float(mse),
     }
+    return metrics, silhouettes
 
 
 def _stratified_subsample(frame, labels, max_cells):
@@ -189,10 +201,12 @@ def run_gmt(adata_train, frames, labels, gmt_path, seed, run_dir, args, device):
                    save_adata=True, save_history=True, overwrite=True)
         model.eval()
 
-        out[arm] = {
-            split: evaluate(model, frames[split], labels[split], device, args.max_eval_cells)
-            for split in ("train", "test")
-        }
+        out[arm] = {}
+        for split in ("train", "test"):
+            out[arm][split], silhouettes = evaluate(model, frames[split], labels[split], device,
+                                                    args.max_eval_cells, args.silhouette_against)
+            print(f"    {split} silhouette[labels]={silhouettes['labels']:.6f}  "
+                  f"silhouette[kmeans]={silhouettes['kmeans']:.6f}")
         print(f"    test NMI {out[arm]['test']['NMI']:.4f}  MSE {out[arm]['test']['mse']:.4f}")
 
         for split in ("train", "test"):

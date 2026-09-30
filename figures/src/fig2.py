@@ -2,13 +2,18 @@
 
 Panels
   a-d  Test-set MSE / SS / ARI / NMI per model: mean +- SD over the five
-       matched splits, with FDR-corrected paired t-tests against MLP.
+       matched splits, with FDR-corrected paired t-tests against MLP. SS is
+       taken against the true cancer types for every model.
   e-h  t-SNE of the sample embeddings: MLP (AE_2.0 `none`) and the GONNECT
        decoder / encoder / both variants, coloured by cancer type.
-  i    MSE per cancer type (heatmap).
-  j    SS per cancer type (heatmap).
-  k    k-NN neighbourhood purity per cancer type, k=30 (heatmap).
+  i    MSE per cancer type (heatmap), test split: the per-type breakdown of a.
+  j    SS per cancer type (heatmap), test split: the per-type breakdown of b.
+  k    k-NN neighbourhood purity per cancer type, k=30 (heatmap): test samples,
+       neighbours drawn from the training split, plus a chance-level column.
   l    Cancer-type abundance.
+
+Only the t-SNE panels (e-h) use every sample; they are a picture of the
+embedding, not a metric.
 
 Layout: one shared 5-column grid, sized in inches (see the Layout block below)
 so the label bands -- the rotated method names under the bars and under the
@@ -16,14 +21,16 @@ heatmaps, and the colourbar strip above the heatmaps -- get the room the
 paper's type scale actually needs, rather than being squeezed by ratios.
 
 Inputs, relative to --data-dir:
-  metrics/metric_data_TCGA_1000_30_new.xlsx   MLP + GONNECT metrics
-  metrics/mse_per_cluster_TCGA_1000_30.xlsx   per-cancer-type MSE / SS
-  metrics/ontovae_rand.txt         OntoVAE baseline
-  metrics/vega_rand.txt            VEGA baselines
+  metrics/metric_data_TCGA_1000_30_new.xlsx   MLP + GONNECT MSE
+  metrics/test_split/gonnect_clustering.csv   MLP + GONNECT SS / ARI / NMI
+  metrics/test_split/ontovae_rand.txt         OntoVAE baseline (rescored)
+  metrics/test_split/vega_rand.txt            VEGA baselines (rescored)
+  metrics/mse_per_cluster_TCGA_1000_30.xlsx   per-cancer-type MSE
+  metrics/test_split/per_type_ss.csv          per-cancer-type SS
+  metrics/test_split/per_type_purity_k30.csv  per-cancer-type purity + chance
   latent_embeddings/AE_2.0/AE_2.0.<seed>_<module>_full_dataset.pt
   TCGA_complete_bp_top1k.csv.gz                   cancer-type labels
   cache/tsne/                                     t-SNE cache
-  cache/knn_purity.csv                            k-NN purity cache
 """
 
 from __future__ import annotations
@@ -39,7 +46,6 @@ import pandas as pd
 
 from _common import (
     CANCER_COLORS,
-    FIG2_METHODS,
     FIG_WIDTH_IN,
     MAIN_METHODS,
     METRIC_DIRECTION,
@@ -56,7 +62,6 @@ from _common import (
     figsize,
     compute_summary,
     display,
-    knn_purity,
     load_cancer_types,
     load_embedding,
     paired_t_tests,
@@ -69,7 +74,7 @@ from _common import (
     stars,
     tsne,
     tsne_cached,
-    baseline_arm_paths,
+    test_split_paths,
 )
 
 # ── Layout ───────────────────────────────────────────────────────────────────
@@ -190,13 +195,16 @@ BAR_XLIM_PAD = 0.65
 BASELINE_METHOD = "MLP"
 
 # Heatmaps show the 7 methods that are present in mse_per_cluster_TCGA_1000_30.xlsx;
-# _common.FIG2_METHODS is the same set, and gives the purity panel the same
-# columns in the same order.
+# _common.FIG2_METHODS is the same set, and prepare/test_split_metrics.py writes
+# the SS and purity tables with the same columns.
 HEATMAP_METHOD_ORDER = [
     "MLP",
     "GONNECT-enc",    "GONNECT-dec",    "GONNECT-both",
     "GONNECT-SL-enc", "GONNECT-SL-dec", "GONNECT-SL-both",
 ]
+# Panel k's extra column: chance-level purity, the cancer type's share of the
+# training split the neighbours are drawn from.
+PURITY_CHANCE = "Random"
 
 # ── Embedding panels (t-SNE) ─────────────────────────────────────────────────
 # Titles use the same method names as the x-tick labels in panels a-d.
@@ -484,11 +492,19 @@ def main() -> None:
     cache_dir = args.data_dir / "cache"
     tsne_cache_dir = cache_dir / "tsne"
 
-    # 1. Metric bars data: xlsx for the GONNECT family + metrics/*_rand.txt
-    #    txt for OntoVAE / VEGA.
+    # 1. Metric bars data, all on the test split: MSE for the GONNECT family
+    #    from the xlsx, its SS / ARI / NMI from metrics/test_split/, and every
+    #    OntoVAE / VEGA metric from the rescored arm files beside it. The xlsx's
+    #    own SS / ARI / NMI span all samples, so they are dropped here.
     print("Loading metric data ...")
-    frames = [read_xlsx_metrics(metric_file, strict_repeats=True)]
-    ontovae_path, vega_path = baseline_arm_paths(args.data_dir)
+    paths = test_split_paths(args.data_dir)
+    for key in ("gonnect", "ss_per_type", "purity_per_type"):
+        if not paths[key].exists():
+            raise SystemExit(f"missing {paths[key]}; build it with prepare/test_split_metrics.py")
+    ontovae_path, vega_path = paths["ontovae"], paths["vega"]
+    workbook = read_xlsx_metrics(metric_file, strict_repeats=True)
+    frames = [workbook[workbook["metric"] == "MSE"],
+              pd.read_csv(paths["gonnect"], usecols=["metric", "method", "repeat", "value"])]
     if ontovae_path.exists():
         frames.append(read_baseline_ontovae(ontovae_path))
     else:
@@ -504,12 +520,13 @@ def main() -> None:
     if not stats_table.empty:
         print(stats_table.to_string(index=False))
 
-    # 2. Per-cancer-type heatmap data. Read through _common so the workbook's
-    # locale-coerced cells are decoded on the way in (see _common._decoerce).
+    # 2. Per-cancer-type heatmap data, all on held-out samples: MSE from the
+    # workbook, read through _common so its locale-coerced cells are decoded on
+    # the way in (see _common._decoerce); SS and purity from metrics/test_split/.
+    # The workbook's own SS sheet spans all samples, so it is not used.
     print("Loading per-cancer-type data ...")
-    sheets = read_per_cluster_workbook(per_ct_file)
-    mse_df = sheets["MSE"]
-    ss_df  = sheets["SS"]
+    mse_df = read_per_cluster_workbook(per_ct_file)["MSE"]
+    ss_df  = pd.read_csv(paths["ss_per_type"], index_col=0)
     heatmap_methods = [m for m in HEATMAP_METHOD_ORDER if m in mse_df.columns]
     mse_df = mse_df[heatmap_methods]
     ss_df  = ss_df[heatmap_methods]
@@ -533,15 +550,13 @@ def main() -> None:
     mse_display  = np.where(mse_diverged, np.nan, mse_vals)
     ss_vals = ss_df.values.astype(float)
 
-    # 4. k-NN purity per cancer type, from the embeddings (cached). FIG2_METHODS
-    # is HEATMAP_METHOD_ORDER, so panel k lines up column for column with i and j.
+    # 4. k-NN purity per cancer type: test samples, neighbours from the training
+    # split. Lines up column for column with i and j, plus the chance-level
+    # column after them.
     print("Loading k-NN purity ...")
-    purity_df = knn_purity(
-        emb_dir, tcga_file, cache_dir,
-        methods=FIG2_METHODS, ks=[PURITY_K_MAIN],
-        cancer_types=cancer_types_sorted,
-    )[PURITY_K_MAIN]
-    purity_vals = purity_df.reindex(columns=heatmap_methods).values.astype(float)
+    purity_methods = heatmap_methods + [PURITY_CHANCE]
+    purity_df = pd.read_csv(paths["purity_per_type"], index_col=0)
+    purity_vals = purity_df.loc[cancer_types_sorted, purity_methods].values.astype(float)
 
     # 5. t-SNE for the four embedding panels
     print("Loading / computing t-SNEs ...")
@@ -618,14 +633,17 @@ def main() -> None:
     # Heatmaps i-k, in one sub-grid over the span of cols 2-3:
     # [names, i, gap, j, gap, k, pad], all in inches, laid out with wspace=0 so
     # the ratios are read as widths. The cancer-type names are drawn outside
-    # panel i with clip_on=False and live in the first cell.
+    # panel i with clip_on=False and live in the first cell. Each panel is as
+    # wide as its column count, so k's chance column costs no cell width.
     hm_span = col_w[2] + COL_GAP_IN + col_w[3]
-    hm_w = (hm_span - HEATMAP_LABEL_PAD_IN - HEATMAP_RIGHT_PAD_IN
-            - 2 * HEATMAP_GAP_IN) / 3
+    n_cols = [len(heatmap_methods), len(heatmap_methods), len(purity_methods)]
+    cell_w = (hm_span - HEATMAP_LABEL_PAD_IN - HEATMAP_RIGHT_PAD_IN
+              - 2 * HEATMAP_GAP_IN) / sum(n_cols)
     hm_gs = outer[1, 2:4].subgridspec(
         1, 7, wspace=0.0,
-        width_ratios=[HEATMAP_LABEL_PAD_IN, hm_w, HEATMAP_GAP_IN, hm_w,
-                      HEATMAP_GAP_IN, hm_w, HEATMAP_RIGHT_PAD_IN],
+        width_ratios=[HEATMAP_LABEL_PAD_IN, n_cols[0] * cell_w, HEATMAP_GAP_IN,
+                      n_cols[1] * cell_w, HEATMAP_GAP_IN, n_cols[2] * cell_w,
+                      HEATMAP_RIGHT_PAD_IN],
     )
 
     # MSE heatmap (panel i): the one carrying the cancer-type swatches + names.
@@ -655,14 +673,16 @@ def main() -> None:
 
     # k-NN purity heatmap (panel k). A fraction of neighbours, so the scale is
     # the full 0-1 rather than the data range, and higher is better -- same
-    # colormap as SS, so green reads the same way in both.
+    # colormap as SS, so green reads the same way in both. The last column is
+    # chance level, split off from the models by a white rule.
     ax_pur_ct = fig.add_subplot(hm_gs[0, 5])
     im_pur = draw_heatmap(
-        ax_pur_ct, purity_vals, cancer_types_sorted, heatmap_methods,
+        ax_pur_ct, purity_vals, cancer_types_sorted, purity_methods,
         cmap="RdYlGn", vmin=0.0, vmax=1.0,
         title=f"Purity (k={PURITY_K_MAIN})\nper c.t. [↑]",
         yticklabel_mode="hidden",
     )
+    ax_pur_ct.axvline(len(heatmap_methods) - 0.5, color="white", linewidth=2.5)
     add_top_colorbar(fig, ax_pur_ct, im_pur)
     heatmap_letter(ax_pur_ct, "k", HEATMAP_LETTER_BARE_X_IN)
 

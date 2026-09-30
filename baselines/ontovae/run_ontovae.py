@@ -74,6 +74,8 @@ def parse_args():
                    help="Leading metadata columns in the expression matrix")
     p.add_argument("--mse-gene-mask", choices=("published", "corrected"), default="published",
                    help="Gene selection for the reconstruction MSE; see masked_mse")
+    p.add_argument("--silhouette-against", choices=("labels", "kmeans"), default="labels",
+                   help="What the silhouette scores; see clustering_metrics")
     p.add_argument("--device", choices=("auto", "cpu"), default="auto",
                    help="'cpu' pins to CPU; the GPU path needs ~10 GB free")
     p.add_argument("--optimizer-memory", choices=("auto", "on", "off"), default="auto",
@@ -182,15 +184,28 @@ def masked_mse(model, ont, dataset, gene_map, variant="published"):
     return F.mse_loss(rec[:, selected], obs[:, selected], reduction="mean").item()
 
 
-def clustering_metrics(latent, labels):
-    """NMI, ARI and silhouette for k-means at k = number of true classes."""
+def clustering_metrics(latent, labels, silhouette_against="labels"):
+    """NMI and ARI for k-means at k = number of true classes, plus the silhouette.
+
+    `silhouette_against` picks what the silhouette scores. `labels` takes the
+    true classes, as GONNECT's SS does. `kmeans` takes the k-means clusters, as
+    the original runs did -- a definition that runs higher than the label one,
+    so the deposited values are not comparable with GONNECT's. Unlike the MSE
+    gene mask, the comparable definition is the default. Both are returned as
+    well, so a run reports the two without a second pass.
+    """
     n_clusters = int(labels.nunique())
     assignments = KMeans(n_clusters=n_clusters, random_state=METRIC_SEED).fit_predict(latent)
-    return {
+    silhouettes = {
+        name: float(silhouette_score(latent, against)) if n_clusters > 1 else float("nan")
+        for name, against in (("labels", labels), ("kmeans", assignments))
+    }
+    metrics = {
         "NMI": float(normalized_mutual_info_score(labels, assignments)),
         "ARI": float(adjusted_rand_score(labels, assignments)),
-        "Silhouette": float(silhouette_score(latent, assignments)) if n_clusters > 1 else float("nan"),
+        "Silhouette": silhouettes[silhouette_against],
     }
+    return metrics, silhouettes
 
 
 def latent_embedding(model, ont, dataset):
@@ -247,7 +262,8 @@ def run_arm(ont, arm, seed, names, labels, gene_maps, run_dir, args, true_masks)
 
     out = {}
     for split in ("train", "test"):
-        metrics = clustering_metrics(latent_embedding(model, ont, names[split]), labels[split])
+        metrics, silhouettes = clustering_metrics(latent_embedding(model, ont, names[split]),
+                                                  labels[split], args.silhouette_against)
         metrics["mse"] = masked_mse(model, ont, names[split], gene_maps[split],
                                     variant=args.mse_gene_mask)
         # Reported, but kept out of metrics.txt, whose shape the figure readers
@@ -255,6 +271,8 @@ def run_arm(ont, arm, seed, names, labels, gene_maps, run_dir, args, true_masks)
         other = "corrected" if args.mse_gene_mask == "published" else "published"
         print(f"    {split} mse[{args.mse_gene_mask}]={metrics['mse']:.6f}  "
               f"mse[{other}]={masked_mse(model, ont, names[split], gene_maps[split], other):.6f}")
+        print(f"    {split} silhouette[labels]={silhouettes['labels']:.6f}  "
+              f"silhouette[kmeans]={silhouettes['kmeans']:.6f}")
         out[split] = metrics
     print(f"  {arm}: test NMI {out['test']['NMI']:.4f}  MSE {out['test']['mse']:.4f}")
 
