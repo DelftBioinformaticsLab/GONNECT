@@ -168,9 +168,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--output-dir", type=Path, default=PREP_OUT_DIR / "activation_preservation")
+    parser.add_argument("--activations-dir", type=Path, default=None,
+                        help="default: <data-dir>/go_term_activations")
     args = parser.parse_args()
 
-    activ_dir = args.data_dir / "go_term_activations"
+    activ_dir = args.activations_dir or args.data_dir / "go_term_activations"
     hard_links_path = args.data_dir / "hard_links.csv"
 
     print(f"Loading hard_links from {hard_links_path}")

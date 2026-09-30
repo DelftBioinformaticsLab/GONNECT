@@ -2,8 +2,19 @@
 
 Every violin is a column-shuffle null distribution of the median per-cancer-type
 Spearman r between the per-(cancer_type, node) AUC and the GSEA -log10(NOM p) of
-the same node. The red line is the pooled observed value (AUC computed on the
-seed-averaged activations); the red dots are the five per-seed observed values.
+the same node. The red dots are the five per-seed observed values, and the red
+line is the statistic on a pooled AUC matrix. For panels d and e that is always
+the per-seed AUC averaged over seeds, since each baseline seed has its own test
+split. For panels a-c the published figure computes one AUC on the seed-averaged
+activations instead. --pool auc (with nulls built by plot_perm_nulls_layers.py
+--pool auc) puts a-c on the baselines' definition, so every red line means the
+same thing. A node's sign is arbitrary per seed, so averaging activations can
+partly cancel, while averaging AUCs does not.
+
+--pool seeds pools nothing: in every panel the red line is the mean of the five
+red dots. Its null is computed here rather than read from the .npz files. Each
+of 1000 permutations shuffles every seed's node columns independently, rescores
+each seed and averages the five, so that null is narrower than a pooled one.
 
 Panels
 ------
@@ -61,13 +72,41 @@ Inputs (relative to --data-dir)
         the baseline activation files above are only read when the cache is
         cold. --no-cache recomputes and rewrites them, --no-dots skips them.
 
+Optional inputs
+---------------
+    --untrained  <out>/prepare/untrained_control/fig4_untrained_*.tsv
+                 <out>/prepare/untrained_dpr/fig4_untrained_dpr.tsv
+                 <out>/prepare/untrained_baselines/fig4_untrained_baselines.tsv
+        Untrained references, one file or several: the statistic of every
+        untrained initialization per violin. That is from
+        prepare/untrained_control.py for panels a and b, from
+        prepare/untrained_dpr.py for panel c, and from
+        prepare/untrained_baselines.py for d and e (OntoVAE's true graph and
+        all of VEGA's).
+        Drawn as a box left of the violin (median, quartiles, 2.5-97.5 %
+        whiskers), and summarized in fig4.csv.
+    --activations-dir, --gonnect-nulls-dir, --cache-dir
+        Point panels a and b at other GONNECT activations and nulls than the
+        shipped ones, such as prepare/relabel_decoder_activations.py's. Give
+        every activations directory a cache of its own: entries are not checked
+        against the files they were computed from.
+    --pool {activations,auc,seeds}
+        The red line's definition (see the top of this docstring). seeds reads
+        no perm_nulls_* file and takes a few minutes longer.
+
+Without these, the figure is the published one.
+
 Usage
 -----
     python fig4.py [--data-dir figures/data] [--out-dir figures/out]
                    [--n-perms 1000] [--rng-seed 42] [--no-dots] [--no-cache]
+                   [--untrained TSV ...] [--activations-dir DIR]
+                   [--gonnect-nulls-dir DIR] [--cache-dir DIR]
+                   [--pool {activations,auc,seeds}]
 
 Writes <out-dir>/fig4.png, fig4.pdf and fig4.csv (one row per violin: pooled
-observed value, permutation p, null mean/SD and the per-seed values).
+observed value, permutation p, null mean/SD and the per-seed values). Under
+--pool seeds the observed column is obs_mean_over_seeds, followed by the stars.
 """
 
 import argparse
@@ -162,6 +201,14 @@ TICK_LEN, TICK_PAD = pt(2.0), pt(1.5)
 # Headroom above the tallest violin for the significance markers, so they clear
 # the panel title. Enough for one line of PT_BODY text plus a little air.
 SIG_HEADROOM_IN = 0.34
+
+# The optional untrained reference (--untrained): a box left of the violin's
+# centre, clear of the per-seed dots, in a dark neutral so it cannot be taken
+# for the grey randomized-control violins.
+COL_UNTRAINED = "#3a3a3a"
+UNTRAINED_X = -0.25          # offset from the violin's centre, in violin columns
+UNTRAINED_HALF_W = 0.065
+LW_UNTRAINED = pt(0.60)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -774,62 +821,119 @@ def gonnect_layer_full_auc(
     return df
 
 
+def gonnect_layer_frames(
+    activations_dir: Path, version: str, module: str, layer: int,
+    layer_map: dict, cache_dir: Path, use_cache: bool,
+) -> list[pd.DataFrame]:
+    """Each seed's (cancer_type x node) AUC matrix, restricted to one layer."""
+    out = []
+    for s in GONNECT_SEEDS:
+        df = gonnect_layer_full_auc(activations_dir, version, module, s, cache_dir, use_cache)
+        out.append(df[[t for t in df.columns if layer_map.get(t) == layer]])
+    return out
+
+
 def gonnect_layer_dots(
     activations_dir: Path, version: str, module: str, layer: int,
     layer_map: dict, enr: pd.DataFrame, cache_dir: Path, use_cache: bool,
 ) -> np.ndarray:
-    out = []
-    for s in GONNECT_SEEDS:
-        df = gonnect_layer_full_auc(activations_dir, version, module, s, cache_dir, use_cache)
-        cols = [t for t in df.columns if layer_map.get(t) == layer]
-        out.append(per_ct_median_r(df[cols], enr))
-    return np.array(out)
+    return np.array([per_ct_median_r(df, enr) for df in gonnect_layer_frames(
+        activations_dir, version, module, layer, layer_map, cache_dir, use_cache)])
+
+
+def _cached_baseline_auc(cfg: dict, variant: str, cache_name: str, cancer_type_per_row: dict,
+                         cache_dir: Path, use_cache: bool, seed: int) -> pd.DataFrame:
+    cache_p = _cache_path(cache_dir, cache_name, seed)
+    cached = _load_cached_auc(cache_p) if use_cache else None
+    if cached is not None:
+        auc_mat, cts, cols = cached
+        return pd.DataFrame(auc_mat, index=cts, columns=cols)
+    act_df = baseline_auc_one_seed(cfg, variant, cancer_type_per_row, seed)
+    _save_cached_auc(cache_p, act_df.to_numpy(), list(act_df.index), list(act_df.columns))
+    return act_df
+
+
+def ontovae_frames(ontovae_cfg: dict, layer: int, cancer_type_per_row: dict, cache_dir: Path,
+                   use_cache: bool) -> list[pd.DataFrame]:
+    cfg = {**ontovae_cfg, "layer": layer}
+    return [_cached_baseline_auc(cfg, "true", f"OntoVAE_layer_{layer:02d}_true", cancer_type_per_row,
+                                 cache_dir, use_cache, s) for s in BASELINE_SEEDS]
 
 
 def ontovae_dots(ontovae_cfg: dict, layer: int, enr: pd.DataFrame,
                  cancer_type_per_row: dict, cache_dir: Path,
                  use_cache: bool) -> np.ndarray:
-    cfg = {**ontovae_cfg, "layer": layer}
-    out = []
-    for s in BASELINE_SEEDS:
-        cache_p = _cache_path(cache_dir, f"OntoVAE_layer_{layer:02d}_true", s)
-        cached = _load_cached_auc(cache_p) if use_cache else None
-        if cached is not None:
-            auc_mat, cts, cols = cached
-            act_df = pd.DataFrame(auc_mat, index=cts, columns=cols)
-        else:
-            act_df = baseline_auc_one_seed(cfg, "true", cancer_type_per_row, s)
-            _save_cached_auc(cache_p, act_df.to_numpy(), list(act_df.index), list(act_df.columns))
-        out.append(per_ct_median_r(act_df, enr))
-    return np.array(out)
+    return np.array([per_ct_median_r(df, enr) for df in ontovae_frames(
+        ontovae_cfg, layer, cancer_type_per_row, cache_dir, use_cache)])
+
+
+def vega_frames(method_dbs: dict, db: str, variant: str, cancer_type_per_row: dict, cache_dir: Path,
+                use_cache: bool) -> list[pd.DataFrame]:
+    return [_cached_baseline_auc(method_dbs[("VEGA", db)], variant, f"VEGA_{db}_{variant}", cancer_type_per_row,
+                                 cache_dir, use_cache, s) for s in BASELINE_SEEDS]
 
 
 def vega_dots(method_dbs: dict, db: str, variant: str, enr: pd.DataFrame,
               cancer_type_per_row: dict, cache_dir: Path,
               use_cache: bool) -> np.ndarray:
-    cfg = method_dbs[("VEGA", db)]
-    out = []
-    for s in BASELINE_SEEDS:
-        cache_p = _cache_path(cache_dir, f"VEGA_{db}_{variant}", s)
-        cached = _load_cached_auc(cache_p) if use_cache else None
-        if cached is not None:
-            auc_mat, cts, cols = cached
-            act_df = pd.DataFrame(auc_mat, index=cts, columns=cols)
-        else:
-            act_df = baseline_auc_one_seed(cfg, variant, cancer_type_per_row, s)
-            _save_cached_auc(cache_p, act_df.to_numpy(), list(act_df.index), list(act_df.columns))
-        out.append(per_ct_median_r(act_df, enr))
-    return np.array(out)
+    return np.array([per_ct_median_r(df, enr) for df in vega_frames(
+        method_dbs, db, variant, cancer_type_per_row, cache_dir, use_cache)])
+
+
+def seed_mean_entry(frames: list[pd.DataFrame], enr: pd.DataFrame, n_perms: int, rng_seed: int) -> dict:
+    """The red line as the mean of the per-seed statistics (--pool seeds), and its null.
+
+    Each seed is scored exactly as its red dot. In every permutation, each
+    seed's GO-term columns are shuffled independently (cancer-type rows fixed),
+    each seed's statistic is recomputed, and the five are averaged: the null of
+    the mean. Pearson on per-row ranks, as run_null computes it.
+    """
+    dots = np.array([per_ct_median_r(df, enr) for df in frames])
+    prepared = []
+    for df in frames:
+        cts = [ct for ct in df.index if ct in enr.index]
+        terms = sorted(set(df.columns) & set(enr.columns))
+        act = df.loc[cts, terms].to_numpy(dtype=float)
+        e = enr.loc[cts, terms].to_numpy(dtype=float)
+        act_valid, enr_valid = np.isfinite(act), np.isfinite(e)
+        rank = lambda x, v: np.vstack([rankdata(np.where(v[i], x[i], np.nan), nan_policy="omit")
+                                       for i in range(len(x))])
+        prepared.append((rank(act, act_valid), act_valid, rank(e, enr_valid), enr_valid))
+
+    rng = np.random.default_rng(rng_seed)
+    null = np.empty(n_perms)
+    for k in range(n_perms):
+        per_seed = []
+        for act_rank, act_valid, enr_rank, enr_valid in prepared:
+            perm = rng.permutation(act_rank.shape[1])
+            r, n = _vectorised_corr_along_axis(act_rank[:, perm], enr_rank, act_valid[:, perm] & enr_valid, axis=1)
+            r = r[n >= 5]
+            per_seed.append(np.nanmedian(r) if r.size else np.nan)
+        null[k] = np.mean(per_seed)
+    if not np.all(np.isfinite(dots)):
+        print(f"  WARNING: a per-seed statistic is undefined: {dots}")
+    return {"null": null[np.isfinite(null)], "obs_pooled": float(np.mean(dots)), "obs_per_seed": dots}
 
 
 def rand_entry(
     emb_dir: Path, meta: pd.DataFrame, module: str, bottleneck_columns: list[str],
-    enr: pd.DataFrame, n_perms: int, rng_seed: int,
+    enr: pd.DataFrame, n_perms: int, rng_seed: int, pool: str = "activations",
 ) -> dict:
-    """Compute null + pooled observed + per-seed dots for randomized GONNECT."""
-    # pooled: AUC on seed-averaged embeddings
-    auc_mat, cts = load_mean_auc(emb_dir, meta, "2.2", module, RAND_SEEDS)
-    pooled_df = pd.DataFrame(auc_mat, index=cts, columns=bottleneck_columns)
+    """Compute null + pooled observed + per-seed dots for randomized GONNECT.
+
+    ``pool`` picks the pooled matrix: one AUC on the seed-averaged embeddings
+    ("activations", the published figure), or the per-seed AUC averaged over
+    seeds ("auc"), as the baseline panels have it.
+    """
+    per_seed = [pd.DataFrame(am, index=c, columns=bottleneck_columns)
+                for am, c in (gonnect_auc_one_seed(emb_dir, meta, "2.2", module, s) for s in RAND_SEEDS)]
+    if pool == "seeds":
+        return seed_mean_entry(per_seed, enr, n_perms, rng_seed)
+    if pool == "auc":
+        pooled_df = sum(df.astype(np.float64) for df in per_seed) / len(per_seed)
+    else:
+        auc_mat, cts = load_mean_auc(emb_dir, meta, "2.2", module, RAND_SEEDS)
+        pooled_df = pd.DataFrame(auc_mat, index=cts, columns=bottleneck_columns)
     obs_pooled = per_ct_median_r(pooled_df, enr)
 
     # aligned matrices for the null
@@ -840,18 +944,28 @@ def rand_entry(
     null = run_null(act, enr_a, mode="col", n_perms=n_perms, seed=rng_seed,
                     desc=f"    rand {module} col-null")["per_ct"]
 
-    # per-seed dots
-    dots = []
-    for s in RAND_SEEDS:
-        am, c = gonnect_auc_one_seed(emb_dir, meta, "2.2", module, s)
-        dots.append(per_ct_median_r(pd.DataFrame(am, index=c, columns=bottleneck_columns), enr))
-
+    dots = [per_ct_median_r(df, enr) for df in per_seed]
     return {"null": null, "obs_pooled": obs_pooled, "obs_per_seed": np.array(dots)}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Plotting
 # ══════════════════════════════════════════════════════════════════════════════
+
+def draw_untrained(ax, x: float, values: np.ndarray) -> None:
+    """The untrained initializations as a box: median, quartiles, 2.5-97.5 % whiskers.
+
+    Drawn under the observed markers, so the pooled line visibly crosses it at
+    the height the trained model reached.
+    """
+    low, q1, median, q3, high = np.percentile(values, [2.5, 25, 50, 75, 97.5])
+    centre = x + UNTRAINED_X
+    ax.vlines(centre, low, high, colors=COL_UNTRAINED, linewidth=LW_UNTRAINED, zorder=3)
+    ax.add_patch(Rectangle((centre - UNTRAINED_HALF_W, q1), 2 * UNTRAINED_HALF_W, q3 - q1,
+                           facecolor="white", edgecolor=COL_UNTRAINED, linewidth=LW_UNTRAINED, zorder=3))
+    ax.hlines(median, centre - UNTRAINED_HALF_W, centre + UNTRAINED_HALF_W, colors=COL_UNTRAINED,
+              linewidth=LW_OBSERVED, zorder=3.5)
+
 
 def draw_group(ax, entries: list[dict], letter: str, heading: str,
                want_dots: bool, show_ylabel: bool, sig_top: float,
@@ -879,6 +993,8 @@ def draw_group(ax, entries: list[dict], letter: str, heading: str,
             body.set_edgecolor("black")
             body.set_linewidth(LW_HAIRLINE)
             body.set_alpha(0.55)
+        if e.get("untrained") is not None:
+            draw_untrained(ax, i, e["untrained"])
         ax.hlines(e["obs_pooled"], i - tick_half, i + tick_half,
                   colors="#d62728", linewidth=LW_OBSERVED, zorder=4)
         if want_dots and e.get("obs_per_seed") is not None:
@@ -959,7 +1075,8 @@ def sig_headroom(sig_top: float, ymin: float, span: float) -> float:
     return SIG_HEADROOM_IN * base / (AXES_H_IN - SIG_HEADROOM_IN)
 
 
-def draw_legend(ax, note_lines: list[str]) -> None:
+def draw_legend(ax, note_lines: list[str], untrained_n: int | None = None,
+                red_line_label: str = "pooled observed") -> None:
     """The key, as a band of blocks side by side under the panels.
 
     ``ax`` is an invisible axes whose data coordinates are inches measured from
@@ -1011,6 +1128,15 @@ def draw_legend(ax, note_lines: list[str]) -> None:
     def plain(col: int, row: int, text: str, **kw) -> None:
         ax.text(col_x[col], row_y(row), text, va="center", ha="left", **kw)
 
+    def box_row(col: int, row: int, text: str) -> None:
+        y, centre = row_y(row), col_x[col] + SWATCH_W_IN / 2
+        ax.plot([centre, centre], [y - 0.11, y + 0.11], color=COL_UNTRAINED, lw=LW_UNTRAINED, clip_on=False)
+        ax.add_patch(Rectangle((centre - 0.07, y - 0.06), 0.14, 0.12, facecolor="white",
+                               edgecolor=COL_UNTRAINED, linewidth=LW_UNTRAINED, clip_on=False))
+        ax.plot([centre - 0.07, centre + 0.07], [y, y], color=COL_UNTRAINED, lw=LW_OBSERVED,
+                solid_capstyle="butt", clip_on=False)
+        label(col, row, text)
+
     heading(0, "Models")
     swatch(0, 1, EMB_VERSION_DISPLAY["2.0"], COL_FL)
     swatch(0, 2, EMB_VERSION_DISPLAY["2.1"], COL_SL)
@@ -1021,8 +1147,10 @@ def draw_legend(ax, note_lines: list[str]) -> None:
     swatch(1, 3, "randomized control", COL_RAND)
 
     swatch(2, 1, "bottleneck layer", "#ffe08a", alpha=0.45, edge="none")
-    line_row(2, 2, "pooled observed")
+    line_row(2, 2, red_line_label)
     dot_row(2, 3, "per-seed observed")
+    if untrained_n:
+        box_row(2, 4, f"untrained ({untrained_n} inits)")
 
     heading(3, "Significance (perm. p)")
     for i, text in enumerate(["***  p < 0.001", "**   p < 0.01", "*    p < 0.05"]):
@@ -1039,16 +1167,36 @@ def main() -> None:
                         help="permutations for the inline panel-c null "
                              "(the other panels use their precomputed nulls)")
     parser.add_argument("--rng-seed", type=int, default=42)
+    parser.add_argument("--pool", choices=["activations", "auc", "seeds"], default="activations",
+                        help="the red line and its null. 'activations' and 'auc' pool the seeds before "
+                             "scoring: one AUC on the seed-averaged embeddings (the published figure) or "
+                             "the per-seed AUC averaged, as panels d and e have it; they set panel c, while "
+                             "a and b take theirs from --gonnect-nulls-dir. 'seeds' makes the red line the "
+                             "mean of the per-seed values in every panel, tested against a null that "
+                             "shuffles each seed's GO terms independently (seed_mean_entry).")
     parser.add_argument("--no-dots", action="store_true", help="Skip per-seed dots (fast).")
     parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument("--untrained", type=Path, nargs="+", default=None,
+                        help="untrained references: prepare/untrained_control.py's fig4_untrained_*.tsv "
+                             "and/or prepare/untrained_baselines.py's fig4_untrained_baselines.tsv")
+    parser.add_argument("--activations-dir", type=Path, default=None,
+                        help="GONNECT activations (default: <data-dir>/go_term_activations)")
+    parser.add_argument("--gonnect-nulls-dir", type=Path, default=None,
+                        help="GONNECT permutation nulls (default: <data-dir>/perm_nulls_gonnect)")
+    parser.add_argument("--cache-dir", type=Path, default=None,
+                        help="per-seed AUC cache (default: <data-dir>/cache/auc_4row)")
     args = parser.parse_args()
 
     emb_dir = args.data_dir / "latent_embeddings"
-    activations_dir = args.data_dir / "go_term_activations"
-    cache_dir = args.data_dir / "cache" / "auc_4row"
+    activations_dir = args.activations_dir or args.data_dir / "go_term_activations"
+    gonnect_nulls_dir = args.gonnect_nulls_dir or args.data_dir / "perm_nulls_gonnect"
+    cache_dir = args.cache_dir or args.data_dir / "cache" / "auc_4row"
     args.out_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
     want_dots = not args.no_dots
+    seeds_mode = args.pool == "seeds"
+    if seeds_mode and not want_dots:
+        parser.error("--pool seeds builds the red line from the per-seed values, so it needs the dots")
     use_cache = not args.no_cache
     # Every violin whose precomputed null is absent, reported again at the end.
     missing_nulls: list[Path] = []
@@ -1076,23 +1224,36 @@ def main() -> None:
     layer_maps[("2.1", "encoder")] = layer_maps[("2.0", "encoder")]
     layer_maps[("2.1", "decoder")] = layer_maps[("2.0", "decoder")]
 
+    # Optional untrained reference: {(row, "enc L0"): statistic per initialization}
+    untrained = {}
+    if args.untrained is not None:
+        reference = pd.concat([pd.read_csv(path, sep="\t") for path in args.untrained])
+        untrained = {key: group["median_r"].to_numpy() for key, group in reference.groupby(["row", "label"])}
+        print(f"Untrained reference: {', '.join(str(path) for path in args.untrained)}")
+
     # ── build rows ────────────────────────────────────────────────────────
     def gonnect_row(version: str, color: str) -> list[dict]:
         entries = []
         plan = [("encoder", ENC_LAYERS), ("decoder", DEC_LAYERS)]
         for module, layers in plan:
             for k, L in enumerate(layers):
-                npz_path = (args.data_dir / "perm_nulls_gonnect"
-                            / f"AE_{version}_{module}_auc" / f"perm_layer_{L}_arrays.npz")
-                res = load_npz_null(npz_path, missing_nulls)
-                if res is None:
-                    continue
-                null, obs = res
-                dots = None
-                if want_dots:
-                    dots = gonnect_layer_dots(
-                        activations_dir, version, module, L,
-                        layer_maps[(version, module)], enr_alllayer, cache_dir, use_cache)
+                if seeds_mode:
+                    frames = gonnect_layer_frames(activations_dir, version, module, L,
+                                                  layer_maps[(version, module)], cache_dir, use_cache)
+                    res = seed_mean_entry(frames, enr_alllayer, args.n_perms, args.rng_seed)
+                    null, obs, dots = res["null"], res["obs_pooled"], res["obs_per_seed"]
+                else:
+                    npz_path = (gonnect_nulls_dir
+                                / f"AE_{version}_{module}_auc" / f"perm_layer_{L}_arrays.npz")
+                    res = load_npz_null(npz_path, missing_nulls)
+                    if res is None:
+                        continue
+                    null, obs = res
+                    dots = None
+                    if want_dots:
+                        dots = gonnect_layer_dots(
+                            activations_dir, version, module, L,
+                            layer_maps[(version, module)], enr_alllayer, cache_dir, use_cache)
                 # the 109-node latent is enc L3 (paper bottleneck) / dec L5 (dec-side)
                 bn = None
                 label = f"{MODULE_ABBREV[module]}\nL{L}"
@@ -1105,6 +1266,7 @@ def main() -> None:
                     "null": null, "obs_pooled": obs, "obs_per_seed": dots,
                     "divider_before": (module == "decoder" and k == 0),
                     "bottleneck": bn,
+                    "untrained": untrained.get((EMB_VERSION_DISPLAY[version], label.replace("\n", " "))),
                 })
         return entries
 
@@ -1116,16 +1278,22 @@ def main() -> None:
     print("[3/5] OntoVAE …")
     row_onto = []
     for L in range(0, 11):
-        npz_path = (args.data_dir / "perm_nulls_baselines"
-                    / f"OntoVAE_layer_{L:02d}_true_auc" / "perm_nulls_arrays.npz")
-        res = load_npz_null(npz_path, missing_nulls)
-        if res is None:
-            continue
-        null, obs = res
-        dots = (ontovae_dots(ontovae_cfg, L, enr_ontovae, cancer_type_per_row, cache_dir, use_cache)
-                if want_dots else None)
+        if seeds_mode:
+            res = seed_mean_entry(ontovae_frames(ontovae_cfg, L, cancer_type_per_row, cache_dir, use_cache),
+                                  enr_ontovae, args.n_perms, args.rng_seed)
+            null, obs, dots = res["null"], res["obs_pooled"], res["obs_per_seed"]
+        else:
+            npz_path = (args.data_dir / "perm_nulls_baselines"
+                        / f"OntoVAE_layer_{L:02d}_true_auc" / "perm_nulls_arrays.npz")
+            res = load_npz_null(npz_path, missing_nulls)
+            if res is None:
+                continue
+            null, obs = res
+            dots = (ontovae_dots(ontovae_cfg, L, enr_ontovae, cancer_type_per_row, cache_dir, use_cache)
+                    if want_dots else None)
         row_onto.append({"label": f"L{L}", "color": COL_ONTO,
-                         "null": null, "obs_pooled": obs, "obs_per_seed": dots})
+                         "null": null, "obs_pooled": obs, "obs_per_seed": dots,
+                         "untrained": untrained.get(("OntoVAE", f"L{L}"))})
 
     print("[4/5] VEGA baselines (true + randomized controls) …")
     row_vega = []
@@ -1133,28 +1301,36 @@ def main() -> None:
                            ("reactomes", COL_VEGA_RE, enr_reactomes)]:
         abbr = VEGA_DB_DISPLAY[db]
         for vi, variant in enumerate(["true", "degree_preserving", "random"]):
-            npz_path = (args.data_dir / "perm_nulls_baselines"
-                        / f"VEGA_{db}_{variant}_auc" / "perm_nulls_arrays.npz")
-            res = load_npz_null(npz_path, missing_nulls)
-            if res is None:
-                continue
-            null, obs = res
-            dots = (vega_dots(method_dbs, db, variant, enr, cancer_type_per_row, cache_dir, use_cache)
-                    if want_dots else None)
+            if seeds_mode:
+                res = seed_mean_entry(vega_frames(method_dbs, db, variant, cancer_type_per_row, cache_dir,
+                                                  use_cache), enr, args.n_perms, args.rng_seed)
+                null, obs, dots = res["null"], res["obs_pooled"], res["obs_per_seed"]
+            else:
+                npz_path = (args.data_dir / "perm_nulls_baselines"
+                            / f"VEGA_{db}_{variant}_auc" / "perm_nulls_arrays.npz")
+                res = load_npz_null(npz_path, missing_nulls)
+                if res is None:
+                    continue
+                null, obs = res
+                dots = (vega_dots(method_dbs, db, variant, enr, cancer_type_per_row, cache_dir, use_cache)
+                        if want_dots else None)
             # randomized variants are coloured grey (control); true keeps the db colour
             vcolor = color if variant == "true" else COL_RAND
-            row_vega.append({"label": f"{abbr}\n{RANDOMIZATION_DISPLAY[variant]}", "color": vcolor,
+            label = f"{abbr}\n{RANDOMIZATION_DISPLAY[variant]}"
+            row_vega.append({"label": label, "color": vcolor,
                              "null": null, "obs_pooled": obs, "obs_per_seed": dots,
-                             "divider_before": (db == "reactomes" and vi == 0)})
+                             "divider_before": (db == "reactomes" and vi == 0),
+                             "untrained": untrained.get(("VEGA", label.replace("\n", " ")))})
 
     print(f"[5/5] randomized GONNECT ({EMB_VERSION_DISPLAY['2.2']}) …")
     row_rand = []
     for module in ["encoder", "decoder", "both"]:
         r = rand_entry(emb_dir, meta, module, bottleneck_columns,
-                       enr_bottleneck, args.n_perms, args.rng_seed)
+                       enr_bottleneck, args.n_perms, args.rng_seed, pool=args.pool)
         if not want_dots:
             r["obs_per_seed"] = None
-        row_rand.append({"label": MODULE_ABBREV[module], "color": COL_RAND, **r})
+        row_rand.append({"label": MODULE_ABBREV[module], "color": COL_RAND, **r,
+                         "untrained": untrained.get((EMB_VERSION_DISPLAY["2.2"], MODULE_ABBREV[module]))})
 
     # ── plot ──────────────────────────────────────────────────────────────
     # Horizontal: one violin is violin_w inches wide in every panel, so each
@@ -1173,6 +1349,8 @@ def main() -> None:
         allv += list(e["null"]) + [e["obs_pooled"]]
         if e.get("obs_per_seed") is not None:
             allv += [v for v in e["obs_per_seed"] if np.isfinite(v)]
+        if e.get("untrained") is not None:
+            allv += np.percentile(e["untrained"], [2.5, 97.5]).tolist()   # the whisker ends
     ymin, ymax = float(np.min(allv)), float(np.max(allv))
     span = ymax - ymin
     sig_top = ymax + 0.03 * span
@@ -1188,7 +1366,9 @@ def main() -> None:
 
     # Vertical: bands stacked from the top, in inches, so the figure is exactly
     # as tall as its contents need.
-    legend_h = (LEGEND_PAD_IN + (1 + max(3, len(note_lines))) * LEGEND_ROW_IN
+    untrained_n = len(next(iter(untrained.values()))) if untrained else None
+    legend_rows = max(3 + (1 if untrained_n else 0), len(note_lines))
+    legend_h = (LEGEND_PAD_IN + (1 + legend_rows) * LEGEND_ROW_IN
                 + LEGEND_PAD_IN)
     fig_h = (PAD_TOP_IN + TITLE_BAND_IN + AXES_H_IN + XTICK_TOP_IN + ROW_GAP_IN
              + TITLE_BAND_IN + AXES_H_IN + XTICK_BOT_IN
@@ -1229,7 +1409,8 @@ def main() -> None:
     ax_leg.axis("off")
     ax_leg.set_xlim(0.0, band_w)      # data coordinates are inches, y downwards
     ax_leg.set_ylim(legend_h, 0.0)
-    draw_legend(ax_leg, note_lines)
+    draw_legend(ax_leg, note_lines, untrained_n,
+                red_line_label="mean over seeds" if seeds_mode else "pooled observed")
 
     report_text_overlaps(fig, "fig4")
 
@@ -1244,14 +1425,22 @@ def main() -> None:
                           (EMB_VERSION_DISPLAY["2.2"], row_rand),
                           ("OntoVAE", row_onto), ("VEGA", row_vega)]:
         for e in row:
+            p = perm_pval(e["obs_pooled"], e["null"])
+            # Named for what the red line is; the published figure's column keeps its name
             rec = {"row": row_name, "label": e["label"].replace("\n", " "),
-                   "obs_pooled": e["obs_pooled"],
-                   "perm_p": perm_pval(e["obs_pooled"], e["null"]),
+                   ("obs_mean_over_seeds" if seeds_mode else "obs_pooled"): e["obs_pooled"],
+                   "perm_p": p,
                    "null_mean": float(np.mean(e["null"])),
                    "null_std": float(np.std(e["null"]))}
+            if seeds_mode:
+                rec["stars"] = sig_marker(p)
             if e.get("obs_per_seed") is not None:
                 for s_i, v in enumerate(e["obs_per_seed"]):
                     rec[f"seed_{s_i}"] = float(v)
+            if e.get("untrained") is not None:
+                rec.update(zip(["untrained_q025", "untrained_median", "untrained_q975"],
+                               np.percentile(e["untrained"], [2.5, 50, 97.5]).tolist()))
+                rec["untrained_n"] = len(e["untrained"])
             rows_csv.append(rec)
     csv_path = args.out_dir / "fig4.csv"
     pd.DataFrame(rows_csv).to_csv(csv_path, index=False)

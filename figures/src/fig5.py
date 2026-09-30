@@ -33,6 +33,11 @@ treated purely as an input here.
 
 Usage:
     python fig5.py [--data-dir figures/data] [--out-dir figures/out]
+                   [--preservation-csv CSV]
+
+--preservation-csv swaps in another per-node table for panels b and c, such as
+the one prepare/activation_preservation.py builds from the relabelled decoder
+activations (see prepare/README.md, *The untrained control*).
 """
 
 from __future__ import annotations
@@ -311,9 +316,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Figure 5: weight distribution and FL vs SL preservation.")
     _common.add_io_args(parser)
+    parser.add_argument("--preservation-csv", type=Path, default=None,
+                        help="per-node activation stats for panels b and c "
+                             "(default: <data-dir>/activation_preservation_per_node.csv)")
     args = parser.parse_args()
 
-    act_csv = args.data_dir / "activation_preservation_per_node.csv"
+    act_csv = args.preservation_csv or args.data_dir / "activation_preservation_per_node.csv"
     print(f"Reading {act_csv}")
     df = pd.read_csv(act_csv)
     print(f"Reading {len(SEEDS) * 3} checkpoints from "

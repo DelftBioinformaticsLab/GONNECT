@@ -330,9 +330,8 @@ def _rect(fig_h: float, x: float, top: float, w: float, h: float) -> list:
 
 # ── inputs ────────────────────────────────────────────────────────────────────
 
-def _activation_path(data_dir: Path, module: str, seed: int) -> Path:
-    return (data_dir / "go_term_activations"
-            / f"AE_{MODEL_VERSION}.{seed}_{module}_activations.csv.gz")
+def _activation_path(activations_dir: Path, module: str, seed: int) -> Path:
+    return activations_dir / f"AE_{MODEL_VERSION}.{seed}_{module}_activations.csv.gz"
 
 
 def eligible_go_terms(hard_links_path: Path, module: str,
@@ -535,7 +534,11 @@ def main(module: str = "encoder", out_name: str = "figS5") -> None:
     parser.add_argument("--vmax", type=float, default=None,
                         help="symmetric colour limit; default is the largest "
                              "|mean| over all instances")
+    parser.add_argument("--activations-dir", type=Path, default=None,
+                        help="GO-term activations (default: <data-dir>/go_term_activations), "
+                             "e.g. prepare/relabel_decoder_activations.py's")
     args = parser.parse_args()
+    activations_dir = args.activations_dir or args.data_dir / "go_term_activations"
 
     hard_links = args.data_dir / "hard_links.csv"
     tcga = args.data_dir / "TCGA_complete_bp_top1k.csv.gz"
@@ -561,7 +564,7 @@ def main(module: str = "encoder", out_name: str = "figS5") -> None:
 
     panel_data = []
     for seed in args.seeds:
-        path = _activation_path(args.data_dir, module, seed)
+        path = _activation_path(activations_dir, module, seed)
         print(f"  loading seed {seed}: {path.name} ...", flush=True)
         panel_data.append(mean_per_cancer_type(path, allowed, labels,
                                                patient_ids, cancer_types))

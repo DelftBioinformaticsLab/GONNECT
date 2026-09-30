@@ -178,15 +178,24 @@ def run_combo(
     output_root: Path,
     n_perms: int,
     rng_seed: int,
+    pool: str = "activations",
 ) -> list[dict]:
     print(f"\n{'='*60}")
     print(f"{label}  (AE_{version}, module={module}, metric={metric}, seeds={seeds})")
     print(f"{'='*60}")
 
+    # pool="auc" averages the per-seed AUC matrices, as compute_baseline_nulls.py does for the baselines,
+    # instead of computing one AUC on the seed-averaged activations. A node's sign is arbitrary per seed,
+    # so averaging activations can partly cancel.
+    per_seed_auc = metric == "auc" and pool == "auc"
     print("Loading activations …")
-    meta, mat, go_cols = load_activations_avg(
-        activations_dir, version, seeds, module, metric=metric,
-    )
+    if per_seed_auc:
+        per_seed = [load_activations_avg(activations_dir, version, [s], module, metric=metric) for s in seeds]
+        meta, mat, go_cols = per_seed[0]
+    else:
+        meta, mat, go_cols = load_activations_avg(
+            activations_dir, version, seeds, module, metric=metric,
+        )
 
     layer_map = build_layer_map(hard_links_path, module)
     layers_present = sorted({layer_map[t] for t in go_cols if t in layer_map})
@@ -201,8 +210,12 @@ def run_combo(
     print(f"  {len(cancer_types)} cancer types")
 
     # Aggregate to (n_ct, n_terms) once — mean |abs| or per-(ct, term) AUC
-    print(f"  aggregating per cancer type (metric={metric}) …")
-    act_per_ct = aggregate_per_cancer_type(mat, meta, go_cols, cancer_types, metric=metric)
+    print(f"  aggregating per cancer type (metric={metric}{', averaged over seeds' if per_seed_auc else ''}) …")
+    if per_seed_auc:
+        act_per_ct = sum(aggregate_per_cancer_type(m, me, cols, cancer_types, metric=metric).astype(np.float64)
+                         for me, m, cols in per_seed) / len(per_seed)
+    else:
+        act_per_ct = aggregate_per_cancer_type(mat, meta, go_cols, cancer_types, metric=metric)
 
     out_dir = output_root / f"AE_{version}_{module}_{metric}"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -368,6 +381,11 @@ def main() -> None:
                         choices=["row", "col", "rowcol"],
                         help="Which shuffle nulls to compute. Default 'col' "
                              "(only what the headline figure needs).")
+    parser.add_argument("--pool",            type=str, default="activations",
+                        choices=["activations", "auc"],
+                        help="How --metrics auc pools the seeds: one AUC on the seed-averaged "
+                             "activations (the published figure), or the per-seed AUC averaged, "
+                             "as the baseline nulls do.")
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -401,6 +419,7 @@ def main() -> None:
             output_root=args.output_dir,
             n_perms=args.n_perms,
             rng_seed=args.rng_seed,
+            pool=args.pool,
         )
         for r in rows:
             r["metric_score"] = metric

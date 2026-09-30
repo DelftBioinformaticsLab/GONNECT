@@ -26,24 +26,27 @@ def activations_per_term(model: Autoencoder, go_layers: [GOTerm], data: pd.DataF
     model.set_store_activations(True)
     with torch.no_grad():
         x = torch.tensor(data.values)
-        y = model(x)
+        z = model.encoder(x)
+        model.decoder(z)
     model.set_store_activations(False)
 
-    # Select which module we want to retrieve activations from and strip off gene layer
+    # Select which module we want to retrieve activations from and strip off gene layer. Every other stored
+    # activation is the output of a linear layer, which belongs to the GO layer that it feeds into.
     if bi_module == "encoder":
-        module = model.encoder
         go_layers = list(reversed(go_layers))[1:]
+        layer_outputs = list(model.encoder.activations.values())[::2]
     else:
-        module = model.decoder
+        # The first GO layer of the decoder is not the output of any of its layers, but its input: the latent
+        # representation. Its last linear layer outputs the genes.
         go_layers = go_layers[:-1]
+        layer_outputs = [z] + list(model.decoder.activations.values())[::2][:-1]
 
     # Match module activations to GO terms
     activation_dict = dict()
     for i, layer in enumerate(go_layers):
         for j, term in enumerate(layer):
             if not isinstance(term, GeneTerm) and not isinstance(term, ProxyTerm):
-                # From the activations dict of module, get the activation of the linear layers (2*i) and select the column corresponding to the key GO term
-                activation_dict[term.item_id] = list(module.activations.values())[2 * i].data[:, j].numpy()
+                activation_dict[term.item_id] = layer_outputs[i][:, j].numpy()
 
     return pd.DataFrame(activation_dict)
 

@@ -202,7 +202,7 @@ metrics/vega_rand.txt                                  randomized VEGA (same arm
 ```
 TCGA_complete_bp_top1k.csv.gz            cancer-type labels
 hard_links.csv                           GO graph: bottleneck index, layer map
-gsea_gonnect_layers/gsea_results.csv                    GSEA ground truth, all layers (panels a, b)
+gsea_gonnect_layers/gsea_results.csv                    GSEA reference, all layers (panels a, b)
 gsea_gonnect_bottleneck/gsea_results.csv         GSEA at the bottleneck (panel c)
 gsea_baselines/gsea_results_hallmark.csv       panel e
 gsea_baselines/gsea_results_reactomes.csv      panel e
@@ -227,6 +227,22 @@ faster while iterating on layout. It does not reproduce the published figure.
 Also writes `out/fig4.csv` with the observed values, permutation p, null mean
 and SD, and the five per-seed values per violin.
 
+Four optional flags leave the published figure alone when absent. `--untrained`
+draws an untrained reference as a box beside a violin, and adds its quantiles
+to `fig4.csv`. The references come from `prepare/untrained_control.py` (panels
+a and b), `prepare/untrained_dpr.py` (panel c) and
+`prepare/untrained_baselines.py` (panel d's true graph, all of panel e).
+`--activations-dir`, `--gonnect-nulls-dir` and `--cache-dir` point panels a and
+b at other activations and nulls, such as the relabelled decoder files. See
+`src/prepare/README.md`, *The untrained control*.
+
+`--pool` sets the red line. The published figure (`activations`) scores one
+AUC on seed-averaged activations for panels a–c, and per-seed AUCs averaged
+over seeds for d–e. `auc` uses the averaged AUCs everywhere. `seeds` makes every
+red line the mean of the five per-seed values. Its null (1,000 permutations,
+each seed's GO-term columns shuffled independently, the five statistics
+averaged) is computed in the run, so no `perm_nulls_*` file is read.
+
 ### fig5.py — weight distributions and activation preservation
 
 ```
@@ -240,7 +256,8 @@ activation_preservation_per_node.csv                  panels b, c
 `activation_preservation_per_node.csv` is a derived table, not raw data. The
 original `fig_sl_preserve/activation_preservation.py` built it from
 `go_term_activations/AE_{2.0,2.1}.{2..6}_{encoder,decoder}_activations.csv.gz`; here it
-is treated as an input.
+is treated as an input. `--preservation-csv` swaps in another such table, e.g.
+one rebuilt from the relabelled decoder activations (see *fig4.py*).
 
 ### figS1.py — GO-processing hyperparameter sweep
 
@@ -294,6 +311,9 @@ go_term_activations/AE_2.0.{2,3,4}_decoder_activations.csv.gz   figS6
 TCGA_complete_bp_top1k.csv.gz                           cancer-type labels
 hard_links.csv                                          restricts columns to GO-term nodes
 ```
+
+`--activations-dir` reads the activations from elsewhere, e.g. the relabelled
+decoder files (see *fig4.py*).
 
 ### figS7.py — α-sweep training curves
 

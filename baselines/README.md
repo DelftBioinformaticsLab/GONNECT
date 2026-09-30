@@ -46,6 +46,30 @@ Finally:
 python baselines/collect_metrics.py
 ```
 
+## Untrained controls
+
+The structural baseline for Figure 4's panels d and e: the same statistic on
+models that were built and never trained. Both scripts reuse their runner's
+data loading, and they need the splits above and each baseline's own
+environment. They export, per split seed, 10 initializations: VEGA's test
+latents on each of its three graphs (`--arms`, with the randomized masks drawn
+as `run_vega.py` draws them for that seed), and OntoVAE's test pathway
+activities on the true graph, in the trained runs' shapes. VEGA masks only its
+decoder, so its untrained latents are the same on every graph. OntoVAE reads
+the cached ontology (`out/baselines/ontovae/cached_ontology.pkl`), whose terms,
+order and layers match the published activations. Both take the latent at its
+posterior mean rather than a sample, since an untrained model's posterior
+variance would otherwise bury the wiring's signal in noise.
+
+```
+python baselines/vega/untrained_vega.py
+python baselines/ontovae/untrained_ontovae.py --gene-annot data/gene_annot_ontovae.txt
+```
+
+They write `out/baselines/untrained/{vega,ontovae}/run_seed-<seed>/init-<k>/`,
+which `figures/src/prepare/untrained_baselines.py` scores. Each needs well
+under half an hour on a laptop.
+
 ## Environments
 
 For both baselines we used pinned Github commits.
