@@ -726,9 +726,10 @@ def test_split_paths(data_dir: Path) -> Dict[str, Path]:
     per-type SS and purity over all samples, and the baselines' silhouette
     against their k-means clusters. Built by:
       ``prepare/test_split_metrics.py``   ``gonnect`` (SS / ARI / NMI of the ten
-          models with embeddings), ``ss_per_type``, ``purity_per_type_k{k}``
-          against the training split (figS3), and ``purity_within_test``
-          (Figure 2k: k = 10, neighbours within the test split, small types blank)
+          models with embeddings), ``ss_per_type``, and ``purity_per_type_k{k}``
+          for k = 10, 20, 30: neighbours searched within the test split, types
+          with fewer than k test samples blank (``purity_within_test`` is
+          Figure 2k's k = 10)
       ``prepare/rescore_baselines.py``    ``ontovae``, ``vega``: every graph arm,
           in the shape of the deposited ``metrics/*_rand.txt``, MSE included
       ``prepare/cluster_test_metrics.py`` ``sweep`` (figS1's ct=5, ct=10 and 2k
@@ -743,7 +744,7 @@ def test_split_paths(data_dir: Path) -> Dict[str, Path]:
         "vega": d / f"vega{ARM_FILE_SUFFIX}.txt",
         "ss_per_type": d / "per_type_ss.csv",
         "purity_within_test": d / f"per_type_purity_within_test_k{PURITY_K_WITHIN_TEST}.csv",
-        **{f"purity_per_type_k{k}": d / f"per_type_purity_k{k}.csv" for k in PURITY_K_VALUES},
+        **{f"purity_per_type_k{k}": d / f"per_type_purity_within_test_k{k}.csv" for k in PURITY_K_VALUES},
         "sweep": d / "sweep_metrics.csv",
         "randomized": d / "randomized_metrics.csv",
     }

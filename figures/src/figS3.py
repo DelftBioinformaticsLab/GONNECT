@@ -24,10 +24,11 @@ randomized arm next to the true-graph models per cancer type is the point of
 this figure: it shows whether the GO prior helps or hurts on a *type-by-type*
 basis, not just on the dataset mean. The three purity panels add an eleventh
 column, ``Random``: chance level, the purity a type would get if its
-neighbours were drawn at random from the training split, which is the type's
-share of that split. It is the same for every k and every model, and it is
-what a purity value should be read against: a rare type's 0.3 is far above its
-chance of ~0.01, while BRCA's chance level alone is ~0.11, as in Figure 2k.
+neighbours were drawn at random from the test split, which is the type's share
+of that split (the sample itself excluded). It is the same for every model, and
+it is what a purity value should be read against: a rare type's 0.3 is far
+above its chance of ~0.01, while BRCA's chance level alone is ~0.11, as in
+Figure 2k.
 
 THE METRICS, AND WHY THEY CAN DISAGREE
 --------------------------------------
@@ -39,16 +40,18 @@ training (splits 2-6; the randomized arm, numbered 22-26, trained on the same
 five). *k-NN purity* (panels a-c) is the fraction of a held-out sample's k
 nearest neighbours (Euclidean, in the full latent space) that carry its own
 cancer-type label, averaged over the held-out samples of that type and then over
-the five model seeds. The neighbours are drawn from the run's training split,
-not from the held-out rows themselves: a test split holds 15% of the data, too
-few for many types to fill k = 30 neighbours with their own kind. It is purely local: it sees whether the immediate
+the five model seeds. As in Figure 2k, the neighbours are searched within the
+test split, so nothing in the panel was trained on. A test split holds 15% of
+the data, so a type with fewer than k test samples in some seed cannot fill k
+neighbours with its own kind; its row is left blank in that panel. That blanks
+6 types at k = 10, 11 at k = 20 and 16 at k = 30, which is why Figure 2 shows
+k = 10. It is purely local: it sees whether the immediate
 neighbourhood is contaminated, and nothing else. A cluster that is enormous and
 diffuse but uncontaminated scores 1.0. Showing k = 10, 20 and 30 side by side
 makes the *slope* visible -- a type whose purity falls off quickly with k sits
 in a small, tight island close to other types, while a flat profile means a
-genuinely isolated region. Computed by ``prepare/test_split_metrics.py``, which
-also writes the chance level (the type's share of the training split) that
-Figure 2k shows.
+genuinely isolated region (compare k values on the types all three panels
+keep). Computed by ``prepare/test_split_metrics.py``, with the chance level.
 
 *Silhouette score* (panel d) is geometric where purity is topological: for each
 sample, (distance to the nearest other cluster - mean distance within its own
@@ -104,7 +107,7 @@ twice as tall for the same information.
 
 Inputs (relative to --data-dir)
 -------------------------------
-    metrics/test_split/per_type_purity_k{10,20,30}.csv
+    metrics/test_split/per_type_purity_within_test_k{10,20,30}.csv
         panels a-c, cancer types x methods
     metrics/test_split/per_type_ss.csv
         panel d
@@ -244,7 +247,7 @@ FIG_H = PAD_TOP + HEAD_H + HEAT_H + XTICK_H + MARGIN_B
 # carry one more column than the others (chance level).
 HEATS_W = FIG_WIDTH_IN - MARGIN_L - MARGIN_R - ABUND_W - GAP_AB - (N_HEATMAPS - 1) * GAP_X
 
-# Purity's extra column: chance level, the cancer type's share of the training
+# Purity's extra column: chance level, the cancer type's share of the test
 # split the neighbours are drawn from, as in Figure 2k.
 PURITY_CHANCE = "Random"
 
@@ -281,11 +284,14 @@ def _require_complete(frame: pd.DataFrame, what: str) -> pd.DataFrame:
     return frame
 
 
-def load_per_type_table(path, cancer_types: List[str], columns: List[str]) -> pd.DataFrame:
+def load_per_type_table(path, cancer_types: List[str], columns: List[str],
+                        blank_rows: bool = False) -> pd.DataFrame:
     """One held-out per-type table (cancer types x ``columns``).
 
     The purity tables carry a chance-level ``Random`` column after the ten
-    models; the SS table does not.
+    models, and leave a type blank (a row of NaN) when it is too small to score;
+    pass ``blank_rows`` for those. A type missing from the table altogether is
+    still a lookup failure either way.
     """
     if not path.exists():
         raise SystemExit(f"Input file not found: {path}; build it with "
@@ -294,7 +300,16 @@ def load_per_type_table(path, cancer_types: List[str], columns: List[str]) -> pd
     missing = [m for m in columns if m not in frame.columns]
     if missing:
         raise SystemExit(f"{path.name} is missing column(s): {', '.join(missing)}")
-    return _require_complete(frame[columns].reindex(cancer_types), path.name)
+    absent = [ct for ct in cancer_types if ct not in frame.index]
+    if absent:
+        raise SystemExit(f"{path.name}: no row for cancer type(s) {', '.join(absent)}")
+    frame = frame[columns].reindex(cancer_types)
+    if blank_rows:
+        blank = frame.index[frame.isna().all(axis=1)].tolist()
+        print(f"  {path.name}: {len(blank)} type(s) blank, too few test samples"
+              + (f" ({', '.join(blank)})" if blank else ""))
+        return frame
+    return _require_complete(frame, path.name)
 
 
 def load_workbook_metrics(path, cancer_types: List[str]) -> Dict[str, pd.DataFrame]:
@@ -490,7 +505,7 @@ def main() -> None:
 
     print("Loading per-cancer-type purity / SS (held out) and MSE ...")
     purity = {k: load_per_type_table(paths[f"purity_per_type_k{k}"], cancer_types,
-                                     METHODS + [PURITY_CHANCE])
+                                     METHODS + [PURITY_CHANCE], blank_rows=True)
               for k in PURITY_K_VALUES}
     ss_vals = load_per_type_table(paths["ss_per_type"], cancer_types,
                                   METHODS).to_numpy(dtype=float)

@@ -116,7 +116,8 @@ MLP and the GONNECT family on each seed's test split, in long form (`metric`,
 `method`, `repeat`, `value`). `per_type_ss.csv` and `per_type_purity_within_test_k10.csv`
 hold the per-cancer-type SS and purity of Figure 2j–k, cancer types × methods, averaged
 over seeds; the purity file adds a `Random` column and is blank (NaN) for the types
-too small to score. `per_type_purity_k{10,20,30}.csv` hold figS3's purity. The workbooks took all of these over every
+too small to score. `per_type_purity_within_test_k{20,30}.csv` add figS3's other two
+k values, on the same definition. The workbooks took all of these over every
 sample, so Figure 2 now takes only MSE from them. See `src/prepare/README.md`, *The
 test-split clustering metrics*.
 
@@ -332,19 +333,19 @@ file with three AE_2.1 files.
 ### figS3.py — per-cancer-type embedding quality, all ten models
 
 ```
-metrics/test_split/per_type_purity_k{10,20,30}.csv   panels a-c
+metrics/test_split/per_type_purity_within_test_k{10,20,30}.csv   panels a-c
 metrics/test_split/per_type_ss.csv                   panel d
 metrics/mse_per_cluster_TCGA_1000_30.xlsx            panel e (MSE sheet; repaired on read)
 TCGA_complete_bp_top1k.csv.gz                        cancer-type labels, abundance (panel f)
 ```
 
-Every panel scores held-out samples. SS is taken within the test split, as in
-Figure 2j. Purity draws each test sample's neighbours from its run's training
-split, unlike Figure 2k, which stays inside the test split at k = 10: the
-training split is large enough for k = 20 and 30 without blanking any type. The
-degree-preserving arm (AE_2.2.22–26) trained on splits 2–6, like the others. Each
-purity panel ends in a `Random` column: chance level, the cancer type's share of
-the training split.
+Every panel scores held-out samples, as in Figure 2j–k: SS and purity are both
+taken within the test split. A type with fewer than k test samples in some seed
+is blank in that purity panel: 6 types at k = 10 (the panel equal to Figure 2k),
+11 at k = 20 and 16 at k = 30. The degree-preserving arm (AE_2.2.22–26) trained
+on splits 2–6, like the others. Each purity panel ends in a `Random` column:
+chance level, the cancer type's share of the test split, the sample itself
+excluded.
 
 Panels a–e are the five heatmaps (purity at k = 10/20/30, SS, MSE) and f the
 abundance bar. The figure carries no title — what it shows belongs in the
@@ -435,9 +436,9 @@ writes them to `metrics/test_split/`; the figures only lay the tables out.
 type and then over the five seeds. Purely local: it sees neighbourhood
 contamination and nothing else, so a huge diffuse but uncontaminated cluster
 scores 1.0 where silhouette would not. Ported from `fig_main/knn_purity.py`.
-Figure 2 shows k = 10 with the neighbours searched within the test split, small
-types blank; figS3 shows k = 10, 20 and 30 with the neighbours drawn from the
-training split. Both carry a `Random` chance-level column.
+The neighbours are searched within the test split, and a type with fewer than k
+test samples in some seed is left blank. Figure 2 shows k = 10, figS3 k = 10, 20
+and 30; both carry a `Random` chance-level column.
 
 **Silhouette per type**: the per-sample silhouette over the test split, averaged
 per type.

@@ -278,11 +278,9 @@ neighbours among the other samples of its test split. A type with fewer than 10
 test samples in any seed would have its purity capped by its size, so it is left
 blank (NaN): CHOL, DLBC, KICH, MESO, UCS and UVM. Its `Random` column is the
 type's share of the test split, the sample itself excluded.
-`per_type_purity_k{10,20,30}.csv` hold figS3's purity, with the neighbours drawn
-from the training split instead. That split is large enough that no type needs
-blanking: CHOL is the one type with fewer than 30 training samples (23–28), and
-none of its held-out samples reaches that limit. Their `Random` column is the
-type's share of the training split. The
+`per_type_purity_within_test_k{20,30}.csv` add figS3's other two k values on the
+same definition, blanking every type with fewer than k test samples in some
+seed: 11 types at k = 20, 16 at k = 30. The
 step covers all ten models with embeddings, so S3 and Figure 3 read it too. The
 randomized AE_2.2 arm is numbered 22–26 but trained on splits 2–6, so it is
 scored on those. Each run's logged test loss reproduces on its split and no
