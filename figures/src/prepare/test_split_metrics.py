@@ -35,7 +35,7 @@ Writes to --out-dir:
                                value, n_rows)
   per_type_ss.csv              cancer types x methods
   per_type_purity_k{k}.csv     cancer types x methods, plus `Random`, for k = 10, 20, 30
-and prints each against the all-sample values it replaces.
+and prints SS / ARI / NMI and per-type SS against the all-sample values they replace.
 Deterministic, and reads only shipped inputs.
 
 Run from the repository root:
@@ -142,7 +142,9 @@ def main() -> None:
     for k, frame in purity_tables.items():
         frame.rename_axis("cancer_type").to_csv(args.out_dir / f"per_type_purity_k{k}.csv")
 
-    # What these replace: the workbooks for SS / ARI / NMI and per-type SS, the purity cache.
+    # What these replace: the workbooks' SS / ARI / NMI and per-type SS. The old
+    # all-sample purity was computed on the fly and never deposited, so it has
+    # no counterpart to print; figures/out/compare/ holds the published panels.
     workbook = read_xlsx_metrics(args.data_dir / "metrics" / "metric_data_TCGA_1000_30_new.xlsx")
     means = pd.concat({
         "all samples": workbook.groupby(["metric", "method"]).value.mean(),
@@ -158,13 +160,6 @@ def main() -> None:
     print()
     compare("SS per type", ss_table, read_per_cluster_workbook(
         args.data_dir / "metrics" / "mse_per_cluster_TCGA_1000_30.xlsx", verbose=False)["SS"].astype(float))
-    purity_cache = args.data_dir / "cache" / "knn_purity.csv"   # the old purity panels, if built
-    if purity_cache.exists():
-        cached = pd.read_csv(purity_cache, index_col=0)
-        for k in ks:
-            cols = [c for c in cached.columns if c.startswith(f"k{k}.")]
-            compare(f"purity per type, k={k}", purity_tables[k].drop(columns=RANDOM),
-                    cached[cols].rename(columns=lambda c: c.split(".", 1)[1]))
     print(f"\nchance purity: {chance_level.min():.3f} ({chance_level.idxmin()})"
           f" to {chance_level.max():.3f} ({chance_level.idxmax()})")
     print(f"\nWritten to {args.out_dir}")

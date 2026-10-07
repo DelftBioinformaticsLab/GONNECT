@@ -640,36 +640,6 @@ def read_per_cluster_workbook(path: Path, *, verbose: bool = True) -> Dict[str, 
     return sheets
 
 
-def read_txt_metrics(path: Path, split: str) -> pd.DataFrame:
-    """Flat .txt: ``run-N: {train: {metrics}, test: {metrics}}``.
-
-    The method name is the file stem, so data/metrics/ontovae.txt supplies
-    the true-graph OntoVAE baseline.
-    """
-    records: List[dict] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line or ":" not in line:
-                continue
-            run_id, payload = line.split(":", 1)
-            try:
-                data = ast.literal_eval(payload.strip())
-            except (ValueError, SyntaxError):
-                continue
-            if split not in data:
-                continue
-            repeat_id = normalize_repeat(run_id.strip(), run_id.strip())
-            if not _repeat_ok(repeat_id, strict=False):
-                continue
-            for metric, value in data[split].items():
-                records.append({
-                    "metric": normalize_metric(metric), "method": path.stem,
-                    "repeat": repeat_id, "value": float(value),
-                })
-    return pd.DataFrame.from_records(records)
-
-
 # For the true graph the method key matches the txt/xlsx spelling; the
 # randomized variants append the graph type to a base that drops VEGA's "674".
 _VEGA_ANNOTATIONS: Dict[str, tuple] = {
@@ -744,32 +714,8 @@ def read_baseline_vega(path: Path, split: str = "test",
     return pd.DataFrame.from_records(records)
 
 
-#: Suffix marking a metrics/*.txt file as per-graph-arm rather than flat. The
-#: two kinds share a directory but not a shape, so the glob-driven readers use
-#: this to tell them apart -- see ``is_arm_file``.
+#: Suffix of the per-graph-arm baseline files (``ontovae_rand.txt``, ``vega_rand.txt``).
 ARM_FILE_SUFFIX = "_rand"
-
-
-def is_arm_file(path: Path) -> bool:
-    """True for the nested per-graph-arm files, false for the flat baselines.
-
-    ``read_txt_metrics`` expects ``run-N: {split: {metric: val}}`` and would
-    quietly return nothing for the nested ones, since their top level holds
-    graph arms (or VEGA annotations) rather than a split. Callers that glob
-    ``metrics/*.txt`` filter with this rather than relying on that silence.
-    """
-    return path.stem.endswith(ARM_FILE_SUFFIX)
-
-
-def baseline_arm_paths(data_dir: Path) -> tuple:
-    """The two per-graph-arm OntoVAE / VEGA metric files, as (ontovae, vega).
-
-    These carry every arm -- ``true`` as well as the randomized ones -- so both
-    fig2 (which wants ``true``) and fig3 (which wants the randomized arms) read
-    them, with different ``graph_types``.
-    """
-    return (data_dir / "metrics" / f"ontovae{ARM_FILE_SUFFIX}.txt",
-            data_dir / "metrics" / f"vega{ARM_FILE_SUFFIX}.txt")
 
 
 def test_split_paths(data_dir: Path) -> Dict[str, Path]:
@@ -783,13 +729,11 @@ def test_split_paths(data_dir: Path) -> Dict[str, Path]:
           models with embeddings), ``ss_per_type``, ``purity_per_type_k{k}``
           (``purity_per_type`` is k = 30, the main text's)
       ``prepare/rescore_baselines.py``    ``ontovae``, ``vega``: every graph arm,
-          in the shape of their ``baseline_arm_paths`` namesakes, MSE included
+          in the shape of the deposited ``metrics/*_rand.txt``, MSE included
       ``prepare/cluster_test_metrics.py`` ``sweep`` (figS1's ct=5, ct=10 and 2k
           runs, with a ``setting`` column) and ``randomized`` (fig3's fully
           random and randomized soft-link arms), all four metrics each
-    The ``gonnect`` file has no MSE, which stays with the workbooks. A
-    subdirectory, so the ``metrics/*.txt`` glob in fig3 does not pick the arm
-    files up as flat baselines.
+    The ``gonnect`` file has no MSE, which stays with the workbooks.
     """
     d = data_dir / "metrics" / "test_split"
     return {
@@ -927,13 +871,10 @@ def load_cancer_types(tcga_path: Path) -> pd.Series:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Per-cancer-type embedding metrics
+# The models with saved embeddings
 #
-# Computed from the saved embeddings rather than read from a workbook, so they
-# cover every model that has embeddings on disk -- including the randomized
-# AE_2.2 arm, which the mse_per_cluster workbook also carries. Cached because
-# reading all 50 embeddings is not free (~25 s), and the result only changes
-# when the embeddings do. Delete the csv to rebuild.
+# Read by prepare/test_split_metrics.py, which scores them on held-out samples,
+# and by the figures that lay out its per-cancer-type tables.
 # ══════════════════════════════════════════════════════════════════════════════
 
 PURITY_K_VALUES = (10, 20, 30)
@@ -946,7 +887,7 @@ SEEDS_BY_VERSION: Dict[str, List[int]] = {
 }
 
 # (version, module, method key). The method keys match the mse_per_cluster
-# workbook's columns, so purity lines up with MSE and SS per cancer type.
+# workbook's columns, so purity and SS line up with MSE per cancer type.
 EMBEDDING_MODELS: List[tuple] = [
     ("2.0", "none",    "MLP"),
     ("2.0", "encoder", "GONNECT-enc"),
@@ -959,111 +900,3 @@ EMBEDDING_MODELS: List[tuple] = [
     ("2.2", "decoder", "GONNECT-R-dec"),
     ("2.2", "both",    "GONNECT-R-both"),
 ]
-
-# The subset shown in Figure 2, which does not carry the randomized arm --
-# that is Figure 3's subject.
-FIG2_METHODS: List[str] = [m for _, _, m in EMBEDDING_MODELS
-                           if not m.startswith("GONNECT-R-")]
-
-
-def _models_for(methods: Optional[Sequence[str]]) -> List[tuple]:
-    if methods is None:
-        return list(EMBEDDING_MODELS)
-    wanted = list(methods)
-    known = {m for _, _, m in EMBEDDING_MODELS}
-    missing = [m for m in wanted if m not in known]
-    if missing:
-        raise SystemExit(f"unknown method(s): {', '.join(missing)}")
-    order = {m: i for i, m in enumerate(wanted)}
-    return sorted((t for t in EMBEDDING_MODELS if t[2] in order),
-                  key=lambda t: order[t[2]])
-
-
-def _cached_frame(cache_dir: Path, name: str, compute, recompute: bool = False):
-    """Read ``<cache_dir>/<name>.csv``, or compute it and write it."""
-    path = cache_dir / f"{name}.csv"
-    if path.exists() and not recompute:
-        print(f"  cache hit:  {path.name}")
-        return pd.read_csv(path, index_col=0)
-    print(f"  computing:  {name} ...", flush=True)
-    frame = compute()
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path)
-    return frame
-
-
-def _purity_one(X: np.ndarray, labels: np.ndarray,
-                ks: Sequence[int]) -> Dict[int, pd.Series]:
-    """Purity per cancer type for one embedding, for every k in one query.
-
-    Purity is the fraction of a sample's k nearest neighbours (Euclidean, full
-    latent space, the sample itself excluded) carrying its own cancer-type
-    label, averaged over the samples of each type. Unlike silhouette it sees
-    only label mixing: how spread out a cluster is, or how far away the next
-    one sits, does not enter.
-    """
-    from sklearn.neighbors import NearestNeighbors
-    kmax = max(ks)
-    _, ind = NearestNeighbors(n_neighbors=kmax + 1).fit(X).kneighbors(X)
-    same = labels[ind[:, 1:]] == labels[:, None]      # (n, kmax), self dropped
-    return {k: pd.Series(same[:, :k].mean(1)).groupby(labels).mean() for k in ks}
-
-
-def knn_purity(emb_dir: Path, tcga_path: Path, cache_dir: Path, *,
-               methods: Optional[Sequence[str]] = None,
-               ks: Sequence[int] = PURITY_K_VALUES,
-               cancer_types: Optional[Sequence[str]] = None,
-               recompute: bool = False) -> Dict[int, pd.DataFrame]:
-    """k-NN neighbourhood purity per (cancer type, method), averaged over seeds.
-
-    Returns one DataFrame per k, rows cancer types and columns methods.
-    """
-    models = _models_for(methods)
-    labels = np.asarray(load_cancer_types(tcga_path).astype(str))
-    ks = list(ks)
-
-    def compute_all() -> pd.DataFrame:
-        columns = {}
-        for version, module, method in models:
-            per_seed = {k: [] for k in ks}
-            for seed in SEEDS_BY_VERSION[version]:
-                path = (emb_dir / f"AE_{version}"
-                        / f"AE_{version}.{seed}_{module}_full_dataset.pt")
-                if not path.exists():
-                    raise SystemExit(f"purity needs {path}, which is missing")
-                X = load_embedding(emb_dir, version, seed, module).astype(np.float64)
-                if X.shape[0] != len(labels):
-                    raise SystemExit(
-                        f"AE_{version}.{seed}_{module}: {X.shape[0]} rows but "
-                        f"{len(labels)} TCGA labels")
-                for k, series in _purity_one(X, labels, ks).items():
-                    per_seed[k].append(series)
-            for k in ks:
-                # Flat "k30.GONNECT-enc" column names, not a MultiIndex: a
-                # MultiIndex writes two header rows that read_csv(index_col=0)
-                # silently reads back as one, which yields an empty frame on
-                # every cache hit. Method keys contain no ".", so one split
-                # recovers the pair exactly.
-                columns[f"k{k}.{method}"] = pd.concat(per_seed[k], axis=1).mean(axis=1)
-        return pd.DataFrame(columns)
-
-    def valid(frame) -> bool:
-        wanted = {f"k{k}.{m}" for k in ks for _, _, m in models}
-        return bool(wanted) and wanted.issubset(set(frame.columns))
-
-    wide = _cached_frame(cache_dir, "knn_purity", compute_all, recompute)
-    if not valid(wide):
-        # A cache from an older layout, or one written before more models or
-        # more k values were asked for. Rebuild rather than silently plot gaps.
-        print("  cache does not cover this request; recomputing purity")
-        wide = _cached_frame(cache_dir, "knn_purity", compute_all, recompute=True)
-
-    out = {}
-    for k in ks:
-        prefix = f"k{k}."
-        frame = wide[[c for c in wide.columns if c.startswith(prefix)]]
-        frame.columns = [c[len(prefix):] for c in frame.columns]
-        frame = frame[[m for _, _, m in models if m in frame.columns]]
-        out[k] = frame.reindex(cancer_types) if cancer_types is not None else frame
-    return out
-

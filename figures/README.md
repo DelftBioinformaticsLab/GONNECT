@@ -30,8 +30,8 @@ The GONNECT model versions are `AE_2.0` (fixed link), `AE_2.1` (soft link), `AE_
 
 | Folder | Holds |
 |---|---|
-| `metrics/` | Every model metric. Workbooks (`.xlsx`) for the GONNECT family; one flat `.txt` per true-graph baseline, named for the method (`ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt`); and the two `*_rand.txt` files. See below. `metrics/test_split/` holds the revised clustering metrics Figure 2 reads: every model on its test split, silhouette against the true cancer types. |
-| `latent_embeddings/` | Per-model sample embeddings, `.pt`, one folder per model version. Drives every t-SNE and k-NN purity panel. |
+| `metrics/` | Every model metric. Workbooks (`.xlsx`) for the GONNECT family; the two `*_rand.txt` baseline files; and the flat per-method baselines of the published deposit (`ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt`), which no figure reads any more. `metrics/test_split/` holds the held-out metrics figures 2, 3, S1, S3 and S4 read: every model on its test split, silhouette against the true cancer types. See below. |
+| `latent_embeddings/` | Per-model sample embeddings, `.pt`, one folder per model version. Drives every t-SNE panel and, through `src/prepare/test_split_metrics.py`, every held-out clustering metric. `cluster_test_split/` holds the held-out embeddings of runs whose checkpoints stayed on the cluster. |
 | `model_checkpoints/` | Trained model weights, `.pt`. Only `AE_2.0` and `AE_2.1` are present. |
 | `loss_traces/` | Per-epoch train / validation / test loss, one tab-separated `.txt` per `AE_3.x` α-sweep run. 11 files, 0.8 MB. Read by figS7. |
 | `alpha_sweep_weights/` | The weight matrices of the α-sweep runs, one `.pt` per run and module, holding only the module that run constrains. 11 files, 296 MB. Read by figS8. Extracted from the training checkpoints — see *Figures S7 and S8*. |
@@ -95,24 +95,18 @@ the GO graph.** Nothing here depends on a file that is not shipped. Regeneration
 writes to `out/prepare/` rather than into `data/`, so a stochastic rerun cannot
 quietly move a published figure — see `src/prepare/README.md`.
 
-#### The two kinds of `.txt` in `metrics/`
-
-They share a directory and an extension but not a shape, and the readers are
-not interchangeable:
+#### The baseline `.txt` files in `metrics/`
 
 | | Shape | Read by |
 |---|---|---|
-| `ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt` | `run-N: {split: {metric: val}}` — flat, one method per file, method name taken from the file stem | `read_txt_metrics`, via a `metrics/*.txt` glob |
-| `ontovae_rand.txt`, `vega_rand.txt` | `run-N: {arm: {split: ...}}` for OntoVAE and `run-N: {annotation: {arm: {split: ...}}}` for VEGA — nested by graph arm, carrying `true`, `random` and `degree_preserving` | `read_baseline_ontovae` / `read_baseline_vega`, with an explicit `graph_types` |
+| `ontovae_rand.txt`, `vega_rand.txt` | `run-N: {arm: {split: ...}}` for OntoVAE and `run-N: {annotation: {arm: {split: ...}}}` for VEGA, nested by graph arm, carrying `true`, `random` and `degree_preserving` | `read_baseline_ontovae` / `read_baseline_vega`, with an explicit `graph_types` |
+| `ontovae.txt`, `vega_hallmark.txt`, `vega_reactome674.txt` | `run-N: {split: {metric: val}}`, flat, one method per file | nothing any more |
 
-`read_txt_metrics` would return an empty frame for a nested file rather than
-raising, since the split key is not at the top level — so the globs filter on
-`_common.is_arm_file` instead of relying on that silence. The `_rand` suffix is
-the marker; `ARM_FILE_SUFFIX` holds it in one place.
-
-Figure 2 reads `graph_types=("true",)` from the `*_rand.txt` pair in
-`metrics/test_split/` (the default), while Figure 3 asks the originals for
-`RANDOMIZED_GRAPH_ARMS` and takes its true-graph bars from the flat files.
+The flat files are a separate training run from the `true` arm of the
+`*_rand.txt` pair. Figure 3 used to take its true-graph bars from them, so
+Figures 2 and 3 showed different numbers for the same baseline. Every figure now
+reads the `*_rand.txt` pair in `metrics/test_split/`: Figure 2 its `true` arm,
+Figure 3 every arm.
 
 The `test_split/` pair has the same shape, but its NMI, ARI and silhouette were
 rescored from `baseline_activations/`. The deposited ones took the silhouette
@@ -427,24 +421,25 @@ detected and rebuilt automatically.
 
 ## Per-cancer-type metrics
 
-One metric in Figure 2 and figS3 is computed here rather than read from a
-workbook, so it covers every model with embeddings on disk — including the
-randomized AE_2.2 arm. It lives in `_common.py` and is cached under
-`data/cache/`:
+Figure 2j–k and figS3a–d are computed from the embeddings rather than read from a
+workbook, so they cover every model with embeddings on disk, including the
+randomized AE_2.2 arm. `src/prepare/test_split_metrics.py` computes them and
+writes them to `metrics/test_split/`; the figures only lay the tables out.
 
-**`knn_purity`** — the fraction of a sample's k nearest neighbours (Euclidean,
-full latent space, self excluded) carrying its own cancer-type label, averaged
-per type and then over the five seeds. Purely local: it sees neighbourhood
-contamination and nothing else, so a huge diffuse but uncontaminated cluster
-scores 1.0 where silhouette would not. Ported from `fig_main/knn_purity.py`.
-k = 10, 20, 30; Figure 2 shows k = 30, figS3 all three.
+**k-NN purity**: the fraction of a held-out sample's k nearest neighbours
+(Euclidean, full latent space) carrying its own cancer-type label, averaged per
+type and then over the five seeds. The neighbours come from the run's training
+split. Purely local: it sees neighbourhood contamination and nothing else, so a
+huge diffuse but uncontaminated cluster scores 1.0 where silhouette would not.
+Ported from `fig_main/knn_purity.py`. k = 10, 20, 30; Figure 2 shows k = 30,
+figS3 all three, each with the `Random` chance-level column.
 
-**NMI per cancer type does not exist and could not be derived.** NMI is a global
-clustering metric; a per-type version needs the clustering that produced the
-ARI/NMI columns, and no clustering code lives in this repository (the numbers
-arrive already computed in `metric_data_TCGA_1000_30_new.xlsx`). Adding real
-per-type NMI means bringing the clustering procedure over from wherever those
-columns are produced.
+**Silhouette per type**: the per-sample silhouette over the test split, averaged
+per type.
+
+**NMI per cancer type does not exist.** NMI is a global clustering metric that
+compares two partitions of all samples; it has no per-type decomposition the
+way the silhouette and purity do.
 
 ## A repaired input
 
@@ -499,21 +494,18 @@ repair and still show the grey cells.
 
 ## Caches
 
-The scripts keep four caches under `data/cache/`. **They are not shipped** — the
+The scripts keep three caches under `data/cache/`. **They are not shipped** — the
 directory is absent from both the repository and the deposit, so a first run
-builds all four from `data/` and every figure pays the rebuild cost once:
+builds all three from `data/` and every figure pays the rebuild cost once:
 
 | Path | Used by | Cost to build on first run |
 |---|---|---|
 | `cache/tsne/` | fig2, figS2 | minutes per panel |
 | `cache/sl_edits/` | figS12 | minutes per module |
-| `cache/knn_purity.csv` | figS3 | ~25 s for all 50 embeddings |
 | `cache/auc_4row*/` | fig4 | ~13 min, rereads every activation file |
 
-**All four are safe to delete** at any point; the scripts recompute and rewrite
-them from `data/`. `knn_purity` additionally rebuilds itself when the cached
-table does not cover what was asked for — more models or another k — rather than
-plotting gaps.
+**All three are safe to delete** at any point; the scripts recompute and rewrite
+them from `data/`.
 
 Because `cache/auc_4row/` is absent on a fresh checkout, fig4 reads the OntoVAE
 `.parquet` baselines directly, which needs a parquet engine. `pyarrow` is

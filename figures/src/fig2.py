@@ -194,9 +194,9 @@ BAR_XLIM_PAD = 0.65
 # Reference for the dashed line, the outlined bar, and the paired t-tests.
 BASELINE_METHOD = "MLP"
 
-# Heatmaps show the 7 methods that are present in mse_per_cluster_TCGA_1000_30.xlsx;
-# _common.FIG2_METHODS is the same set, and prepare/test_split_metrics.py writes
-# the SS and purity tables with the same columns.
+# Heatmaps show the 7 methods of the main benchmark, all present in
+# mse_per_cluster_TCGA_1000_30.xlsx; prepare/test_split_metrics.py writes the SS
+# and purity tables with these columns (and the randomized arm's, for figS3).
 HEATMAP_METHOD_ORDER = [
     "MLP",
     "GONNECT-enc",    "GONNECT-dec",    "GONNECT-both",

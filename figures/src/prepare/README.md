@@ -325,8 +325,8 @@ had the test loss including the soft-link penalty. The ct=30 and
 
 All steps use the same k-means (k = number of classes, seed 42, n_init=10), and
 all are deterministic. Figures 2, 3, S1, S3 and S4 read their output files from
-`data/metrics/test_split/`, a subdirectory so fig3's `metrics/*.txt` glob does
-not take the arm files for flat baselines. Copy them there after a rebuild.
+`data/metrics/test_split/`, kept apart from the deposited all-sample files they
+replace. Copy them there after a rebuild.
 
 ## Running
 

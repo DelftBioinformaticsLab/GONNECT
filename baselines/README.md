@@ -46,6 +46,16 @@ Finally:
 python baselines/collect_metrics.py
 ```
 
+This writes `ontovae_rand.txt` and `vega_rand.txt` to `out/baselines/metrics/`,
+in the shape of `figures/data/metrics/test_split/`, which the figures read.
+Both runners score the test split, and since the revision they take the
+silhouette against the true cancer types, as GONNECT's is
+(`--silhouette-against labels`, the default). `--silhouette-against kmeans`
+reproduces the published runs, which took it against the k-means clusters; each
+run prints both. The deposited baseline numbers were rescored from the published
+runs' latents rather than retrained (`figures/src/prepare/rescore_baselines.py`),
+because those runs left model initialisation unseeded.
+
 ## Untrained controls
 
 The structural baseline for Figure 4's panels d and e: the same statistic on
