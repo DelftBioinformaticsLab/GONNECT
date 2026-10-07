@@ -113,9 +113,10 @@ rescored from `baseline_activations/`. The deposited ones took the silhouette
 against the k-means clusters rather than the true cancer types. Its MSE is carried
 over unchanged. Beside them, `gonnect_clustering.csv` holds SS, ARI and NMI for the
 MLP and the GONNECT family on each seed's test split, in long form (`metric`,
-`method`, `repeat`, `value`). `per_type_ss.csv` and `per_type_purity_k30.csv` hold
-the per-cancer-type SS and purity, cancer types × methods, averaged over seeds; the
-purity file adds a `Random` column. The workbooks took all of these over every
+`method`, `repeat`, `value`). `per_type_ss.csv` and `per_type_purity_within_test_k10.csv`
+hold the per-cancer-type SS and purity of Figure 2j–k, cancer types × methods, averaged
+over seeds; the purity file adds a `Random` column and is blank (NaN) for the types
+too small to score. `per_type_purity_k{10,20,30}.csv` hold figS3's purity. The workbooks took all of these over every
 sample, so Figure 2 now takes only MSE from them. See `src/prepare/README.md`, *The
 test-split clustering metrics*.
 
@@ -183,21 +184,22 @@ metrics/test_split/ontovae_rand.txt           OntoVAE baseline ('true' arm, resc
 metrics/test_split/vega_rand.txt              VEGA Hallmark + Reactome ('true' arm, rescored)
 metrics/mse_per_cluster_TCGA_1000_30.xlsx     panel i (MSE per c.t.; repaired on read)
 metrics/test_split/per_type_ss.csv            panel j (SS per c.t.)
-metrics/test_split/per_type_purity_k30.csv    panel k (purity per c.t., plus chance)
+metrics/test_split/per_type_purity_within_test_k10.csv   panel k (purity per c.t., plus chance)
 TCGA_complete_bp_top1k.csv.gz                     cancer-type labels, abundance (panel l)
 latent_embeddings/AE_2.0/AE_2.0.2_{none,decoder,encoder,both}_full_dataset.pt   panels e-h
 cache/tsne/                                       t-SNE coordinates (regenerable)
 ```
 
 Panels: a–d metric bars, e–h t-SNE, i–k the per-cancer-type heatmaps
-(MSE, SS, k-NN purity at k=30), l the abundance bar. Every metric panel scores
+(MSE, SS, k-NN purity at k=10), l the abundance bar. Every metric panel scores
 held-out samples only; the t-SNE panels show every sample. Panels i and j are the
-per-type breakdowns of a and b, on the same test split. Panel k scores the test
-samples, but draws their 30 neighbours from the training split. A search inside
-the test split would cap the purity of every cancer type with fewer than 30 test
-samples — half of them in some seed — at its size rather than its separation.
-Its last column, `Random`, is chance level: the cancer type's share of the
-training split. The randomized arm is deliberately absent, since it is Figure 3's
+per-type breakdowns of a and b, on the same test split. Panel k stays inside the
+test split too: each test sample's 10 nearest neighbours are other test samples.
+A type with fewer than 10 test samples in some seed cannot fill 10 neighbours with
+its own kind, so its row is left blank: CHOL, DLBC, KICH, MESO, UCS and UVM. k = 10
+rather than the published 30 is what keeps the rest; at k = 30, half the types
+would be blank. Its last column, `Random`, is chance level: the cancer type's
+share of the test split, the sample itself excluded. The randomized arm is deliberately absent, since it is Figure 3's
 subject and appears per cancer type in figS3.
 
 ### fig3.py and figS4.py — GO-graph randomization
@@ -336,11 +338,13 @@ metrics/mse_per_cluster_TCGA_1000_30.xlsx            panel e (MSE sheet; repaire
 TCGA_complete_bp_top1k.csv.gz                        cancer-type labels, abundance (panel f)
 ```
 
-As in Figure 2j–k, every panel scores held-out samples: purity draws each
-test sample's neighbours from its run's training split, and SS is taken
-within the test split. The degree-preserving arm (AE_2.2.22–26) trained on
-splits 2–6, like the others. Each purity panel ends in a `Random` column, as in
-Figure 2k: chance level, the cancer type's share of the training split.
+Every panel scores held-out samples. SS is taken within the test split, as in
+Figure 2j. Purity draws each test sample's neighbours from its run's training
+split, unlike Figure 2k, which stays inside the test split at k = 10: the
+training split is large enough for k = 20 and 30 without blanking any type. The
+degree-preserving arm (AE_2.2.22–26) trained on splits 2–6, like the others. Each
+purity panel ends in a `Random` column: chance level, the cancer type's share of
+the training split.
 
 Panels a–e are the five heatmaps (purity at k = 10/20/30, SS, MSE) and f the
 abundance bar. The figure carries no title — what it shows belongs in the
@@ -428,11 +432,12 @@ writes them to `metrics/test_split/`; the figures only lay the tables out.
 
 **k-NN purity**: the fraction of a held-out sample's k nearest neighbours
 (Euclidean, full latent space) carrying its own cancer-type label, averaged per
-type and then over the five seeds. The neighbours come from the run's training
-split. Purely local: it sees neighbourhood contamination and nothing else, so a
-huge diffuse but uncontaminated cluster scores 1.0 where silhouette would not.
-Ported from `fig_main/knn_purity.py`. k = 10, 20, 30; Figure 2 shows k = 30,
-figS3 all three, each with the `Random` chance-level column.
+type and then over the five seeds. Purely local: it sees neighbourhood
+contamination and nothing else, so a huge diffuse but uncontaminated cluster
+scores 1.0 where silhouette would not. Ported from `fig_main/knn_purity.py`.
+Figure 2 shows k = 10 with the neighbours searched within the test split, small
+types blank; figS3 shows k = 10, 20 and 30 with the neighbours drawn from the
+training split. Both carry a `Random` chance-level column.
 
 **Silhouette per type**: the per-sample silhouette over the test split, averaged
 per type.

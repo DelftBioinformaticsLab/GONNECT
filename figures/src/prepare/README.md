@@ -273,12 +273,16 @@ baseline_activations/ + metrics/*_rand.txt + TCGA_complete_bp_top1k.csv.gz
 `gonnect.train.train.split_data` held out at each seed. `gonnect_clustering.csv`
 holds b–d. `per_type_ss.csv` holds j, the per-sample silhouette over the same test
 split averaged per cancer type, so it is the per-type breakdown of b.
-`per_type_purity_k30.csv` holds k. There the test samples' 30 neighbours come from
-the training split, not the test split: at 15% of the data, half the cancer
-types have fewer than 30 test samples in some seed, and a search among those
-would cap their purity at their size. CHOL is the one type with fewer than 30
-training samples (23–28); none of its held-out samples reaches that limit. A
-`Random` column holds chance level, the type's share of the training split. The
+`per_type_purity_within_test_k10.csv` holds k: each test sample's 10 nearest
+neighbours among the other samples of its test split. A type with fewer than 10
+test samples in any seed would have its purity capped by its size, so it is left
+blank (NaN): CHOL, DLBC, KICH, MESO, UCS and UVM. Its `Random` column is the
+type's share of the test split, the sample itself excluded.
+`per_type_purity_k{10,20,30}.csv` hold figS3's purity, with the neighbours drawn
+from the training split instead. That split is large enough that no type needs
+blanking: CHOL is the one type with fewer than 30 training samples (23–28), and
+none of its held-out samples reaches that limit. Their `Random` column is the
+type's share of the training split. The
 step covers all ten models with embeddings, so S3 and Figure 3 read it too. The
 randomized AE_2.2 arm is numbered 22–26 but trained on splits 2–6, so it is
 scored on those. Each run's logged test loss reproduces on its split and no

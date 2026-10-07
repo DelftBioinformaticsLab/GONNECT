@@ -8,8 +8,10 @@ Panels
        decoder / encoder / both variants, coloured by cancer type.
   i    MSE per cancer type (heatmap), test split: the per-type breakdown of a.
   j    SS per cancer type (heatmap), test split: the per-type breakdown of b.
-  k    k-NN neighbourhood purity per cancer type, k=30 (heatmap): test samples,
-       neighbours drawn from the training split, plus a chance-level column.
+  k    k-NN neighbourhood purity per cancer type, k=10 (heatmap), entirely
+       within the test split: each test sample's neighbours are other test
+       samples. Types with fewer than 10 test samples in some seed are left
+       blank. A chance-level column follows the models.
   l    Cancer-type abundance.
 
 Only the t-SNE panels (e-h) use every sample; they are a picture of the
@@ -27,7 +29,8 @@ Inputs, relative to --data-dir:
   metrics/test_split/vega_rand.txt            VEGA baselines (rescored)
   metrics/mse_per_cluster_TCGA_1000_30.xlsx   per-cancer-type MSE
   metrics/test_split/per_type_ss.csv          per-cancer-type SS
-  metrics/test_split/per_type_purity_k30.csv  per-cancer-type purity + chance
+  metrics/test_split/per_type_purity_within_test_k10.csv
+                                              per-cancer-type purity + chance
   latent_embeddings/AE_2.0/AE_2.0.<seed>_<module>_full_dataset.pt
   TCGA_complete_bp_top1k.csv.gz                   cancer-type labels
   cache/tsne/                                     t-SNE cache
@@ -57,7 +60,7 @@ from _common import (
     PT_SMALL,
     PT_TINY,
     PT_TITLE,
-    PURITY_K_MAIN,
+    PURITY_K_WITHIN_TEST,
     add_io_args,
     figsize,
     compute_summary,
@@ -203,7 +206,7 @@ HEATMAP_METHOD_ORDER = [
     "GONNECT-SL-enc", "GONNECT-SL-dec", "GONNECT-SL-both",
 ]
 # Panel k's extra column: chance-level purity, the cancer type's share of the
-# training split the neighbours are drawn from.
+# test split the neighbours are drawn from (the sample itself excluded).
 PURITY_CHANCE = "Random"
 
 # ── Embedding panels (t-SNE) ─────────────────────────────────────────────────
@@ -498,7 +501,7 @@ def main() -> None:
     #    own SS / ARI / NMI span all samples, so they are dropped here.
     print("Loading metric data ...")
     paths = test_split_paths(args.data_dir)
-    for key in ("gonnect", "ss_per_type", "purity_per_type"):
+    for key in ("gonnect", "ss_per_type", "purity_within_test"):
         if not paths[key].exists():
             raise SystemExit(f"missing {paths[key]}; build it with prepare/test_split_metrics.py")
     ontovae_path, vega_path = paths["ontovae"], paths["vega"]
@@ -550,12 +553,12 @@ def main() -> None:
     mse_display  = np.where(mse_diverged, np.nan, mse_vals)
     ss_vals = ss_df.values.astype(float)
 
-    # 4. k-NN purity per cancer type: test samples, neighbours from the training
-    # split. Lines up column for column with i and j, plus the chance-level
-    # column after them.
+    # 4. k-NN purity per cancer type, within the test split. Lines up column for
+    # column with i and j, plus the chance-level column after them. Types too
+    # small for k neighbours of their own kind are NaN, and draw blank.
     print("Loading k-NN purity ...")
     purity_methods = heatmap_methods + [PURITY_CHANCE]
-    purity_df = pd.read_csv(paths["purity_per_type"], index_col=0)
+    purity_df = pd.read_csv(paths["purity_within_test"], index_col=0)
     purity_vals = purity_df.loc[cancer_types_sorted, purity_methods].values.astype(float)
 
     # 5. t-SNE for the four embedding panels
@@ -674,12 +677,13 @@ def main() -> None:
     # k-NN purity heatmap (panel k). A fraction of neighbours, so the scale is
     # the full 0-1 rather than the data range, and higher is better -- same
     # colormap as SS, so green reads the same way in both. The last column is
-    # chance level, split off from the models by a white rule.
+    # chance level, split off from the models by a white rule. Blank rows are
+    # the types with too few test samples.
     ax_pur_ct = fig.add_subplot(hm_gs[0, 5])
     im_pur = draw_heatmap(
         ax_pur_ct, purity_vals, cancer_types_sorted, purity_methods,
         cmap="RdYlGn", vmin=0.0, vmax=1.0,
-        title=f"Purity (k={PURITY_K_MAIN})\nper c.t. [↑]",
+        title=f"Purity (k={PURITY_K_WITHIN_TEST})\nper c.t. [↑]",
         yticklabel_mode="hidden",
     )
     ax_pur_ct.axvline(len(heatmap_methods) - 0.5, color="white", linewidth=2.5)

@@ -727,7 +727,8 @@ def test_split_paths(data_dir: Path) -> Dict[str, Path]:
     against their k-means clusters. Built by:
       ``prepare/test_split_metrics.py``   ``gonnect`` (SS / ARI / NMI of the ten
           models with embeddings), ``ss_per_type``, ``purity_per_type_k{k}``
-          (``purity_per_type`` is k = 30, the main text's)
+          against the training split (figS3), and ``purity_within_test``
+          (Figure 2k: k = 10, neighbours within the test split, small types blank)
       ``prepare/rescore_baselines.py``    ``ontovae``, ``vega``: every graph arm,
           in the shape of the deposited ``metrics/*_rand.txt``, MSE included
       ``prepare/cluster_test_metrics.py`` ``sweep`` (figS1's ct=5, ct=10 and 2k
@@ -741,7 +742,7 @@ def test_split_paths(data_dir: Path) -> Dict[str, Path]:
         "ontovae": d / f"ontovae{ARM_FILE_SUFFIX}.txt",
         "vega": d / f"vega{ARM_FILE_SUFFIX}.txt",
         "ss_per_type": d / "per_type_ss.csv",
-        "purity_per_type": d / f"per_type_purity_k{PURITY_K_MAIN}.csv",
+        "purity_within_test": d / f"per_type_purity_within_test_k{PURITY_K_WITHIN_TEST}.csv",
         **{f"purity_per_type_k{k}": d / f"per_type_purity_k{k}.csv" for k in PURITY_K_VALUES},
         "sweep": d / "sweep_metrics.csv",
         "randomized": d / "randomized_metrics.csv",
@@ -878,7 +879,7 @@ def load_cancer_types(tcga_path: Path) -> pd.Series:
 # ══════════════════════════════════════════════════════════════════════════════
 
 PURITY_K_VALUES = (10, 20, 30)
-PURITY_K_MAIN = 30              # the one that goes in Figure 2
+PURITY_K_WITHIN_TEST = 10       # Figure 2k: neighbours searched within the test split
 
 SEEDS_BY_VERSION: Dict[str, List[int]] = {
     "2.0": [2, 3, 4, 5, 6],
