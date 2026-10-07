@@ -24,6 +24,16 @@ column-shuffle p.
 The trained runs were never seeded, so no initialization here is the start of a
 trained seed: the comparison is between distributions, not pairs.
 
+The defaults are those of fig4.py's revised figure. --eval-set test (the
+default) scores as fig4.py does: each trained seed on the primary tumours of
+its own test split (gonnect.train.train.split_data at that seed), and
+initialization i on those of split TRAINED_SEEDS[i % 5], so every box sees the
+same samples as its violin; --eval-set all scores every primary tumour, as the
+published figure did. The trained models are read from
+go_term_activations_corrected/ and scored against
+gsea_gonnect_receptive_fields/; --activations-dir and --gsea-csv override both
+(the published figure: go_term_activations/ and gsea_gonnect_layers/).
+
 The shipped decoder activations
 -------------------------------
 The files in go_term_activations/ were written by a version of
@@ -191,13 +201,16 @@ def go_columns(values: np.ndarray, ids: pd.Series) -> pd.DataFrame:
 # ── Activations ──────────────────────────────────────────────────────────────
 
 def untrained_activations(module: str, soft_links: bool, seed: int, x: torch.Tensor,
-                          layers: dict[str, pd.Series], masks_dir: Path) -> dict[str, pd.DataFrame]:
+                          layers: dict[str, pd.Series], masks_dir: Path,
+                          rows: np.ndarray | None = None) -> dict[str, pd.DataFrame]:
     """Every GO node's pre-activation in a freshly initialized GONNECT.
 
     Returns {UNTRAINED: frame}, each column named after the node it holds, and
     for the decoder also {UNTRAINED_AS_SHIPPED: frame} with every linear
     layer's outputs named after the terms of its input layer, which is how the
-    shipped decoder files were labelled.
+    shipped decoder files were labelled. ``rows`` runs only those samples
+    (positions in ``x``), which the frames are then indexed by; the stored
+    activations of all 9,797 come to about 1 GB.
     """
     torch.manual_seed(seed)
     with contextlib.redirect_stdout(io.StringIO()):   # build_model narrates the whole architecture
@@ -206,19 +219,20 @@ def untrained_activations(module: str, soft_links: bool, seed: int, x: torch.Ten
     model.eval()
     model.set_store_activations(True)
     with torch.no_grad():
-        z = model.encoder(x)
+        z = model.encoder(x if rows is None else x[torch.from_numpy(rows)])
         model.decoder(z)
     model.set_store_activations(False)
 
     coder = model.encoder if module == "encoder" else model.decoder
     outputs = [a.numpy() for a in list(coder.activations.values())[::2]]   # the linear layers
+    index = (lambda f: f) if rows is None else (lambda f: f.set_axis(rows, axis=0))
     if module == "encoder":
         frames = [go_columns(out, layers[name]) for out, name in zip(outputs, ENCODER_OUTPUTS)]
-        return {UNTRAINED: pd.concat(frames, axis=1)}
+        return {UNTRAINED: index(pd.concat(frames, axis=1))}
     frames = [go_columns(z.numpy(), layers["bottleneck"])]
     frames += [go_columns(out, layers[name]) for out, name in zip(outputs, DECODER_OUTPUTS)]
     as_shipped = [go_columns(out, layers[name]) for out, name in zip(outputs, DECODER_INPUTS)]
-    return {UNTRAINED: pd.concat(frames, axis=1), UNTRAINED_AS_SHIPPED: pd.concat(as_shipped, axis=1)}
+    return {UNTRAINED: index(pd.concat(frames, axis=1)), UNTRAINED_AS_SHIPPED: index(pd.concat(as_shipped, axis=1))}
 
 
 def read_activations(activations_dir: Path, version: str, seed: int, module: str) -> pd.DataFrame:
@@ -273,7 +287,8 @@ def auc_matrix(frame: pd.DataFrame, scoring: Scoring) -> pd.DataFrame:
     counts one half), for every node at once. The values pass through float32
     first, as fig4.py reads them, so ties fall where they fall there.
     """
-    values = frame.to_numpy(dtype=np.float32)[scoring.primary]
+    # Rows by label: the trained files hold every sample, an untrained frame may hold only the scored ones
+    values = frame.loc[np.flatnonzero(scoring.primary)].to_numpy(dtype=np.float32)
     ranks = rankdata(values, axis=0)
     out = np.empty((len(scoring.cancer_types), values.shape[1]), dtype=np.float32)
     for i, cancer_type in enumerate(scoring.cancer_types):
@@ -285,8 +300,9 @@ def auc_matrix(frame: pd.DataFrame, scoring: Scoring) -> pd.DataFrame:
     return pd.DataFrame(out, index=scoring.cancer_types, columns=frame.columns)
 
 
-def check_auc(frame: pd.DataFrame, scoring: Scoring, meta_primary: pd.DataFrame) -> None:
+def check_auc(frame: pd.DataFrame, scoring: Scoring, meta: pd.DataFrame) -> None:
     """The vectorized AUC against fig4's own roc_auc_score loop, on a few nodes."""
+    meta_primary = meta.loc[scoring.primary].reset_index(drop=True)
     cols = list(frame.columns[:40])
     reference = aggregate_per_cancer_type(frame[cols].to_numpy(dtype=np.float32)[scoring.primary], meta_primary,
                                           cols, scoring.cancer_types, metric="auc")
@@ -446,12 +462,21 @@ def main() -> None:
     parser.add_argument("--masks-dir", type=Path, default=MASKS_DIR)
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--activations-dir", type=Path, default=None,
-                        help="trained activations (default: <data-dir>/go_term_activations, whose decoder is "
-                             "relabelled), e.g. extract_decoder_activations.py's complete ones")
+                        help="trained activations (default: <data-dir>/go_term_activations_corrected, the "
+                             "revised Figure 4's; <data-dir>/go_term_activations, the published one's, has its "
+                             "decoder relabelled)")
     parser.add_argument("--n-inits", type=int, default=50,
                         help="untrained initializations per model and module")
     parser.add_argument("--n-perms", type=int, default=1000, help="column shuffles behind every p")
     parser.add_argument("--rng-seed", type=int, default=42, help="seed of the column shuffles, as in Figure 4")
+    parser.add_argument("--eval-set", choices=["all", "test"], default="test",
+                        help="'all': every primary tumour (Figure 4 as published). 'test' (default): as fig4.py "
+                             "--eval-set test, each trained seed on the primary tumours of its own test split, and "
+                             "initialization i on those of split TRAINED_SEEDS[i %% 5], so that every split "
+                             "carries the same number of initializations")
+    parser.add_argument("--gsea-csv", type=Path, default=None,
+                        help="GSEA reference (default: <data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv, "
+                             "as fig4.py; the published figure used gsea_gonnect_layers/gsea_results.csv)")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
     start = time.time()
@@ -460,10 +485,8 @@ def main() -> None:
     meta = expression.iloc[:, :N_META_COLS]
     x = torch.tensor(expression.iloc[:, N_META_COLS:].to_numpy(dtype=np.float64))
     primary = (meta["sample_type"] == "Primary Tumor").to_numpy()
-    meta_primary = meta.loc[primary].reset_index(drop=True)
-    labels = meta_primary["cancer_type"].to_numpy()
 
-    gsea = pd.read_csv(args.data_dir / "gsea_gonnect_layers" / "gsea_results.csv")
+    gsea = pd.read_csv(args.gsea_csv or args.data_dir / "gsea_gonnect_receptive_fields" / "gsea_results.csv")
     gsea["enr_score"] = -np.log10(np.clip(gsea["NOM p-val"], 1e-3, 1.0))
     enrichment = gsea.pivot_table(index="cancer_type", columns="Term", values="enr_score", aggfunc="first")
 
@@ -471,17 +494,39 @@ def main() -> None:
     hard_links = pd.read_csv(hard_links_path, usecols=["component", "layer", "source_index", "source_term_id",
                                                        "sink_index", "sink_term_id"])
     layers = node_layers(hard_links, args.masks_dir)
-    scoring = Scoring(
-        primary=primary,
-        labels=labels,
-        cancer_types=[ct for ct in CANCER_TYPE_ORDER if ct in set(labels) and ct in enrichment.index],
-        enrichment=enrichment,
-        layer_maps={module: build_layer_map(hard_links_path, module) for module in MODULES},
-        n_perms=args.n_perms,
-        rng_seed=args.rng_seed,
-    )
-    print(f"{primary.sum()} primary tumours, {len(scoring.cancer_types)} cancer types; "
-          f"hard_links.csv matches the masks in {args.masks_dir}", flush=True)
+    layer_maps = {module: build_layer_map(hard_links_path, module) for module in MODULES}
+
+    def make_scoring(keep: np.ndarray) -> Scoring:
+        labels = meta["cancer_type"].to_numpy()[keep]
+        return Scoring(
+            primary=keep,
+            labels=labels,
+            cancer_types=[ct for ct in CANCER_TYPE_ORDER if ct in set(labels) and ct in enrichment.index],
+            enrichment=enrichment,
+            layer_maps=layer_maps,
+            n_perms=args.n_perms,
+            rng_seed=args.rng_seed,
+        )
+
+    # {split seed: Scoring}; the single key None when every primary tumour is scored
+    if args.eval_set == "all":
+        scorings = {None: make_scoring(primary)}
+    else:
+        from test_split_metrics import split_positions
+        positions = np.arange(len(meta))
+        scorings = {s: make_scoring(primary & np.isin(positions, split_positions(meta["cancer_type"], s)[1]))
+                    for s in TRAINED_SEEDS}
+
+    def scoring_of_seed(seed: int) -> Scoring:
+        return scorings[None] if args.eval_set == "all" else scorings[seed]
+
+    def scoring_of_init(init: int) -> Scoring:
+        return scorings[None] if args.eval_set == "all" else scorings[TRAINED_SEEDS[init % len(TRAINED_SEEDS)]]
+
+    scoring = next(iter(scorings.values()))   # what is the same in all of them: enrichment, layer maps
+    print(", ".join(f"{'all' if s is None else f'split {s}'}: {sc.primary.sum()} primary tumours, "
+                    f"{len(sc.cancer_types)} cancer types" for s, sc in scorings.items())
+          + f"; hard_links.csv matches the masks in {args.masks_dir}", flush=True)
 
     rows = []
 
@@ -492,7 +537,7 @@ def main() -> None:
                          "median_r": statistic, "col_shuffle_p": p})
 
     shipped_dir = args.data_dir / "go_term_activations"
-    activations_dir = args.activations_dir or shipped_dir
+    activations_dir = args.activations_dir or args.data_dir / "go_term_activations_corrected"
     for model, (version, soft_links) in MODELS.items():
         for module in MODULES:
             terms = shipped_terms = None
@@ -504,7 +549,7 @@ def main() -> None:
                         raise ValueError(f"AE_{version}.{seed} encoder: bottleneck columns do not hold the latent")
                     layout, trained = "corrected", source
                     if terms is None:
-                        check_auc(source, scoring, meta_primary)
+                        check_auc(source, scoring_of_seed(seed), meta)
                 else:
                     layout = decoder_layout(source, z, layers["bottleneck"])
                     trained = source if layout == "corrected" else relabelled_decoder(source, z, layers)
@@ -514,20 +559,23 @@ def main() -> None:
                     if decoder_layout(shipped, z, layers["bottleneck"]) == "shifted":
                         if shipped_terms is None:
                             shipped_terms = layer_terms(shipped.columns, module, scoring)
-                        record(model, module, AS_SHIPPED, seed, shipped_terms, score(shipped, shipped_terms, scoring))
+                        record(model, module, AS_SHIPPED, seed, shipped_terms,
+                               score(shipped, shipped_terms, scoring_of_seed(seed)))
                 if terms is None:
                     terms = layer_terms(trained.columns, module, scoring)
-                record(model, module, TRAINED, seed, terms, score(trained, terms, scoring))
+                record(model, module, TRAINED, seed, terms, score(trained, terms, scoring_of_seed(seed)))
             coverage = ", ".join(f"L{layer} {len(cols)}" for layer, cols in terms.items())
             print(f"[{time.time() - start:5.0f}s] {model} {module}: trained seeds scored "
                   f"({layout} layout; GSEA-covered terms {coverage})", flush=True)
 
             for init in range(args.n_inits):
-                frames = untrained_activations(module, soft_links, init, x, layers, args.masks_dir)
-                record(model, module, UNTRAINED, init, terms, score(frames[UNTRAINED], terms, scoring))
+                # Under --eval-set test only the scored rows are run: the full pass stores ~1 GB of activations
+                scored = None if args.eval_set == "all" else np.flatnonzero(scoring_of_init(init).primary)
+                frames = untrained_activations(module, soft_links, init, x, layers, args.masks_dir, scored)
+                record(model, module, UNTRAINED, init, terms, score(frames[UNTRAINED], terms, scoring_of_init(init)))
                 if shipped_terms is not None:
                     record(model, module, UNTRAINED_AS_SHIPPED, init, shipped_terms,
-                           score(frames[UNTRAINED_AS_SHIPPED], shipped_terms, scoring))
+                           score(frames[UNTRAINED_AS_SHIPPED], shipped_terms, scoring_of_init(init)))
             print(f"[{time.time() - start:5.0f}s] {model} {module}: {args.n_inits} initializations scored",
                   flush=True)
 

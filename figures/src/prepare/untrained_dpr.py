@@ -26,6 +26,13 @@ first rebuilds every trained model with this builder and checks that it
 reproduces the deposited latent embedding. The _random8-12 masks are not in
 the repository or the deposit yet (see 4TU_TODO.md).
 
+The defaults are those of fig4.py's revised figure. --eval-set test (the
+default) scores as fig4.py does: trained seed s, and the initializations on its
+mask, on the primary tumours of split s - 20's test split; --eval-set all
+scores every primary tumour, as the published figure did. The GSEA reference
+is gsea_gonnect_receptive_fields/ (--gsea-csv; the published figure used
+gsea_gonnect_bottleneck/, which holds the same sets for these terms).
+
 Writes, to figures/out/prepare/untrained_dpr/:
 
   untrained_dpr_values.tsv    one row per (module, state, seed or init)
@@ -96,6 +103,17 @@ def main() -> None:
     parser.add_argument("--checkpoint-dir", type=Path, default=CHECKPOINT_DIR)
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--inits-per-mask", type=int, default=10)
+    parser.add_argument("--eval-set", choices=["all", "test"], default="test",
+                        help="'all': every primary tumour (Figure 4 as published). 'test' (default): as fig4.py "
+                             "--eval-set "
+                             "test, the primary tumours of the test split each trained seed (and the "
+                             "initializations on its mask) belongs to: split seed - 20")
+    parser.add_argument("--fig4-csv", type=Path, default=PREP_OUT_DIR.parent / "fig4.csv",
+                        help="fig4.py's table, whose per-seed dots the trained values are checked against")
+    parser.add_argument("--gsea-csv", type=Path, default=None,
+                        help="GSEA reference (default: <data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv, "
+                             "as fig4.py --gsea-bottleneck-csv; the published figure used "
+                             "gsea_gonnect_bottleneck/gsea_results.csv)")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,13 +123,22 @@ def main() -> None:
     primary = (meta["sample_type"] == "Primary Tumor").to_numpy()
     cancer_types = meta["cancer_type"].to_numpy()[primary]
     columns = fig4.load_bottleneck_columns(args.data_dir / "hard_links.csv")
-    enrichment = fig4.load_enrichment_pivot(args.data_dir / "gsea_gonnect_bottleneck" / "gsea_results.csv",
+    enrichment = fig4.load_enrichment_pivot(args.gsea_csv or args.data_dir / "gsea_gonnect_receptive_fields" / "gsea_results.csv",
                                             CANCER_TYPE_ORDER)
     emb_dir = args.data_dir / "latent_embeddings"
+    test_split = (fig4.TestSplit.build(meta, [s - fig4.SPLIT_OFFSET[VERSION] for s in TRAINED_SEEDS])
+                  if args.eval_set == "test" else None)
 
-    def score(z: np.ndarray) -> float:
+    def keep_of(seed: int) -> np.ndarray:
+        """Which rows trained seed ``seed``, and the initializations on its mask, are scored on."""
+        if test_split is None:
+            return primary
+        return primary & np.isin(np.arange(len(meta)), test_split.of(VERSION, seed))
+
+    def score(z: np.ndarray, seed: int) -> float:
         # In float32, as fig4.load_embedding hands the trained latents to the AUC
-        auc = auc_frame(z[primary].astype(np.float32), cancer_types, columns)
+        keep = keep_of(seed)
+        auc = auc_frame(z[keep].astype(np.float32), meta["cancer_type"].to_numpy()[keep], columns)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")   # a constant node leaves its per-term r undefined; unused here
             return fig4.per_ct_median_r(auc, enrichment)
@@ -142,7 +169,7 @@ def main() -> None:
                                          f"deposited latent (max |diff| {np.abs(rebuilt - deposited).max():.2e})")
             rows.append({"row": ROW, "label": fig4.MODULE_ABBREV[module], "state": TRAINED, "seed": seed,
                          "mask": MASK_OF_SEED[seed], "init": None, "rebuilt": checkpoint.exists(),
-                         "median_r": score(z)})
+                         "median_r": score(z, seed)})
         n_rebuilt = sum(r["rebuilt"] for r in rows if r["label"] == fig4.MODULE_ABBREV[module])
         print(f"{module}: trained seeds scored; {n_rebuilt} of {len(TRAINED_SEEDS)} rebuilt from their "
               f"checkpoint and matched the deposited latent", flush=True)
@@ -154,7 +181,7 @@ def main() -> None:
                 model = build(module, MASK_OF_SEED[seed], args.masks_dir)
                 rows.append({"row": ROW, "label": fig4.MODULE_ABBREV[module], "state": UNTRAINED, "seed": seed,
                              "mask": MASK_OF_SEED[seed], "init": init, "rebuilt": False,
-                             "median_r": score(bottleneck(model, x))})
+                             "median_r": score(bottleneck(model, x), seed)})
         print(f"{module}: {len(TRAINED_SEEDS) * args.inits_per_mask} untrained models scored", flush=True)
 
     values = pd.DataFrame(rows)
@@ -164,8 +191,13 @@ def main() -> None:
      .to_csv(args.out_dir / "fig4_untrained_dpr.tsv", sep="\t", index=False, float_format="%.6g"))
 
     # The trained side must be what Figure 4 plots as dots
-    drawn = pd.read_csv(PREP_OUT_DIR.parent / "fig4.csv").set_index(["row", "label"])
+    if not args.fig4_csv.exists():
+        print(f"WARNING: {args.fig4_csv} not found; the trained values are not checked against Figure 4's dots")
+    drawn = (pd.read_csv(args.fig4_csv).set_index(["row", "label"]) if args.fig4_csv.exists()
+             else pd.DataFrame())
     for label, group in values[values.state == TRAINED].groupby("label", sort=False):
+        if drawn.empty:
+            break
         dots = drawn.loc[(ROW, label), [f"seed_{i}" for i in range(len(TRAINED_SEEDS))]].to_numpy(dtype=float)
         if not np.allclose(group.median_r.to_numpy(), dots, atol=1e-9):
             print(f"WARNING: trained {ROW} {label} differs from fig4.csv's per-seed dots")

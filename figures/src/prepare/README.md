@@ -14,7 +14,8 @@ taken on trust.
 TCGA_complete_bp_top1k.csv.gz
   └─ plot_deg_volcano.py ──────────────→ deg_results.csv
        ├─ + hard_links.csv
-       │    ├─ run_gsea.py ────────────→ gsea_gonnect_layers/
+       │    ├─ run_gsea.py ────────────→ gsea_gonnect_receptive_fields/
+       │    │    (--gene-sets build_gene_sets → gsea_gonnect_layers/, as published)
        │    └─ run_gsea_bottleneck.py ─→ gsea_gonnect_bottleneck/
        └─ + ontologies/*.gmt
             └─ run_gsea_baselines.py ──→ gsea_baselines/
@@ -179,6 +180,75 @@ pixi run python figures/src/prepare/fig4_decoder_comparison.py
 Without the checkpoints, run `relabel_decoder_activations.py` in place of the
 first command, use `decoder_relabelled` for `decoder_reextracted` throughout,
 and pass `--fixed-dir figures/out/prepare/decoder_relabelled` to the last one.
+
+### Figure 4 on held-out samples
+
+As published, the two sides of Figure 4 score different samples: panels a-c
+(and `untrained_control.py`, `untrained_dpr.py`) take every primary tumour,
+about 70% of them training samples, while panels d-e (and
+`untrained_baselines.py`) take each seed's test split, of every sample type.
+`fig4.py --eval-set test --pool seeds` scores every panel on the primary
+tumours of each seed's own test split (`split_data` at that seed; AE_2.2.22-26
+on splits 2-6). The baselines' test files are not exactly that split: their
+runners saved it as patient ids and reloaded every row of those patients, which
+adds 40-55 rows per seed that `split_data` put in train or validation. Under
+`test`, fig4 checks that each file holds the whole split and nothing but rows of
+its patients, and scores only the split's own rows. The three untrained steps take the same `--eval-set`, so each box sees its
+violin's samples. `eval_set_report.py` tabulates the two figures side by side,
+with the per-cancer-type test-split counts, into `out/prepare/eval_set/`.
+
+`test` is now the default of `fig4.py` and of the three untrained steps; `all`
+is what the published figure did. With every default, the revised Figure 4 and
+its untrained references rebuild as follows (`data/untrained_reference/` holds
+copies of the three references, renamed `fig4_untrained_{gonnect,dpr,baselines}.tsv`):
+
+```
+pixi run python figures/src/prepare/untrained_control.py     # ~40 min
+pixi run python figures/src/prepare/untrained_dpr.py
+pixi run python figures/src/prepare/untrained_baselines.py
+pixi run python figures/src/fig4.py
+```
+
+## Figure 4's gene sets
+
+Panels a and b of Figure 4 read `gsea_gonnect_layers/`, panel c reads
+`gsea_gonnect_bottleneck/`, and the two were built from different gene-set
+definitions: `run_gsea.build_gene_sets` takes a term's direct annotations, read
+from encoder layers 0 and 1 only, and `run_gsea_bottleneck.build_receptive_fields`
+takes every gene that reaches the node. Reading only two layers also loses
+genes: a gene whose leaf-proxy chain enters its term at layer 2 or 3 is dropped.
+
+```
+hard_links.csv
+  └─ gsea_gene_sets.py ───────────────→ out/prepare/gsea_consistency/gene_sets_per_term.tsv
+                                         (+ build_gene_sets_audit.tsv)
+hard_links.csv + deg_results.csv + go_term_activations (corrected) + the GSEA above
+  └─ gsea_consistency.py ─────────────→ out/prepare/gsea_direct_traced/
+                                        out/prepare/gsea_receptive_fields/
+                                        out/prepare/gsea_consistency/ (stats per layer)
+```
+
+`gsea_gene_sets.py` traces both definitions through every encoder layer, and
+writes one row per (definition, term): `build_gene_sets` (unchanged), `direct`
+(the term's own annotations, through proxies of any length) and
+`receptive_field`. `gsea_consistency.py` reruns GSEA on all three with
+`run_gsea.py`'s settings, checks that the unchanged sets reproduce
+`gsea_gonnect_layers/` and that the receptive fields reproduce
+`gsea_gonnect_bottleneck/` (both exactly), and scores every GONNECT layer
+against every reference with Figure 4's `--pool seeds` statistic. GSEA takes
+under a minute, the AUCs about fifteen. `untrained_control.py --gsea-csv` scores
+the untrained reference against one of the new files.
+
+**Chosen: receptive fields, for every panel**, which is what the Methods
+describe. `run_gsea.py` now builds them by default (`--gene-sets
+receptive_field`, through `gsea_gene_sets.py`) into
+`out/prepare/gsea_gonnect_receptive_fields/`, which reproduces
+`gsea_consistency.py`'s `gsea_receptive_fields/` exactly and adds the term
+names; `data/gsea_gonnect_receptive_fields/` is a copy of it. `fig4.py`,
+`untrained_control.py` and `untrained_dpr.py` read it by default.
+`--gene-sets build_gene_sets` rebuilds the published `gsea_gonnect_layers/`.
+`out/fig4_old.pdf`, `fig4_fixed_rf.pdf` and `fig4_fixed_direct.pdf` compare the
+three definitions on the test split (see `out/prepare/fig4_gene_sets/README.md`).
 
 ## The test-split clustering metrics
 

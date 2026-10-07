@@ -42,23 +42,30 @@ Inputs (relative to --data-dir)
     hard_links.csv
         GO graph: the bottleneck node order and the term -> layer map
 
-    gsea_gonnect_layers/gsea_results.csv                      all-layer GONNECT GO terms
-    gsea_gonnect_bottleneck/gsea_results.csv           bottleneck GO terms
+    gsea_gonnect_receptive_fields/gsea_results.csv  GONNECT GO terms, every layer (receptive fields)
     gsea_baselines/gsea_results_hallmark.csv   VEGA Hallmark pathways
     gsea_baselines/gsea_results_reactomes.csv  VEGA Reactome pathways
     gsea_baselines/gsea_results_ontovae.csv    OntoVAE GO terms
+    untrained_reference/fig4_untrained_{gonnect,dpr,baselines}.tsv
+        the untrained boxes (see --untrained)
+
+    Under --published instead:
+    gsea_gonnect_layers/gsea_results.csv       GONNECT GO terms of panels a-b (direct annotations)
+    gsea_gonnect_bottleneck/gsea_results.csv   bottleneck GO terms of panel c (receptive fields)
 
     perm_nulls_gonnect/AE_<version>_<module>_auc/perm_layer_<L>_arrays.npz
     perm_nulls_baselines/OntoVAE_layer_<LL>_true_auc/perm_nulls_arrays.npz
     perm_nulls_baselines/VEGA_<db>_<variant>_auc/perm_nulls_arrays.npz
-        Required inputs, holding the null distribution and the pooled observed
+        Read only under --pool activations or auc (the published figure's
+        nulls); --pool seeds, the default, computes its null here. They hold
+        the null distribution and the pooled observed
         value of panels a, b, d and e. They are produced by a separate and
         expensive permutation pipeline (1000 column shuffles per layer and per
         model) that is NOT part of this script. A missing file drops its violin
         from the figure; every omission is listed again at the end of the run.
 
-    go_term_activations/AE_<version>.<seed>_<module>_activations.csv.gz
-        per-seed dots of panels a and b
+    go_term_activations_corrected/AE_<version>.<seed>_<module>_activations.csv.gz
+        per-seed dots of panels a and b (--published: go_term_activations/)
     latent_embeddings/AE_2.2/AE_2.2.<seed>_<module>_full_dataset.pt
         panel c, both its null and its dots
     baseline_activations/ontovae/run_seed-<seed>/pathway_activities_test_<variant>.parquet
@@ -66,17 +73,39 @@ Inputs (relative to --data-dir)
     baseline_activations/vega/run_seed-<seed>/z_test_<variant>_<db>.csv
         per-seed dots of panel e (also supplies OntoVAE's row -> sample mapping)
 
-    cache/auc_4row/<model>_seed<seed>.npz
+    cache/auc_4row[_<hash>]/<model>_seed<seed>[_test].npz
         Per-seed (cancer type x node) AUC matrices. Building one re-reads a full
         activation/embedding file and re-runs every ROC-AUC, so they are cached;
         the baseline activation files above are only read when the cache is
         cold. --no-cache recomputes and rewrites them, --no-dots skips them.
 
-Optional inputs
----------------
-    --untrained  <out>/prepare/untrained_control/fig4_untrained_*.tsv
-                 <out>/prepare/untrained_dpr/fig4_untrained_dpr.tsv
-                 <out>/prepare/untrained_baselines/fig4_untrained_baselines.tsv
+Defaults: the revised figure
+----------------------------
+Without options, fig4.py draws the revised Figure 4. It differs from the
+published one in five ways, each of which an option below can undo, and
+--published undoes all of them at once:
+
+    --pool seeds              (published: activations)
+    --eval-set test           (published: all)
+    --activations-dir <data-dir>/go_term_activations_corrected
+                              (published: go_term_activations, whose decoder
+                              files are labelled one layer off)
+    --gsea-layers-csv and --gsea-bottleneck-csv
+                              <data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv
+                              (published: gsea_gonnect_layers/, whose sets miss
+                              the genes entering at layers 2-3, for panels a-b,
+                              and gsea_gonnect_bottleneck/ for panel c)
+    --untrained               <data-dir>/untrained_reference/fig4_untrained_*.tsv
+                              (published: none; --no-untrained drops them)
+
+Options
+-------
+    --published
+        Every default above as the published figure had it. Options given
+        explicitly still win.
+    --untrained  <data-dir>/untrained_reference/fig4_untrained_gonnect.tsv
+                 <data-dir>/untrained_reference/fig4_untrained_dpr.tsv
+                 <data-dir>/untrained_reference/fig4_untrained_baselines.tsv
         Untrained references, one file or several: the statistic of every
         untrained initialization per violin. That is from
         prepare/untrained_control.py for panels a and b, from
@@ -84,17 +113,38 @@ Optional inputs
         prepare/untrained_baselines.py for d and e (OntoVAE's true graph and
         all of VEGA's).
         Drawn as a box left of the violin (median, quartiles, 2.5-97.5 %
-        whiskers), and summarized in fig4.csv.
+        whiskers), and summarized in fig4.csv. They must have been built with
+        the same --eval-set and GSEA reference as the figure; the default ones
+        are what prepare/untrained_{control,dpr,baselines}.py write with their
+        own defaults.
+    --no-untrained
+        Draw no untrained reference.
     --activations-dir, --gonnect-nulls-dir, --cache-dir
-        Point panels a and b at other GONNECT activations and nulls than the
-        shipped ones, such as prepare/relabel_decoder_activations.py's. Give
-        every activations directory a cache of its own: entries are not checked
-        against the files they were computed from.
+        Point panels a and b at other GONNECT activations and nulls. Cache
+        entries are not checked against the files they were computed from, so
+        the default cache is per activations directory: cache/auc_4row for
+        go_term_activations, as before, and cache/auc_4row_<hash of the
+        directory> for any other.
     --pool {activations,auc,seeds}
         The red line's definition (see the top of this docstring). seeds reads
         no perm_nulls_* file and takes a few minutes longer.
-
-Without these, the figure is the published one.
+    --eval-set {all,test}
+        Which samples every AUC is computed over. 'all' (the published figure)
+        scores panels a-c on every primary tumour, training samples included,
+        and panels d-e on their seed's test split, of every sample type. 'test'
+        puts all five panels on one footing: the primary tumours of each
+        seed's own test split (gonnect.train.train.split_data at that seed, via
+        prepare/test_split_metrics.split_positions; AE_2.2.22-26 trained on
+        splits 2-6). The baselines' test files hold that split plus 40-55 more
+        rows per seed (their id-based reload brings back every row of a test
+        patient); that is checked, and only the split's own rows are scored.
+        Each seed then has its own rows, so it needs --pool seeds.
+        Cache entries get a `_test` suffix.
+    --gsea-layers-csv CSV, --gsea-bottleneck-csv CSV
+        The GSEA references for panels a-b and panel c. The default puts every
+        panel on one gene-set definition, the term's receptive field (every
+        gene with a path to it, i.e. its own and its descendants'
+        annotations), as prepare/run_gsea.py writes it.
 
 Usage
 -----
@@ -102,7 +152,9 @@ Usage
                    [--n-perms 1000] [--rng-seed 42] [--no-dots] [--no-cache]
                    [--untrained TSV ...] [--activations-dir DIR]
                    [--gonnect-nulls-dir DIR] [--cache-dir DIR]
-                   [--pool {activations,auc,seeds}]
+                   [--pool {activations,auc,seeds}] [--eval-set {all,test}]
+                   [--gsea-layers-csv CSV] [--gsea-bottleneck-csv CSV]
+                   [--no-untrained] [--published]
 
 Writes <out-dir>/fig4.png, fig4.pdf and fig4.csv (one row per violin: pooled
 observed value, permutation p, null mean/SD and the per-seed values). Under
@@ -111,7 +163,10 @@ observed value, permutation p, null mean/SD and the per-seed values). Under
 
 import argparse
 import gzip
+import hashlib
+import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -136,6 +191,51 @@ OBS_KEY = "observed__per_ct"
 GONNECT_SEEDS = [2, 3, 4, 5, 6]
 RAND_SEEDS = [22, 23, 24, 25, 26]
 BASELINE_SEEDS = [2, 3, 4, 5, 6]
+# Run number minus the split seed it trained on (prepare/test_split_metrics.SPLIT_OFFSET):
+# AE_2.2.22-26 trained on splits 2-6. A baseline's run_seed-<s> trained on split s.
+SPLIT_OFFSET = {"2.0": 0, "2.1": 0, "2.2": 20}
+EVAL_SAMPLE_TYPE = "Primary Tumor"
+
+
+@dataclass(frozen=True)
+class TestSplit:
+    """--eval-set test: which positional TCGA rows every seed is scored on.
+
+    ``rows[split_seed]`` holds the sorted positions of that seed's test split,
+    exactly as gonnect.train.train.split_data draws it (TRAIN_FRACTION 0.7,
+    via prepare/test_split_metrics.split_positions). ``sample_type`` is the
+    sample type of every row, so the baselines get the same primary-tumour
+    filter as GONNECT. ``patient_id`` (per row, when known) lets the baseline
+    check recognize the extra rows the baselines' id-based reload adds.
+    """
+    rows: dict
+    sample_type: np.ndarray
+    patient_id: np.ndarray | None = None
+
+    @classmethod
+    def build(cls, meta: pd.DataFrame, seeds) -> "TestSplit":
+        prepare = str(Path(__file__).resolve().parent / "prepare")
+        if prepare not in sys.path:
+            sys.path.append(prepare)
+        from test_split_metrics import split_positions
+        labels = meta["cancer_type"].astype(str).reset_index(drop=True)
+        return cls(rows={s: np.sort(split_positions(labels, s)[1]) for s in sorted(set(seeds))},
+                   sample_type=meta["sample_type"].to_numpy(),
+                   patient_id=meta["patient_id"].to_numpy() if "patient_id" in meta else None)
+
+    def of(self, version: str | None, run: int) -> np.ndarray:
+        """Test rows of run ``run`` of GONNECT AE_<version>, or of a baseline seed when version is None."""
+        return self.rows[run - (SPLIT_OFFSET[version] if version else 0)]
+
+    def primary(self, version: str | None, run: int) -> np.ndarray:
+        """Test rows that are primary tumours."""
+        rows = self.of(version, run)
+        return rows[self.sample_type[rows] == EVAL_SAMPLE_TYPE]
+
+
+def _cache_suffix(test_split: "TestSplit | None") -> str:
+    return "" if test_split is None else "_test"
+
 
 COL_FL = "#1f77b4"
 COL_SL = "#2ca02c"
@@ -382,6 +482,7 @@ def load_activations_avg(
     sample_type: str = "Primary Tumor",
     *,
     metric: str = "mean_abs",
+    rows: np.ndarray | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray, list[str]]:
     """
     Load all-seed activations for one (version, module) combo.
@@ -390,6 +491,9 @@ def load_activations_avg(
     metric="auc":      average raw values across seeds (no abs), return that.
                        AUC per (cancer_type, GO_term) is computed downstream
                        in aggregate_per_cancer_type.
+    rows:              positional rows (into the TCGA row order the files are
+                       written in) to keep before the sample-type filter, e.g.
+                       one seed's test split; None keeps every row.
 
     Returns:
       meta : (n_samples, metadata_cols) after sample-type filter
@@ -418,6 +522,12 @@ def load_activations_avg(
         print(f"    seed {s}: {df.shape} loaded in {time.time()-t0:.1f}s", flush=True)
 
     mat = agg_sum / len(seeds)
+
+    if rows is not None:
+        if len(rows) and rows.max() >= len(meta):
+            raise ValueError(f"row {rows.max()} requested from {len(meta)}-row activations")
+        mat = mat[rows]
+        meta = meta.iloc[rows].reset_index(drop=True)
 
     if sample_type != "all":
         mask = (meta["sample_type"] == sample_type).to_numpy()
@@ -706,15 +816,19 @@ def gonnect_auc_one_seed(
     module: str,
     seed: int,
     sample_type: str = "Primary Tumor",
+    rows: np.ndarray | None = None,
 ) -> tuple[np.ndarray, list[str]]:
     """One seed's (cancer_type, dim) AUC matrix for a GONNECT module.
 
-    Mirrors load_mean_auc but without averaging over seeds first.
+    Mirrors load_mean_auc but without averaging over seeds first. ``rows``
+    (positional) restricts it to those samples, e.g. the seed's test split.
     """
     if sample_type != "all":
         mask = (meta["sample_type"] == sample_type).to_numpy()
     else:
         mask = np.ones(len(meta), dtype=bool)
+    if rows is not None:
+        mask &= np.isin(np.arange(len(meta)), rows)
     meta_filt = meta.loc[mask].reset_index(drop=True)
 
     emb = load_embedding(emb_dir, version, seed, module)[mask]
@@ -738,11 +852,20 @@ def baseline_auc_one_seed(
     variant: str,
     cancer_type_per_row: dict[int, str],
     seed: int,
+    test_split: TestSplit | None = None,
 ) -> pd.DataFrame:
-    """One seed's (cancer_type, pathway) AUC matrix for a baseline."""
+    """One seed's (cancer_type, pathway) AUC matrix for a baseline.
+
+    The files hold the seed's test split, of every sample type. With
+    ``test_split`` (--eval-set test) their rows must be exactly that seed's
+    split_data test split, and only its primary tumours are scored, as for
+    GONNECT.
+    """
     loader = LOADERS[cfg["loader"]]
     path = cfg["dir"] / f"run_seed-{seed}" / cfg["file_template"].format(variant=variant)
     acts, row_idx, pathways = loader(path, seed=seed, cfg=cfg, variant=variant)
+    if test_split is not None:
+        acts, row_idx = restrict_to_test_primary(acts, row_idx, test_split, seed, path)
 
     ct_arr = np.array([cancer_type_per_row.get(int(i)) for i in row_idx])
     cts_present = [ct for ct in pd.unique(ct_arr) if ct is not None]
@@ -759,6 +882,36 @@ def baseline_auc_one_seed(
             a = roc_auc_score(y, acts[:, j])
             auc_mat[i, j] = max(a, 1.0 - a)
     return pd.DataFrame(auc_mat, index=cancer_types, columns=pathways)
+
+
+def restrict_to_test_primary(acts: np.ndarray, row_idx: np.ndarray, test_split: TestSplit, seed: int,
+                             source) -> tuple[np.ndarray, np.ndarray]:
+    """A baseline seed's activations, cut to the primary tumours of its test split.
+
+    The baselines' files do not hold exactly split_data's test split at
+    ``seed``: the runners saved the split as patient ids and reloaded it with
+    ``isin``, which brings back every row of a test patient, including rows
+    split_data put in train or validation (patient_id is not unique; 1523
+    rows instead of 1470 at seed 2). So this checks that the file holds every
+    row of the test split, and that each extra row belongs to a patient with a
+    row in it, and then scores only the test split's own rows -- the very
+    samples GONNECT is scored on.
+    """
+    rows = np.asarray(row_idx, dtype=int)
+    if len(np.unique(rows)) != len(rows):
+        raise AssertionError(f"{source}: repeated rows")
+    expected = test_split.of(None, seed)
+    missing = np.setdiff1d(expected, rows)
+    if missing.size:
+        raise AssertionError(f"{source}: {missing.size} rows of split_data's test split at seed {seed} are absent")
+    extra = np.setdiff1d(rows, expected)
+    if extra.size and test_split.patient_id is not None:
+        stray = ~np.isin(test_split.patient_id[extra], test_split.patient_id[expected])
+        if stray.any():
+            raise AssertionError(f"{source}: {stray.sum()} rows outside seed {seed}'s test split "
+                                 f"belong to no test patient")
+    keep = np.isin(rows, expected) & (test_split.sample_type[rows] == EVAL_SAMPLE_TYPE)
+    return acts[keep], rows[keep]
 
 
 def per_ct_median_r(act_df: pd.DataFrame, enr_pivot: pd.DataFrame) -> float:
@@ -802,10 +955,13 @@ def load_npz_null(npz_path: Path, missing: list[Path]) -> tuple[np.ndarray, floa
 
 def gonnect_layer_full_auc(
     activations_dir: Path, version: str, module: str, seed: int, cache_dir: Path,
-    use_cache: bool = True,
+    use_cache: bool = True, test_split: TestSplit | None = None,
 ) -> pd.DataFrame:
-    """Cached (cancer_type x all-GO-node) AUC matrix for one seed/module."""
-    cache_p = cache_dir / f"AE_{version}_{module}_seed{seed}.npz"
+    """Cached (cancer_type x all-GO-node) AUC matrix for one seed/module.
+
+    With ``test_split``, over the primary tumours of the seed's test split only.
+    """
+    cache_p = cache_dir / f"AE_{version}_{module}_seed{seed}{_cache_suffix(test_split)}.npz"
     if use_cache:
         cached = _load_cached_auc(cache_p)
         if cached is not None:
@@ -813,6 +969,7 @@ def gonnect_layer_full_auc(
             return pd.DataFrame(auc_mat, index=cts, columns=cols)
     meta, mat, go_cols = load_activations_avg(
         activations_dir, version, [seed], module, metric="auc",
+        rows=None if test_split is None else test_split.of(version, seed),
     )
     present = set(meta["cancer_type"].unique())
     cancer_types = [ct for ct in CANCER_TYPE_ORDER if ct in present]
@@ -823,12 +980,12 @@ def gonnect_layer_full_auc(
 
 def gonnect_layer_frames(
     activations_dir: Path, version: str, module: str, layer: int,
-    layer_map: dict, cache_dir: Path, use_cache: bool,
+    layer_map: dict, cache_dir: Path, use_cache: bool, test_split: TestSplit | None = None,
 ) -> list[pd.DataFrame]:
     """Each seed's (cancer_type x node) AUC matrix, restricted to one layer."""
     out = []
     for s in GONNECT_SEEDS:
-        df = gonnect_layer_full_auc(activations_dir, version, module, s, cache_dir, use_cache)
+        df = gonnect_layer_full_auc(activations_dir, version, module, s, cache_dir, use_cache, test_split)
         out.append(df[[t for t in df.columns if layer_map.get(t) == layer]])
     return out
 
@@ -842,22 +999,23 @@ def gonnect_layer_dots(
 
 
 def _cached_baseline_auc(cfg: dict, variant: str, cache_name: str, cancer_type_per_row: dict,
-                         cache_dir: Path, use_cache: bool, seed: int) -> pd.DataFrame:
-    cache_p = _cache_path(cache_dir, cache_name, seed)
+                         cache_dir: Path, use_cache: bool, seed: int,
+                         test_split: TestSplit | None = None) -> pd.DataFrame:
+    cache_p = _cache_path(cache_dir, cache_name + _cache_suffix(test_split), seed)
     cached = _load_cached_auc(cache_p) if use_cache else None
     if cached is not None:
         auc_mat, cts, cols = cached
         return pd.DataFrame(auc_mat, index=cts, columns=cols)
-    act_df = baseline_auc_one_seed(cfg, variant, cancer_type_per_row, seed)
+    act_df = baseline_auc_one_seed(cfg, variant, cancer_type_per_row, seed, test_split)
     _save_cached_auc(cache_p, act_df.to_numpy(), list(act_df.index), list(act_df.columns))
     return act_df
 
 
 def ontovae_frames(ontovae_cfg: dict, layer: int, cancer_type_per_row: dict, cache_dir: Path,
-                   use_cache: bool) -> list[pd.DataFrame]:
+                   use_cache: bool, test_split: TestSplit | None = None) -> list[pd.DataFrame]:
     cfg = {**ontovae_cfg, "layer": layer}
     return [_cached_baseline_auc(cfg, "true", f"OntoVAE_layer_{layer:02d}_true", cancer_type_per_row,
-                                 cache_dir, use_cache, s) for s in BASELINE_SEEDS]
+                                 cache_dir, use_cache, s, test_split) for s in BASELINE_SEEDS]
 
 
 def ontovae_dots(ontovae_cfg: dict, layer: int, enr: pd.DataFrame,
@@ -868,9 +1026,9 @@ def ontovae_dots(ontovae_cfg: dict, layer: int, enr: pd.DataFrame,
 
 
 def vega_frames(method_dbs: dict, db: str, variant: str, cancer_type_per_row: dict, cache_dir: Path,
-                use_cache: bool) -> list[pd.DataFrame]:
+                use_cache: bool, test_split: TestSplit | None = None) -> list[pd.DataFrame]:
     return [_cached_baseline_auc(method_dbs[("VEGA", db)], variant, f"VEGA_{db}_{variant}", cancer_type_per_row,
-                                 cache_dir, use_cache, s) for s in BASELINE_SEEDS]
+                                 cache_dir, use_cache, s, test_split) for s in BASELINE_SEEDS]
 
 
 def vega_dots(method_dbs: dict, db: str, variant: str, enr: pd.DataFrame,
@@ -918,15 +1076,22 @@ def seed_mean_entry(frames: list[pd.DataFrame], enr: pd.DataFrame, n_perms: int,
 def rand_entry(
     emb_dir: Path, meta: pd.DataFrame, module: str, bottleneck_columns: list[str],
     enr: pd.DataFrame, n_perms: int, rng_seed: int, pool: str = "activations",
+    test_split: TestSplit | None = None,
 ) -> dict:
     """Compute null + pooled observed + per-seed dots for randomized GONNECT.
 
     ``pool`` picks the pooled matrix: one AUC on the seed-averaged embeddings
     ("activations", the published figure), or the per-seed AUC averaged over
-    seeds ("auc"), as the baseline panels have it.
+    seeds ("auc"), as the baseline panels have it. ``test_split`` scores each
+    seed on its own test split (AE_2.2.<run> trained on split run - 20), which
+    needs pool="seeds".
     """
+    if test_split is not None and pool != "seeds":
+        raise ValueError("a per-seed test split leaves nothing to pool: use pool='seeds'")
     per_seed = [pd.DataFrame(am, index=c, columns=bottleneck_columns)
-                for am, c in (gonnect_auc_one_seed(emb_dir, meta, "2.2", module, s) for s in RAND_SEEDS)]
+                for am, c in (gonnect_auc_one_seed(emb_dir, meta, "2.2", module, s,
+                                                   rows=None if test_split is None else test_split.of("2.2", s))
+                              for s in RAND_SEEDS)]
     if pool == "seeds":
         return seed_mean_entry(per_seed, enr, n_perms, rng_seed)
     if pool == "auc":
@@ -1160,6 +1325,40 @@ def draw_legend(ax, note_lines: list[str], untrained_n: int | None = None,
         plain(4, 1 + i, text, fontsize=PT_SMALL, style="italic")
 
 
+# What the revised figure reads by default, under --data-dir; --published restores the published inputs.
+REVISED_ACTIVATIONS = "go_term_activations_corrected"
+REVISED_GSEA = Path("gsea_gonnect_receptive_fields") / "gsea_results.csv"
+REVISED_UNTRAINED = [Path("untrained_reference") / f"fig4_untrained_{name}.tsv"
+                     for name in ("gonnect", "dpr", "baselines")]
+
+
+def resolve_defaults(args: argparse.Namespace) -> None:
+    """Fill every option left unset: the revised figure's value, or under --published the published one's."""
+    published, d = args.published, args.data_dir
+    if args.pool is None:
+        args.pool = "activations" if published else "seeds"
+    if args.eval_set is None:
+        args.eval_set = "all" if published else "test"
+    if args.activations_dir is None:
+        args.activations_dir = d / ("go_term_activations" if published else REVISED_ACTIVATIONS)
+    if args.gsea_layers_csv is None:
+        args.gsea_layers_csv = d / "gsea_gonnect_layers" / "gsea_results.csv" if published else d / REVISED_GSEA
+    if args.gsea_bottleneck_csv is None:
+        args.gsea_bottleneck_csv = d / "gsea_gonnect_bottleneck" / "gsea_results.csv" if published else d / REVISED_GSEA
+    if args.no_untrained:
+        args.untrained = []
+    elif args.untrained is None:
+        args.untrained = [] if published else [d / p for p in REVISED_UNTRAINED]
+
+
+def default_cache_dir(data_dir: Path, activations_dir: Path) -> Path:
+    """The AUC cache of one activations directory (its entries are keyed by model and seed only)."""
+    if activations_dir.resolve() == (data_dir / "go_term_activations").resolve():
+        return data_dir / "cache" / "auc_4row"
+    tag = hashlib.sha1(str(activations_dir.resolve()).lower().encode()).hexdigest()[:8]
+    return data_dir / "cache" / f"auc_4row_{tag}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     add_io_args(parser)
@@ -1167,30 +1366,53 @@ def main() -> None:
                         help="permutations for the inline panel-c null "
                              "(the other panels use their precomputed nulls)")
     parser.add_argument("--rng-seed", type=int, default=42)
-    parser.add_argument("--pool", choices=["activations", "auc", "seeds"], default="activations",
+    parser.add_argument("--pool", choices=["activations", "auc", "seeds"], default=None,
                         help="the red line and its null. 'activations' and 'auc' pool the seeds before "
                              "scoring: one AUC on the seed-averaged embeddings (the published figure) or "
                              "the per-seed AUC averaged, as panels d and e have it; they set panel c, while "
                              "a and b take theirs from --gonnect-nulls-dir. 'seeds' makes the red line the "
                              "mean of the per-seed values in every panel, tested against a null that "
-                             "shuffles each seed's GO terms independently (seed_mean_entry).")
+                             "shuffles each seed's GO terms independently (seed_mean_entry). "
+                             "Default: seeds (--published: activations)")
     parser.add_argument("--no-dots", action="store_true", help="Skip per-seed dots (fast).")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--untrained", type=Path, nargs="+", default=None,
                         help="untrained references: prepare/untrained_control.py's fig4_untrained_*.tsv "
-                             "and/or prepare/untrained_baselines.py's fig4_untrained_baselines.tsv")
+                             "and/or prepare/untrained_baselines.py's fig4_untrained_baselines.tsv "
+                             "(default: <data-dir>/untrained_reference/fig4_untrained_*.tsv)")
+    parser.add_argument("--no-untrained", action="store_true", help="draw no untrained reference")
     parser.add_argument("--activations-dir", type=Path, default=None,
-                        help="GONNECT activations (default: <data-dir>/go_term_activations)")
+                        help="GONNECT activations (default: <data-dir>/go_term_activations_corrected; "
+                             "--published: <data-dir>/go_term_activations)")
     parser.add_argument("--gonnect-nulls-dir", type=Path, default=None,
                         help="GONNECT permutation nulls (default: <data-dir>/perm_nulls_gonnect)")
     parser.add_argument("--cache-dir", type=Path, default=None,
-                        help="per-seed AUC cache (default: <data-dir>/cache/auc_4row)")
+                        help="per-seed AUC cache (default: <data-dir>/cache/auc_4row for go_term_activations, "
+                             "auc_4row_<hash> for any other activations directory)")
+    parser.add_argument("--eval-set", choices=["all", "test"], default=None,
+                        help="the samples every AUC is computed over. 'all' (the published figure): every "
+                             "primary tumour for panels a-c, the seed's test split of every sample type for d-e. "
+                             "'test': the primary tumours of each seed's own test split in every panel; "
+                             "needs --pool seeds. Default: test (--published: all)")
+    parser.add_argument("--gsea-layers-csv", type=Path, default=None,
+                        help="GSEA reference of panels a-b (default: "
+                             "<data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv; "
+                             "--published: <data-dir>/gsea_gonnect_layers/gsea_results.csv)")
+    parser.add_argument("--gsea-bottleneck-csv", type=Path, default=None,
+                        help="GSEA reference of panel c (default: as --gsea-layers-csv; "
+                             "--published: <data-dir>/gsea_gonnect_bottleneck/gsea_results.csv)")
+    parser.add_argument("--published", action="store_true",
+                        help="the published figure's settings and inputs for every option not given explicitly")
     args = parser.parse_args()
+    resolve_defaults(args)
+    if args.eval_set == "test" and args.pool != "seeds":
+        parser.error("--eval-set test scores every seed on its own rows, so seed-averaged activations or "
+                     "AUCs are undefined: use --pool seeds")
 
     emb_dir = args.data_dir / "latent_embeddings"
-    activations_dir = args.activations_dir or args.data_dir / "go_term_activations"
+    activations_dir = args.activations_dir
     gonnect_nulls_dir = args.gonnect_nulls_dir or args.data_dir / "perm_nulls_gonnect"
-    cache_dir = args.cache_dir or args.data_dir / "cache" / "auc_4row"
+    cache_dir = args.cache_dir or default_cache_dir(args.data_dir, activations_dir)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
     want_dots = not args.no_dots
@@ -1207,12 +1429,20 @@ def main() -> None:
     with gzip.open(args.data_dir / "TCGA_complete_bp_top1k.csv.gz", "rt") as fh:
         meta = pd.read_csv(fh, usecols=["patient_id", "cancer_type", "sample_type"])
     cancer_type_per_row = {i: ct for i, ct in enumerate(meta["cancer_type"].tolist())}
+    test_split = None
+    if args.eval_set == "test":
+        test_split = TestSplit.build(meta, GONNECT_SEEDS + BASELINE_SEEDS
+                                     + [s - SPLIT_OFFSET["2.2"] for s in RAND_SEEDS])
+        print("Evaluating on each seed's test split, primary tumours only: "
+              + ", ".join(f"split {s} {len(test_split.primary(None, s))} of {len(rows)}"
+                          for s, rows in test_split.rows.items()))
 
     bottleneck_columns = load_bottleneck_columns(args.data_dir / "hard_links.csv")
 
     print("Loading GSEA enrichment matrices …")
-    enr_alllayer = load_enrichment_pivot(args.data_dir / "gsea_gonnect_layers" / "gsea_results.csv", CANCER_TYPE_ORDER)
-    enr_bottleneck = load_enrichment_pivot(args.data_dir / "gsea_gonnect_bottleneck" / "gsea_results.csv", CANCER_TYPE_ORDER)
+    enr_alllayer = load_enrichment_pivot(args.gsea_layers_csv, CANCER_TYPE_ORDER)
+    enr_bottleneck = load_enrichment_pivot(args.gsea_bottleneck_csv, CANCER_TYPE_ORDER)
+    print(f"GSEA reference: panels a-b {args.gsea_layers_csv}, panel c {args.gsea_bottleneck_csv}")
     enr_hallmark = load_enrichment_pivot(method_dbs[("VEGA", "hallmark")]["gsea_csv"], CANCER_TYPE_ORDER)
     enr_reactomes = load_enrichment_pivot(method_dbs[("VEGA", "reactomes")]["gsea_csv"], CANCER_TYPE_ORDER)
     enr_ontovae = load_enrichment_pivot(ontovae_cfg["gsea_csv"], CANCER_TYPE_ORDER)
@@ -1226,7 +1456,7 @@ def main() -> None:
 
     # Optional untrained reference: {(row, "enc L0"): statistic per initialization}
     untrained = {}
-    if args.untrained is not None:
+    if args.untrained:
         reference = pd.concat([pd.read_csv(path, sep="\t") for path in args.untrained])
         untrained = {key: group["median_r"].to_numpy() for key, group in reference.groupby(["row", "label"])}
         print(f"Untrained reference: {', '.join(str(path) for path in args.untrained)}")
@@ -1239,7 +1469,8 @@ def main() -> None:
             for k, L in enumerate(layers):
                 if seeds_mode:
                     frames = gonnect_layer_frames(activations_dir, version, module, L,
-                                                  layer_maps[(version, module)], cache_dir, use_cache)
+                                                  layer_maps[(version, module)], cache_dir, use_cache,
+                                                  test_split)
                     res = seed_mean_entry(frames, enr_alllayer, args.n_perms, args.rng_seed)
                     null, obs, dots = res["null"], res["obs_pooled"], res["obs_per_seed"]
                 else:
@@ -1279,7 +1510,8 @@ def main() -> None:
     row_onto = []
     for L in range(0, 11):
         if seeds_mode:
-            res = seed_mean_entry(ontovae_frames(ontovae_cfg, L, cancer_type_per_row, cache_dir, use_cache),
+            res = seed_mean_entry(ontovae_frames(ontovae_cfg, L, cancer_type_per_row, cache_dir, use_cache,
+                                                 test_split),
                                   enr_ontovae, args.n_perms, args.rng_seed)
             null, obs, dots = res["null"], res["obs_pooled"], res["obs_per_seed"]
         else:
@@ -1303,7 +1535,7 @@ def main() -> None:
         for vi, variant in enumerate(["true", "degree_preserving", "random"]):
             if seeds_mode:
                 res = seed_mean_entry(vega_frames(method_dbs, db, variant, cancer_type_per_row, cache_dir,
-                                                  use_cache), enr, args.n_perms, args.rng_seed)
+                                                  use_cache, test_split), enr, args.n_perms, args.rng_seed)
                 null, obs, dots = res["null"], res["obs_pooled"], res["obs_per_seed"]
             else:
                 npz_path = (args.data_dir / "perm_nulls_baselines"
@@ -1326,7 +1558,8 @@ def main() -> None:
     row_rand = []
     for module in ["encoder", "decoder", "both"]:
         r = rand_entry(emb_dir, meta, module, bottleneck_columns,
-                       enr_bottleneck, args.n_perms, args.rng_seed, pool=args.pool)
+                       enr_bottleneck, args.n_perms, args.rng_seed, pool=args.pool,
+                       test_split=test_split)
         if not want_dots:
             r["obs_per_seed"] = None
         row_rand.append({"label": MODULE_ABBREV[module], "color": COL_RAND, **r,

@@ -3,15 +3,27 @@ Pre-ranked GSEA against GO terms in the processed GONNECT ontology.
 
 Ranking metric: mean_diff × −log10(padj)  (per cancer type, one-vs-rest)
 
-Gene sets are taken from data/hard_links.csv (encoder component, layer 0/1),
-tracing all gene → GO-term connections through proxy nodes.
+Gene sets are taken from data/hard_links.csv (encoder component). --gene-sets
+picks the definition (see gsea_gene_sets.py):
 
-Outputs:
-  fig_deg/gsea/gsea_results.csv   — NES, pval, FDR per cancer type × GO term
-  fig_deg/gsea/gsea_heatmap.png   — NES heatmap (GO terms × cancer types)
+  receptive_field  (default) every gene with a path to the term, through proxies
+                   and child terms alike: its own and its descendants'
+                   annotations, as the Methods define it. This is what Figure 4
+                   reads, from <data-dir>/gsea_gonnect_receptive_fields/; on the
+                   bottleneck it equals run_gsea_bottleneck.py's sets.
+  direct           the term's own annotations, traced through proxy chains of
+                   any length.
+  build_gene_sets  what the published figure used (gsea_gonnect_layers/):
+                   build_gene_sets below, which reads layers 0 and 1 only and so
+                   misses every gene whose proxy chain enters its term at layer
+                   2 or 3.
+
+Outputs, under --output-dir (default figures/out/prepare/gsea_gonnect_<definition>/):
+  gsea_results.csv   — NES, pval, FDR per cancer type × GO term
+  gsea_heatmap.png   — NES heatmap (GO terms × cancer types)
 
 Usage:
-  pixi run python fig_deg/run_gsea.py [--data-dir data] [--output-dir fig_deg/gsea]
+  pixi run python figures/src/prepare/run_gsea.py [--gene-sets receptive_field] [--output-dir DIR]
 """
 
 import argparse
@@ -303,19 +315,31 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir",    type=Path, default=DATA_DIR)
     parser.add_argument("--deg-csv",     type=Path, default=DEG_CSV)
-    parser.add_argument("--output-dir",  type=Path, default=PREP_OUT_DIR / "gsea_gonnect_layers")
+    parser.add_argument("--gene-sets", choices=["receptive_field", "direct", "build_gene_sets"],
+                        default="receptive_field", help="gene-set definition (see the module docstring)")
+    parser.add_argument("--output-dir",  type=Path, default=None,
+                        help="default: figures/out/prepare/gsea_gonnect_receptive_fields/ for receptive_field, "
+                             "gsea_gonnect_direct_traced/ for direct, gsea_gonnect_layers/ for build_gene_sets")
     parser.add_argument("--permutations", type=int,  default=PERMUTATIONS)
     parser.add_argument("--threads",      type=int,  default=THREADS)
     parser.add_argument("--fdr",          type=float, default=0.25,
                         help="FDR threshold for heatmap significance dots")
     args = parser.parse_args()
+    if args.output_dir is None:
+        args.output_dir = PREP_OUT_DIR / {"receptive_field": "gsea_gonnect_receptive_fields",
+                                          "direct": "gsea_gonnect_direct_traced",
+                                          "build_gene_sets": "gsea_gonnect_layers"}[args.gene_sets]
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Load gene sets ─────────────────────────────────────────────────────
     hl_path = args.data_dir / "hard_links.csv"
-    print(f"Building gene sets from {hl_path} …")
+    print(f"Building {args.gene_sets} gene sets from {hl_path} …")
     gene_sets, term_names = build_gene_sets(hl_path)
+    if args.gene_sets != "build_gene_sets":
+        import gsea_gene_sets
+        traced = gsea_gene_sets.all_sets(hl_path)[args.gene_sets]
+        gene_sets = {t: sorted(g) for t, g in traced.items() if g}
     sizes = {k: len(v) for k, v in gene_sets.items()}
     usable = sum(1 for s in sizes.values() if MIN_GENES <= s <= MAX_GENES)
     print(f"  {len(gene_sets)} GO terms total, {usable} with {MIN_GENES}–{MAX_GENES} genes\n")

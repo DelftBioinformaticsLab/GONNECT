@@ -25,6 +25,11 @@ before it scores anything.
 Both exports take the untrained latent at its posterior mean rather than a
 sample (see their docstrings), so the baseline is the wiring's best case.
 
+--eval-set test, the default as in fig4.py, scores as fig4.py does: every
+file must hold split_data's test split at its seed, and only the primary
+tumours of that split are scored. --eval-set all scores every row the files
+hold, as the published figure did.
+
 Writes, to figures/out/prepare/untrained_baselines/:
 
   untrained_baselines_values.tsv    one row per (row, label, state, seed, init)
@@ -106,11 +111,24 @@ def main() -> None:
     parser.add_argument("--inits-per-seed", type=int, default=10)
     parser.add_argument("--n-perms", type=int, default=1000)
     parser.add_argument("--rng-seed", type=int, default=42)
+    parser.add_argument("--eval-set", choices=["all", "test"], default="test",
+                        help="'all': every row of the seed's test-split files, of every sample type (Figure 4 as "
+                             "published). 'test' (default): as fig4.py --eval-set test, the files' rows are checked to be "
+                             "split_data's test split at the seed, and only its primary tumours are scored")
+    parser.add_argument("--fig4-csv", type=Path, default=PREP_OUT_DIR.parent / "fig4.csv",
+                        help="fig4.py's table, whose per-seed dots the trained values are checked against")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    meta = pd.read_csv(args.data_dir / "TCGA_complete_bp_top1k.csv.gz", usecols=["cancer_type"])
+    meta = pd.read_csv(args.data_dir / "TCGA_complete_bp_top1k.csv.gz", usecols=["patient_id", "cancer_type", "sample_type"])
     cancer_type_of_row = meta["cancer_type"].to_numpy()
+    test_split = fig4.TestSplit.build(meta, SEEDS) if args.eval_set == "test" else None
+
+    def restrict(values: np.ndarray, rows: np.ndarray, seed: int, source) -> tuple[np.ndarray, np.ndarray]:
+        """--eval-set test: the primary tumours of the seed's test split (checked to be the file's rows)."""
+        if test_split is None:
+            return values, rows
+        return fig4.restrict_to_test_primary(values, rows, test_split, seed, source)
     method_dbs, ontovae_cfg = fig4.baseline_cfgs(args.data_dir)
     enrichment = {("VEGA", db): fig4.load_enrichment_pivot(method_dbs[("VEGA", db)]["gsea_csv"], CANCER_TYPE_ORDER)
                   for db in VEGA_DBS}
@@ -144,13 +162,15 @@ def main() -> None:
         for db, stem in VEGA_DBS.items():
             for variant in VEGA_VARIANTS:
                 acts, rows, pathways = fig4.load_vega_csv(path(variant, stem), seed=seed, cfg=None, variant=variant)
+                acts, rows = restrict(acts, rows, seed, path(variant, stem))
                 label = f"{fig4.VEGA_DB_DISPLAY[db]} {fig4.RANDOMIZATION_DISPLAY[variant]}"
                 record("VEGA", label, state, seed, init,
                        statistic(auc_frame(acts, cancer_type_of_row[rows], pathways), enrichment[("VEGA", db)],
                                  args.n_perms, args.rng_seed))
 
     def score_ontovae(frame: pd.DataFrame, rows: np.ndarray, state, seed, init):
-        auc = auc_frame(frame.to_numpy(dtype=np.float64), cancer_type_of_row[rows], frame.columns)
+        values, rows = restrict(frame.to_numpy(dtype=np.float64), rows, seed, f"OntoVAE {state} seed {seed} {init}")
+        auc = auc_frame(values, cancer_type_of_row[rows], frame.columns)
         for layer in ONTOVAE_LAYERS:
             record("OntoVAE", f"L{layer}", state, seed, init,
                    statistic(auc[[t for t in auc.columns if layer_of.get(t) == layer]], enrichment["OntoVAE"],
@@ -166,6 +186,7 @@ def main() -> None:
         for layer in ONTOVAE_LAYERS:
             acts, rows, terms = fig4.load_ontovae_layer(path, seed=seed, cfg={**ontovae_cfg, "layer": layer},
                                                         variant="true")
+            acts, rows = restrict(acts, rows, seed, path)
             record("OntoVAE", f"L{layer}", TRAINED, seed, None,
                    statistic(auc_frame(acts, cancer_type_of_row[rows], terms), enrichment["OntoVAE"],
                              args.n_perms, args.rng_seed))
@@ -206,8 +227,13 @@ def main() -> None:
      .to_csv(args.out_dir / "fig4_untrained_baselines.tsv", sep="\t", index=False, float_format="%.6g"))
 
     # The trained side must be what Figure 4 plots as dots
-    published = pd.read_csv(PREP_OUT_DIR.parent / "fig4.csv").set_index(["row", "label"])
+    if not args.fig4_csv.exists():
+        print(f"WARNING: {args.fig4_csv} not found; the trained values are not checked against Figure 4's dots")
+    published = (pd.read_csv(args.fig4_csv).set_index(["row", "label"]) if args.fig4_csv.exists()
+                 else pd.DataFrame())
     for (row, label), group in values[values.state == TRAINED].groupby(["row", "label"], sort=False):
+        if published.empty:
+            break
         dots = published.loc[(row, label), [f"seed_{i}" for i in range(len(SEEDS))]].to_numpy(dtype=float)
         if not np.allclose(group.sort_values("seed").median_r.to_numpy(), dots, atol=1e-9, equal_nan=True):
             print(f"WARNING: trained {row} {label} differs from fig4.csv's per-seed dots")

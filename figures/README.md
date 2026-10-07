@@ -35,10 +35,13 @@ The GONNECT model versions are `AE_2.0` (fixed link), `AE_2.1` (soft link), `AE_
 | `model_checkpoints/` | Trained model weights, `.pt`. Only `AE_2.0` and `AE_2.1` are present. |
 | `loss_traces/` | Per-epoch train / validation / test loss, one tab-separated `.txt` per `AE_3.x` α-sweep run. 11 files, 0.8 MB. Read by figS7. |
 | `alpha_sweep_weights/` | The weight matrices of the α-sweep runs, one `.pt` per run and module, holding only the module that run constrains. 11 files, 296 MB. Read by figS8. Extracted from the training checkpoints — see *Figures S7 and S8*. |
-| `go_term_activations/` | Per-GO-node activations per sample, `.csv.gz`, one file per seed and module. |
+| `go_term_activations/` | Per-GO-node activations per sample, `.csv.gz`, one file per seed and module. Its decoder files are labelled one layer off (see *fig4.py*). |
+| `go_term_activations_corrected/` | The same with corrected decoder files (re-extracted from the checkpoints) and the deposited encoder files. Read by fig4 by default. Local only until the next deposit version (see `4TU_TODO.md`). |
 | `soft_link_weights/` | Learned soft-link weight matrices, `.csv.gz`, one file per seed and module (~3M rows each). |
-| `gsea_gonnect_layers/` | GSEA enrichment for GONNECT, all layers. |
-| `gsea_gonnect_bottleneck/` | GSEA enrichment for GONNECT, bottleneck layer only. |
+| `gsea_gonnect_receptive_fields/` | GSEA enrichment for GONNECT, all layers, on receptive-field gene sets (a term's own and its descendants' annotations). Every panel of the revised Figure 4 reads it. Local only until the next deposit version. |
+| `gsea_gonnect_layers/` | GSEA enrichment for GONNECT, all layers, on direct annotations read from layers 0-1 only. The published Figure 4's panels a-b (`fig4.py --published`). |
+| `gsea_gonnect_bottleneck/` | GSEA enrichment for GONNECT, bottleneck layer only, on receptive fields. The published Figure 4's panel c. |
+| `untrained_reference/` | The untrained boxes of the revised Figure 4: `fig4_untrained_{gonnect,dpr,baselines}.tsv`, from `prepare/untrained_{control,dpr,baselines}.py`. Local only until the next deposit version. |
 | `gsea_baselines/` | GSEA enrichment for OntoVAE and the two VEGA gene sets. |
 | `perm_nulls_gonnect/` | Permutation nulls for GONNECT, one `.npz` per layer. Derived — see *Where the derived inputs come from*. |
 | `perm_nulls_baselines/` | Permutation nulls for OntoVAE and VEGA, one `.npz` per model and arm. Derived — see *Where the derived inputs come from*. |
@@ -71,7 +74,8 @@ README:
 TCGA_complete_bp_top1k.csv.gz
   └─ prepare/plot_deg_volcano.py ─────────→ deg_results.csv
        ├─ + hard_links.csv
-       │    ├─ prepare/run_gsea.py ───────→ gsea_gonnect_layers/
+       │    ├─ prepare/run_gsea.py ───────→ gsea_gonnect_receptive_fields/
+       │    │    (--gene-sets build_gene_sets → gsea_gonnect_layers/, as published)
        │    └─ prepare/run_gsea_bottleneck.py → gsea_gonnect_bottleneck/
        └─ + ontologies/*.gmt
             └─ prepare/run_gsea_baselines.py → gsea_baselines/
@@ -222,17 +226,21 @@ AE_11.1, AE_10.1) have no deposited embeddings; see `src/prepare/README.md`.
 ```
 TCGA_complete_bp_top1k.csv.gz            cancer-type labels
 hard_links.csv                           GO graph: bottleneck index, layer map
-gsea_gonnect_layers/gsea_results.csv                    GSEA reference, all layers (panels a, b)
-gsea_gonnect_bottleneck/gsea_results.csv         GSEA at the bottleneck (panel c)
+gsea_gonnect_receptive_fields/gsea_results.csv   GSEA reference, every panel (published: the two below)
+gsea_gonnect_layers/gsea_results.csv             --published: panels a, b
+gsea_gonnect_bottleneck/gsea_results.csv         --published: panel c
 gsea_baselines/gsea_results_hallmark.csv       panel e
 gsea_baselines/gsea_results_reactomes.csv      panel e
 gsea_baselines/gsea_results_ontovae.csv        panel d
-perm_nulls_gonnect/AE_{2.0,2.1}_{encoder,decoder}_auc/perm_layer_{0..8}_arrays.npz
-perm_nulls_baselines/OntoVAE_layer_{00..10}_true_auc/perm_nulls_arrays.npz
+perm_nulls_gonnect/AE_{2.0,2.1}_{encoder,decoder}_auc/perm_layer_{0..8}_arrays.npz      --published only
+perm_nulls_baselines/OntoVAE_layer_{00..10}_true_auc/perm_nulls_arrays.npz             --published only
 perm_nulls_baselines/VEGA_{hallmark,reactomes}_{true,degree_preserving,random}_auc/perm_nulls_arrays.npz
 latent_embeddings/AE_2.2/AE_2.2.{22..26}_{encoder,decoder,both}_full_dataset.pt   panel c
-go_term_activations/AE_{2.0,2.1}.{2..6}_{encoder,decoder}_activations.csv.gz       per-seed dots
-cache/auc_4row/                          per-seed AUC matrices (regenerable, slow)
+go_term_activations_corrected/AE_{2.0,2.1}.{2..6}_{encoder,decoder}_activations.csv.gz  per-seed dots
+                                         (--published: go_term_activations/)
+untrained_reference/fig4_untrained_{gonnect,dpr,baselines}.tsv                  untrained boxes
+cache/auc_4row_<hash>/                   per-seed AUC matrices (regenerable, slow;
+                                         --published: cache/auc_4row/)
 ```
 
 The `perm_nulls_*` `.npz` files are inputs to *this* script rather than caches
@@ -247,14 +255,24 @@ faster while iterating on layout. It does not reproduce the published figure.
 Also writes `out/fig4.csv` with the observed values, permutation p, null mean
 and SD, and the five per-seed values per violin.
 
-Four optional flags leave the published figure alone when absent. `--untrained`
-draws an untrained reference as a box beside a violin, and adds its quantiles
-to `fig4.csv`. The references come from `prepare/untrained_control.py` (panels
+**Defaults: the revised figure.** A bare `fig4.py` draws the revised Figure 4,
+which differs from the published one in five ways: `--pool seeds` (see below),
+`--eval-set test` (every panel scored on the primary tumours of each seed's test
+split, not panels a-c on every primary tumour), the corrected decoder
+activations, one gene-set definition (receptive fields) for every panel, and the
+untrained boxes. `--published` restores all five for any option not given
+explicitly; the published figure also needs the `perm_nulls_*` files above.
+See `src/prepare/README.md`, *Figure 4 on held-out samples* and *Figure 4's gene
+sets*.
+
+`--untrained` draws an untrained reference as a box beside a violin, and adds
+its quantiles to `fig4.csv`; `--no-untrained` drops the default ones. The references come from `prepare/untrained_control.py` (panels
 a and b), `prepare/untrained_dpr.py` (panel c) and
 `prepare/untrained_baselines.py` (panel d's true graph, all of panel e).
 `--activations-dir`, `--gonnect-nulls-dir` and `--cache-dir` point panels a and
 b at other activations and nulls, such as the relabelled decoder files. See
-`src/prepare/README.md`, *The untrained control*.
+`src/prepare/README.md`, *The untrained control*. `--gsea-layers-csv` and
+`--gsea-bottleneck-csv` set the GSEA reference of panels a-b and of panel c.
 
 `--pool` sets the red line. The published figure (`activations`) scores one
 AUC on seed-averaged activations for panels a–c, and per-seed AUCs averaged
@@ -490,7 +508,7 @@ builds all four from `data/` and every figure pays the rebuild cost once:
 | `cache/tsne/` | fig2, figS2 | minutes per panel |
 | `cache/sl_edits/` | figS12 | minutes per module |
 | `cache/knn_purity.csv` | figS3 | ~25 s for all 50 embeddings |
-| `cache/auc_4row/` | fig4 | ~13 min, rereads every activation file |
+| `cache/auc_4row*/` | fig4 | ~13 min, rereads every activation file |
 
 **All four are safe to delete** at any point; the scripts recompute and rewrite
 them from `data/`. `knn_purity` additionally rebuilds itself when the cached
@@ -502,7 +520,12 @@ Because `cache/auc_4row/` is absent on a fresh checkout, fig4 reads the OntoVAE
 declared in `pyproject.toml` for exactly this reason.
 
 `cache/auc_4row/` is the one worth a note, because it is the only cache whose
-absence is expensive rather than merely slow. Its 105 entries cover both the
+absence is expensive rather than merely slow. Its entries are keyed by model,
+seed and evaluation set, not by the files they came from, so fig4 keeps one
+cache per activations directory: `auc_4row/` for `go_term_activations/`
+(`--published`), and `auc_4row_<hash of the directory>/` for any other, such as
+the default `go_term_activations_corrected/`. The note below is about
+`auc_4row/`. Its 105 entries cover both the
 GONNECT models (from `go_term_activations/`) and the baselines (from
 `baseline_activations/`). Verified: with the directory removed entirely,
 `fig4.py` rebuilds all 105 from source and reproduces `fig4.png` byte for byte,
