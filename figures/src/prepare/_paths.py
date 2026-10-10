@@ -6,7 +6,7 @@ from the repository root, which is what the originals assumed.
 
 Regeneration writes to ``figures/out/prepare/<step>/`` rather than straight into
 ``figures/data``. That is deliberate: the shipped ``data/`` reproduces the
-published figures exactly, and the GSEA and permutation steps are stochastic,
+committed figures exactly, and the GSEA and permutation steps are stochastic,
 so a rerun that landed on top of it would silently move the figures. Compare
 first, then copy over the shipped file if you mean to replace it.
 """

@@ -113,7 +113,7 @@ def apply_style() -> None:
         # selectable or searchable, and Elsevier, IEEE and PLOS all reject or
         # flag it at submission. 42 changes only how glyphs are encoded -- the
         # rendered layout is identical, verified pixel-for-pixel against the
-        # published PNGs.
+        # preprint v3 PNGs.
         "pdf.fonttype": 42,
         "ps.fonttype": 42,
     })
@@ -669,7 +669,7 @@ def read_baseline_ontovae(path: Path, split: str = "test",
                          *, strict_repeats: bool = True) -> pd.DataFrame:
     """``run-N: {graph_type: {split: {metric: val}}}`` for the OntoVAE baseline.
 
-    ``graph_types=("true",)`` gives the published baseline as method
+    ``graph_types=("true",)`` gives the true-graph baseline as method
     ``ontovae``; the randomized types become ``ontovae_<graph_type>``.
     """
     records: List[dict] = []

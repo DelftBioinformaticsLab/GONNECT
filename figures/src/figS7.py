@@ -31,7 +31,7 @@ trailing numbers are earlier attempts that stopped early.
 Which column is plotted
 -----------------------
 The last column of each file, which is not the same quantity in every file, and
-that is a property of the published data rather than a choice made here:
+that is a property of the deposited data rather than a choice made here:
 
   * The four alpha runs postdate the commit that added plain-MSE tracking, so
     they carry a 4th `MSE loss` column: the unregularized reconstruction MSE on
@@ -91,7 +91,7 @@ MODULES = [("encoder", "GONNECT-SL encoder", "a", False),
 # Okabe-Ito, in an order verified to pass every check of the palette validator
 # against a light surface, including the all-pairs CVD comparison. The paper's
 # own Tableau-10 set does not: its red and green sit at deuteranopic dE 0.7,
-# i.e. one colour for a red-green colourblind reader, and the published version
+# i.e. one colour for a red-green colourblind reader, and the preprint v3 version
 # of this figure used matplotlib's tab10 defaults with the same defect. Three
 # entries fall below 3:1 contrast on white, which the validator flags as
 # requiring relief; the legend's visible labels and the dash patterns below

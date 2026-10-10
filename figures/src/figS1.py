@@ -368,7 +368,7 @@ def draw_legend(ax, groups, ct_labels: List[str], gene_labels: List[str]) -> Non
         swatch(2, row, text, GENE_COLORS[i % len(GENE_COLORS)])
         row += 1
 
-    heading(3, "Sec. 2 & 3 stars (FDR p)")
+    heading(3, "Significance (FDR p)")
     for row, (marker, p_text) in enumerate(LEGEND_SIG_ROWS, start=1):
         ax.text(col_x[3], row_y(row), marker, va="center", ha="left",
                 fontsize=FS_LEGEND)

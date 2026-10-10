@@ -170,7 +170,7 @@ def main() -> None:
 
     # What these replace: the workbooks' SS / ARI / NMI and per-type SS. The old
     # all-sample purity was computed on the fly and never deposited, so it has
-    # no counterpart to print; figures/out/compare/ holds the published panels.
+    # no counterpart to print; preprint v3's panels are in the git history.
     workbook = read_xlsx_metrics(args.data_dir / "metrics" / "metric_data_TCGA_1000_30_new.xlsx")
     means = pd.concat({
         "all samples": workbook.groupby(["metric", "method"]).value.mean(),

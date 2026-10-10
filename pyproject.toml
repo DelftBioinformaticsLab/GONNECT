@@ -16,7 +16,7 @@ description = "Biologically-informed autoencoders constrained by the Gene Ontolo
 # every new dependency, so the environment a run used stays identifiable.
 # This version is also the Apptainer image name: the SLURM scripts invoke
 # container_pixi_1.0.0.sif, so bumping it here means rebuilding the image and
-# updating slurm/ to match. (The published runs were produced with the earlier
+# updating slurm/ to match. (The runs behind preprint v3 were produced with the earlier
 # container_pixi_0.2.1.sif, before this numbering was unified.)
 version = "1.0.0"
 readme = "README.md"
@@ -29,7 +29,7 @@ keywords = [
     "bioinformatics",
     "transcriptomics",
 ]
-# The published runs used 3.12 (what the pixi environment pins), but the library
+# The runs behind preprint v3 used 3.12 (what the pixi environment pins), but the library
 # itself needs nothing newer than 3.9: no PEP 604 unions, and the PEP 585 builtin
 # generics it does use (dict[str, GOTerm]) landed in 3.9. The full test suite
 # passes on 3.9 and 3.12 alike; 3.10 and 3.11 are inferred, not exercised.
@@ -40,7 +40,7 @@ requires-python = ">=3.9"
 # train_test_split), so pinning tighter would only cause resolution conflicts in
 # other people's environments. The floors below are the oldest combination the
 # test suite was actually run against; the pixi environment pins the much newer
-# versions the published results used.
+# versions the results in preprint v3 used.
 dependencies = [
     "goatools>=1.2",
     # 1.22, not lower: scikit-learn pulls in scipy, whose wheels are built
@@ -113,7 +113,7 @@ pytorch = {version=">2.4.1", channel="pytorch"}
 pytorch-cuda = "12.4.*"
 pandas = ">=2.2.3,<3"
 goatools = ">=1.4.12,<2"
-# Pinned to the 3.10 series that produced the published PDFs (3.10.8), with
+# Pinned to the 3.10 series that produced the preprint v3 PDFs (3.10.8), with
 # >=3.10.8 as the floor: earlier 3.10.x misplaces rasterized artists, which
 # affects the fig2/figS2 scatter panels. <3.11 keeps figure rendering stable.
 matplotlib = ">=3.10.8,<3.11"

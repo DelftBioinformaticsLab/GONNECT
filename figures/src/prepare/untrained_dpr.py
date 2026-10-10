@@ -29,8 +29,8 @@ the repository or the deposit yet (see 4TU_TODO.md).
 The defaults are those of fig4.py's revised figure. --eval-set test (the
 default) scores as fig4.py does: trained seed s, and the initializations on its
 mask, on the primary tumours of split s - 20's test split; --eval-set all
-scores every primary tumour, as the published figure did. The GSEA reference
-is gsea_gonnect_receptive_fields/ (--gsea-csv; the published figure used
+scores every primary tumour, as the preprint v3 figure did. The GSEA reference
+is gsea_gonnect_receptive_fields/ (--gsea-csv; the preprint v3 figure used
 gsea_gonnect_bottleneck/, which holds the same sets for these terms).
 
 Writes, to figures/out/prepare/untrained_dpr/:
@@ -104,7 +104,7 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--inits-per-mask", type=int, default=10)
     parser.add_argument("--eval-set", choices=["all", "test"], default="test",
-                        help="'all': every primary tumour (Figure 4 as published). 'test' (default): as fig4.py "
+                        help="'all': every primary tumour (Figure 4 as in preprint v3). 'test' (default): as fig4.py "
                              "--eval-set "
                              "test, the primary tumours of the test split each trained seed (and the "
                              "initializations on its mask) belongs to: split seed - 20")
@@ -112,7 +112,7 @@ def main() -> None:
                         help="fig4.py's table, whose per-seed dots the trained values are checked against")
     parser.add_argument("--gsea-csv", type=Path, default=None,
                         help="GSEA reference (default: <data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv, "
-                             "as fig4.py --gsea-bottleneck-csv; the published figure used "
+                             "as fig4.py --gsea-bottleneck-csv; the preprint v3 figure used "
                              "gsea_gonnect_bottleneck/gsea_results.csv)")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)

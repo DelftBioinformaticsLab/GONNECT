@@ -8,14 +8,14 @@ library data. Callers therefore point the library at their own copies.
 Resolution order for each location, first hit wins:
 
 1. An explicit path argument (``obo_path``, ``gaf_path``, ``data_dir``, ``masks_dir``).
-2. ``cluster=True`` -- the Apptainer layout used for the published runs. Deprecated.
+2. ``cluster=True`` -- the Apptainer layout used for the runs behind preprint v3. Deprecated.
 3. ``package_call=True`` -- relative to a module three levels below the repository
    root, i.e. ``src/gonnect/<subpackage>/``. Deprecated.
 4. The ``GONNECT_DATA_DIR`` / ``GONNECT_MASKS_DIR`` environment variable.
 5. ``./data`` and ``./out/masks`` relative to the current working directory.
 
 Steps 2 and 3 exist so the 43 ``src/AE_*.py`` experiment scripts and the SLURM
-jobs that produced the published results keep running unchanged; both flags are
+jobs that produced the results in preprint v3 keep running unchanged; both flags are
 deprecated for new code in favour of passing paths explicitly.
 """
 

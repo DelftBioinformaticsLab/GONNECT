@@ -13,7 +13,7 @@ picks the definition (see gsea_gene_sets.py):
                    bottleneck it equals run_gsea_bottleneck.py's sets.
   direct           the term's own annotations, traced through proxy chains of
                    any length.
-  build_gene_sets  what the published figure used (gsea_gonnect_layers/):
+  build_gene_sets  what the preprint v3 figure used (gsea_gonnect_layers/):
                    build_gene_sets below, which reads layers 0 and 1 only and so
                    misses every gene whose proxy chain enters its term at layer
                    2 or 3.

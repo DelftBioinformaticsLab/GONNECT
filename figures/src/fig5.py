@@ -24,20 +24,23 @@ Inputs, all under --data-dir:
   model_checkpoints/AE_2.0/AE_2.0.<seed>_none_model.pt   MLP (no GO prior)
   model_checkpoints/AE_2.1/AE_2.1.<seed>_both_model.pt   soft-link checkpoints
   hard_links.csv                                      GO edge positions
-  activation_preservation_per_node.csv                per-node activation stats
+  activation_preservation_per_node_corrected.csv      per-node activation stats
+                                                      (--preprint: activation_preservation_per_node.csv)
 
-Note: activation_preservation_per_node.csv is a *derived* table (columns
-module, layer, abs_pearson_r among others). It is produced upstream by
-fig_sl_preserve/activation_preservation.py from data/go_term_activations/, and is
-treated purely as an input here.
+Note: the per-node table is a *derived* one (columns module, layer,
+abs_pearson_r among others), treated purely as an input here.
+prepare/activation_preservation.py builds the default one from
+data/go_term_activations_corrected/. The preprint v3 figure's table was built
+from data/go_term_activations/, whose decoder columns are labelled one layer
+off (see prepare/README.md, *The untrained control*), and only panel c differs
+between the two.
 
 Usage:
     python fig5.py [--data-dir figures/data] [--out-dir figures/out]
-                   [--preservation-csv CSV]
+                   [--preservation-csv CSV] [--preprint]
 
---preservation-csv swaps in another per-node table for panels b and c, such as
-the one prepare/activation_preservation.py builds from the relabelled decoder
-activations (see prepare/README.md, *The untrained control*).
+--preprint reads the preprint v3 figure's table. --preservation-csv swaps in
+any other per-node table for panels b and c.
 """
 
 from __future__ import annotations
@@ -116,6 +119,11 @@ MARGIN_B_IN = (XLABEL_BAND_IN + LEGEND_GAP_IN + LEGEND_HEIGHT_IN + PAD_BOT_IN)
 FIG_HEIGHT_IN = MARGIN_T_IN + AXES_H_IN + MARGIN_B_IN
 
 SEEDS = [2, 3, 4, 5, 6]
+
+# Panels b and c's per-node table. The revised one is built from the corrected
+# decoder activations; the preprint v3 one from the mislabelled files.
+REVISED_PRESERVATION = "activation_preservation_per_node_corrected.csv"
+PREPRINT_PRESERVATION = "activation_preservation_per_node.csv"
 
 # nn.Sequential indices carrying a weight matrix (ReLU sits on the odd ones).
 # Panel a walks these directly; panels b/c go through _common.NET_IDX.
@@ -317,11 +325,15 @@ def main() -> None:
         description="Figure 5: weight distribution and FL vs SL preservation.")
     _common.add_io_args(parser)
     parser.add_argument("--preservation-csv", type=Path, default=None,
-                        help="per-node activation stats for panels b and c "
-                             "(default: <data-dir>/activation_preservation_per_node.csv)")
+                        help="per-node activation stats for panels b and c (default: "
+                             f"<data-dir>/{REVISED_PRESERVATION}; --preprint: "
+                             f"<data-dir>/{PREPRINT_PRESERVATION})")
+    parser.add_argument("--preprint", action="store_true",
+                        help="the preprint v3 figure's table, built from the mislabelled decoder activations")
     args = parser.parse_args()
 
-    act_csv = args.preservation_csv or args.data_dir / "activation_preservation_per_node.csv"
+    act_csv = args.preservation_csv or args.data_dir / (
+        PREPRINT_PRESERVATION if args.preprint else REVISED_PRESERVATION)
     print(f"Reading {act_csv}")
     df = pd.read_csv(act_csv)
     print(f"Reading {len(SEEDS) * 3} checkpoints from "

@@ -1,8 +1,8 @@
 """Training-time benchmark for the Supplementary Table S3.
 
-Trains each model variant to convergence with the published hyperparameters and records
+Trains each model variant to convergence with the hyperparameters of preprint v3 and records
 epochs to convergence, wall-clock time and seconds per epoch. Gradient clipping is left off,
-matching the setting the published results were produced with.
+matching the setting the results in preprint v3 were produced with.
 
 Results are appended to out/benchmark/training_time.tsv, one row per run, and per-epoch 
 validation losses to out/benchmark/progress/. Runs already present in the TSV are skipped,

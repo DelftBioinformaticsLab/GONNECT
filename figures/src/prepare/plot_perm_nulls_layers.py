@@ -384,7 +384,7 @@ def main() -> None:
     parser.add_argument("--pool",            type=str, default="activations",
                         choices=["activations", "auc"],
                         help="How --metrics auc pools the seeds: one AUC on the seed-averaged "
-                             "activations (the published figure), or the per-seed AUC averaged, "
+                             "activations (the preprint v3 figure), or the per-seed AUC averaged, "
                              "as the baseline nulls do.")
     args = parser.parse_args()
 

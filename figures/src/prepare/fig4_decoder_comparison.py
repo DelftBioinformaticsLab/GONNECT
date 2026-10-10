@@ -4,13 +4,13 @@ The shipped decoder activations are labelled one layer off (see
 untrained_control.py). Three figures read them: Figure 4 (decoder violins of
 panels a and b), Figure S6 (the decoder heatmaps) and Figure 5 (panel c, through
 activation_preservation_per_node.csv). This draws each of them twice, into
-as_published/ and decoder_fixed/. The corrected activations come from
+as_preprint/ and decoder_fixed/. The corrected activations come from
 --fixed-dir: by default extract_decoder_activations.py's, re-extracted from the
 checkpoints and complete; without the checkpoints,
 relabel_decoder_activations.py's (--fixed-dir .../decoder_relabelled), which
 keep 51 of decoder layer 6's 92 GSEA-covered terms.
 
-  fig4    as published: the shipped activations and perm_nulls_gonnect/, with
+  fig4    as in preprint v3: the shipped activations and perm_nulls_gonnect/, with
           the untrained decoder labelled the way the old activations_per_term
           labelled it (fig4_untrained_as_shipped.tsv). Fixed: the corrected
           activations, the nulls plot_perm_nulls_layers.py rebuilt from them,
@@ -41,7 +41,7 @@ Needs, from the steps it compares (run them first; see prepare/README.md), with
 
 Writes, to figures/out/prepare/fig4_decoder_comparison/:
 
-  as_published/, decoder_fixed/   fig4, figS6 and fig5 (.png, .pdf; fig4 also .csv)
+  as_preprint/, decoder_fixed/   fig4, figS6 and fig5 (.png, .pdf; fig4 also .csv)
   comparison_fig4.tsv    every panel a and b violin under both labellings
   comparison_figS6.tsv   per GO term: which node the shipped column held, and
                          the agreement of the three instances' per-cancer-type
@@ -76,7 +76,7 @@ FIXED_DIR = PREP_OUT_DIR / "decoder_reextracted"
 REBUILT_PRESERVATION = PREP_OUT_DIR / "activation_preservation" / "activation_preservation_per_node.csv"
 FIGURES = ["fig4", "figS6", "fig5"]
 GONNECT_ROWS = ["GONNECT", "GONNECT-SL"]
-VARIANTS = ["as_published", "decoder_fixed"]
+VARIANTS = ["as_preprint", "decoder_fixed"]
 
 
 def run(script: str, out_dir: Path, data_dir: Path, extra: list[str]) -> None:
@@ -100,10 +100,10 @@ def seed_cache(shipped: Path, target: Path) -> None:
             shutil.copy2(entry, target / entry.name)
 
 
-def compare_fig4(published: pd.DataFrame, fixed: pd.DataFrame) -> pd.DataFrame:
+def compare_fig4(preprint: pd.DataFrame, fixed: pd.DataFrame) -> pd.DataFrame:
     """Panels a and b side by side; panels c-e checked for being unchanged."""
     keys = ["row", "label"]
-    others_p = published[~published.row.isin(GONNECT_ROWS)].set_index(keys)
+    others_p = preprint[~preprint.row.isin(GONNECT_ROWS)].set_index(keys)
     others_f = fixed[~fixed.row.isin(GONNECT_ROWS)].set_index(keys)
     columns = ["obs_pooled", "perm_p"]
     if not np.allclose(others_p[columns].to_numpy(), others_f.loc[others_p.index, columns].to_numpy(),
@@ -111,11 +111,11 @@ def compare_fig4(published: pd.DataFrame, fixed: pd.DataFrame) -> pd.DataFrame:
         print("WARNING: panels c-e differ between the two runs, though neither reads the decoder files")
 
     table = []
-    seeds = [c for c in published.columns if c.startswith("seed_")]
-    for (row, label), p in published[published.row.isin(GONNECT_ROWS)].set_index(keys).iterrows():
+    seeds = [c for c in preprint.columns if c.startswith("seed_")]
+    for (row, label), p in preprint[preprint.row.isin(GONNECT_ROWS)].set_index(keys).iterrows():
         f = fixed.set_index(keys).loc[(row, label)]
         record = {"row": row, "label": label}
-        for name, result in (("published", p), ("fixed", f)):
+        for name, result in (("preprint", p), ("fixed", f)):
             record[f"obs_pooled_{name}"] = result.obs_pooled
             record[f"perm_p_{name}"] = result.perm_p
             record[f"seed_mean_{name}"] = result[seeds].astype(float).mean()
@@ -128,9 +128,12 @@ def compare_fig4(published: pd.DataFrame, fixed: pd.DataFrame) -> pd.DataFrame:
 def fig4(args) -> None:
     # The baselines' untrained reference does not depend on the decoder labels, so both runs take it when present
     baselines = [str(UNTRAINED_BASELINES)] if UNTRAINED_BASELINES.exists() else []
+    # --preprint in both: they differ in the decoder labels alone, under the preprint v3 figure's other settings
     for variant, extra in (
-            ("as_published", ["--untrained", str(args.untrained_dir / "fig4_untrained_as_shipped.tsv"), *baselines]),
-            ("decoder_fixed", ["--untrained", str(args.untrained_dir / "fig4_untrained_corrected.tsv"), *baselines,
+            ("as_preprint", ["--preprint", "--untrained", str(args.untrained_dir / "fig4_untrained_as_shipped.tsv"),
+                              *baselines]),
+            ("decoder_fixed", ["--preprint", "--untrained", str(args.untrained_dir / "fig4_untrained_corrected.tsv"),
+                               *baselines,
                                "--activations-dir", str(args.fixed_dir / "go_term_activations"),
                                "--gonnect-nulls-dir", str(args.fixed_dir / "perm_nulls_gonnect"),
                                "--cache-dir", str(args.out_dir / "decoder_fixed" / "cache")])):
@@ -138,11 +141,11 @@ def fig4(args) -> None:
             seed_cache(args.data_dir / "cache" / "auc_4row", args.out_dir / variant / "cache")
         run("fig4.py", args.out_dir / variant, args.data_dir, extra)
 
-    published, fixed = (pd.read_csv(args.out_dir / v / "fig4.csv") for v in VARIANTS)
-    table = compare_fig4(published, fixed)
+    preprint, fixed = (pd.read_csv(args.out_dir / v / "fig4.csv") for v in VARIANTS)
+    table = compare_fig4(preprint, fixed)
     table.to_csv(args.out_dir / "comparison_fig4.tsv", sep="\t", index=False, float_format="%.6g")
-    print(table[["row", "label", "obs_pooled_published", "obs_pooled_fixed", "perm_p_published", "perm_p_fixed",
-                 "seed_mean_published", "seed_mean_fixed", "untrained_median_published", "untrained_median_fixed"]]
+    print(table[["row", "label", "obs_pooled_preprint", "obs_pooled_fixed", "perm_p_preprint", "perm_p_fixed",
+                 "seed_mean_preprint", "seed_mean_fixed", "untrained_median_preprint", "untrained_median_fixed"]]
           .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
 
@@ -189,7 +192,7 @@ def compare_figS6(args) -> pd.DataFrame:
 
     table = {t: {"term": t, "name": names.get(t, ""), "shipped_column_holds": holds.get(t, "")}
              for t in figS5.GO_TERMS}
-    for variant, directory in (("published", args.data_dir / "go_term_activations"),
+    for variant, directory in (("preprint", args.data_dir / "go_term_activations"),
                                ("fixed", args.fixed_dir / "go_term_activations")):
         means = [figS5.mean_per_cancer_type(figS5._activation_path(directory, "decoder", seed), allowed, labels,
                                             patient_ids, cancer_types) for seed in figS5.DEFAULT_SEEDS]
@@ -204,13 +207,13 @@ def compare_figS6(args) -> pd.DataFrame:
 
 
 def figS6(args) -> None:
-    run("figS6.py", args.out_dir / "as_published", args.data_dir, [])
+    run("figS6.py", args.out_dir / "as_preprint", args.data_dir, ["--preprint"])
     run("figS6.py", args.out_dir / "decoder_fixed", args.data_dir,
         ["--activations-dir", str(args.fixed_dir / "go_term_activations")])
     table = compare_figS6(args)
     table.to_csv(args.out_dir / "comparison_figS6.tsv", sep="\t", index=False, float_format="%.6g")
-    print(table[["term", "shipped_column_holds", "signed_r_published", "signed_r_fixed", "abs_r_published",
-                 "abs_r_fixed", "max_abs_mean_published", "max_abs_mean_fixed"]]
+    print(table[["term", "shipped_column_holds", "signed_r_preprint", "signed_r_fixed", "abs_r_preprint",
+                 "abs_r_fixed", "max_abs_mean_preprint", "max_abs_mean_fixed"]]
           .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
 
@@ -220,20 +223,20 @@ def fig5(args) -> None:
     from activation_preservation import summarize
 
     fixed_csv = args.fixed_dir / "activation_preservation" / "activation_preservation_per_node.csv"
-    run("fig5.py", args.out_dir / "as_published", args.data_dir, [])
+    run("fig5.py", args.out_dir / "as_preprint", args.data_dir, ["--preprint"])
     run("fig5.py", args.out_dir / "decoder_fixed", args.data_dir, ["--preservation-csv", str(fixed_csv)])
 
     # The table compares two tables built by the same code: the deposited one matches a rebuild from the shipped
     # activations to 1e-12, except for nodes constant in the fixed-link model, whose correlation comes out NaN
     # or +-1e-17 depending on summation order.
     keys = ["module", "layer"]
-    published = summarize(pd.read_csv(REBUILT_PRESERVATION)).set_index(keys)
+    preprint = summarize(pd.read_csv(REBUILT_PRESERVATION)).set_index(keys)
     fixed = summarize(pd.read_csv(fixed_csv)).set_index(keys)
-    table = published.join(fixed, lsuffix="_published", rsuffix="_fixed").reset_index()
+    table = preprint.join(fixed, lsuffix="_preprint", rsuffix="_fixed").reset_index()
     table.to_csv(args.out_dir / "comparison_fig5.tsv", sep="\t", index=False, float_format="%.6g")
-    print(table[["module", "layer", "n_nodes_per_seed_published", "n_nodes_per_seed_fixed",
-                 "median_abs_r_mean_published", "median_abs_r_mean_fixed",
-                 "frac_abs_r_gt_0.7_published", "frac_abs_r_gt_0.7_fixed"]]
+    print(table[["module", "layer", "n_nodes_per_seed_preprint", "n_nodes_per_seed_fixed",
+                 "median_abs_r_mean_preprint", "median_abs_r_mean_fixed",
+                 "frac_abs_r_gt_0.7_preprint", "frac_abs_r_gt_0.7_fixed"]]
           .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
 

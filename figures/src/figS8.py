@@ -19,14 +19,14 @@ fully connected model they would become if the penalty were dropped:
   GONNECT-SL, soft links         the 3,350,868 positions it does not
   GONNECT, GO edges              the same 9,561 positions in original GONNECT
 
-The axes follow Figure 5a rather than the published version of this figure,
+The axes follow Figure 5a rather than the preprint v3 version of this figure,
 which binned the signed weight on a linear axis. Two reasons. The claim the
 figure supports is about magnitude -- that the soft links stay "at least an
 order of magnitude below the strongest GO edges" -- and a linear axis crushes
 eleven decades of that into a spike at zero. And the S8 caption now points the
 reader at Figure 5a for the early-stopped counterpart of panel a, a comparison
 only worth making if the two are drawn the same way. Set SIGNED_LINEAR_X = True
-to recover the published rendering.
+to recover the preprint v3 rendering.
 
 The GO positions are taken as the nonzero weights of the fixed-link run, the
 same trick fig5.gather uses, so no mask file is needed and the positions
@@ -107,7 +107,7 @@ SERIES = [
     ("go_edges", "GONNECT, GO edges",      "#56B4E9", (0, (6, 1.6, 1.4, 1.6))),
 ]
 
-SIGNED_LINEAR_X = False   # True restores the published linear signed-value axis
+SIGNED_LINEAR_X = False   # True restores the preprint v3 linear signed-value axis
 CLIP = 1e-12              # floors log10|w| so exact zeros do not become -inf
 BINS_LOG = np.linspace(-10, 1, 111)
 BINS_LINEAR = np.linspace(-2, 2, 161)

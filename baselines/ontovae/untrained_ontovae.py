@@ -8,7 +8,7 @@ masks exactly as run_ontovae.py does, from the same cached ontology, skips
 training, and writes the test split's pathway activities: one column per GO
 term, the mean of its neurons, in the ontology's term order.
 
-That ontology is the published one. Its 4,131 terms, their order and each
+That ontology is the one behind preprint v3. Its 4,131 terms, their order and each
 term's layer all match the deposited activation files.
 
 The activities are taken at the posterior *mean*. OntoVAE's

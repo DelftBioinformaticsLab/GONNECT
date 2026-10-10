@@ -51,9 +51,9 @@ in the shape of `figures/data/metrics/test_split/`, which the figures read.
 Both runners score the test split, and since the revision they take the
 silhouette against the true cancer types, as GONNECT's is
 (`--silhouette-against labels`, the default). `--silhouette-against kmeans`
-reproduces the published runs, which took it against the k-means clusters; each
-run prints both. The deposited baseline numbers were rescored from the published
-runs' latents rather than retrained (`figures/src/prepare/rescore_baselines.py`),
+reproduces the runs behind preprint v3, which took it against the k-means clusters; each
+run prints both. The deposited baseline numbers were rescored from the latents of the
+runs behind preprint v3 rather than retrained (`figures/src/prepare/rescore_baselines.py`),
 because those runs left model initialisation unseeded.
 
 ## Untrained controls
@@ -67,7 +67,7 @@ as `run_vega.py` draws them for that seed), and OntoVAE's test pathway
 activities on the true graph, in the trained runs' shapes. VEGA masks only its
 decoder, so its untrained latents are the same on every graph. OntoVAE reads
 the cached ontology (`out/baselines/ontovae/cached_ontology.pkl`), whose terms,
-order and layers match the published activations. Both take the latent at its
+order and layers match the deposited activations. Both take the latent at its
 posterior mean rather than a sample, since an untrained model's posterior
 variance would otherwise bury the wiring's signal in noise.
 

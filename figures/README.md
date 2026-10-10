@@ -36,11 +36,11 @@ The GONNECT model versions are `AE_2.0` (fixed link), `AE_2.1` (soft link), `AE_
 | `loss_traces/` | Per-epoch train / validation / test loss, one tab-separated `.txt` per `AE_3.x` α-sweep run. 11 files, 0.8 MB. Read by figS7. |
 | `alpha_sweep_weights/` | The weight matrices of the α-sweep runs, one `.pt` per run and module, holding only the module that run constrains. 11 files, 296 MB. Read by figS8. Extracted from the training checkpoints — see *Figures S7 and S8*. |
 | `go_term_activations/` | Per-GO-node activations per sample, `.csv.gz`, one file per seed and module. Its decoder files are labelled one layer off (see *fig4.py*). |
-| `go_term_activations_corrected/` | The same with corrected decoder files (re-extracted from the checkpoints) and the deposited encoder files. Read by fig4 by default. Local only until the next deposit version (see `4TU_TODO.md`). |
+| `go_term_activations_corrected/` | The same with corrected decoder files (re-extracted from the checkpoints) and the deposited encoder files. Read by fig4, figS5 and figS6 by default (`--preprint`: `go_term_activations/`). Local only until the next deposit version (see `4TU_TODO.md`). |
 | `soft_link_weights/` | Learned soft-link weight matrices, `.csv.gz`, one file per seed and module (~3M rows each). |
 | `gsea_gonnect_receptive_fields/` | GSEA enrichment for GONNECT, all layers, on receptive-field gene sets (a term's own and its descendants' annotations). Every panel of the revised Figure 4 reads it. Local only until the next deposit version. |
-| `gsea_gonnect_layers/` | GSEA enrichment for GONNECT, all layers, on direct annotations read from layers 0-1 only. The published Figure 4's panels a-b (`fig4.py --published`). |
-| `gsea_gonnect_bottleneck/` | GSEA enrichment for GONNECT, bottleneck layer only, on receptive fields. The published Figure 4's panel c. |
+| `gsea_gonnect_layers/` | GSEA enrichment for GONNECT, all layers, on direct annotations read from layers 0-1 only. Panels a-b of preprint v3's Figure 4 (`fig4.py --preprint`). |
+| `gsea_gonnect_bottleneck/` | GSEA enrichment for GONNECT, bottleneck layer only, on receptive fields. Panel c of preprint v3's Figure 4. |
 | `untrained_reference/` | The untrained boxes of the revised Figure 4: `fig4_untrained_{gonnect,dpr,baselines}.tsv`, from `prepare/untrained_{control,dpr,baselines}.py`. Local only until the next deposit version. |
 | `gsea_baselines/` | GSEA enrichment for OntoVAE and the two VEGA gene sets. |
 | `perm_nulls_gonnect/` | Permutation nulls for GONNECT, one `.npz` per layer. Derived — see *Where the derived inputs come from*. |
@@ -55,7 +55,8 @@ Loose files at the top of `data/`:
 |---|---|
 | `hard_links.csv` | The GO graph itself: every fixed edge, with each node's layer and bottleneck flag. |
 | `TCGA_complete_bp_top1k.csv.gz` | The expression matrix — top 1000 genes, with the cancer-type label per sample. |
-| `activation_preservation_per_node.csv` | Derived table for fig5 panels b and c (see *fig5.py*). |
+| `activation_preservation_per_node_corrected.csv` | Derived table for fig5 panels b and c, from `go_term_activations_corrected/` (see *fig5.py*). Local only until the next deposit version. |
+| `activation_preservation_per_node.csv` | The same from `go_term_activations/`: preprint v3's fig5 (`fig5.py --preprint`). |
 | `AE_9.1_{encoder,decoder}_10perc_removed.csv.gz` | Which GO edges were held out for the recovery experiment. |
 | `deg_results.csv` | Per-cancer-type differential expression (one-vs-rest). Input to the GSEA step, not read by any `figures/` script. |
 
@@ -75,7 +76,7 @@ TCGA_complete_bp_top1k.csv.gz
   └─ prepare/plot_deg_volcano.py ─────────→ deg_results.csv
        ├─ + hard_links.csv
        │    ├─ prepare/run_gsea.py ───────→ gsea_gonnect_receptive_fields/
-       │    │    (--gene-sets build_gene_sets → gsea_gonnect_layers/, as published)
+       │    │    (--gene-sets build_gene_sets → gsea_gonnect_layers/, as in preprint v3)
        │    └─ prepare/run_gsea_bottleneck.py → gsea_gonnect_bottleneck/
        └─ + ontologies/*.gmt
             └─ prepare/run_gsea_baselines.py → gsea_baselines/
@@ -83,8 +84,9 @@ TCGA_complete_bp_top1k.csv.gz
 go_term_activations/ + hard_links.csv + gsea_gonnect_layers/
   └─ prepare/plot_perm_nulls_layers.py ───→ perm_nulls_gonnect/
 
-go_term_activations/
-  └─ prepare/activation_preservation.py ──→ activation_preservation_per_node.csv
+go_term_activations_corrected/
+  └─ prepare/activation_preservation.py ──→ activation_preservation_per_node_corrected.csv
+       (on go_term_activations/ → activation_preservation_per_node.csv, as in preprint v3)
 
 baseline_activations/ + gsea_baselines/
   └─ prepare/compute_baseline_nulls.py ───→ perm_nulls_baselines/
@@ -93,7 +95,7 @@ baseline_activations/ + gsea_baselines/
 **Every input in `data/` is rebuildable from the raw TCGA expression matrix and
 the GO graph.** Nothing here depends on a file that is not shipped. Regeneration
 writes to `out/prepare/` rather than into `data/`, so a stochastic rerun cannot
-quietly move a published figure — see `src/prepare/README.md`.
+quietly move a committed figure — see `src/prepare/README.md`.
 
 #### The baseline `.txt` files in `metrics/`
 
@@ -198,7 +200,7 @@ per-type breakdowns of a and b, on the same test split. Panel k stays inside the
 test split too: each test sample's 10 nearest neighbours are other test samples.
 A type with fewer than 10 test samples in some seed cannot fill 10 neighbours with
 its own kind, so its row is left blank: CHOL, DLBC, KICH, MESO, UCS and UVM. k = 10
-rather than the published 30 is what keeps the rest; at k = 30, half the types
+rather than preprint v3's 30 is what keeps the rest; at k = 30, half the types
 would be blank. Its last column, `Random`, is chance level: the cancer type's
 share of the test split, the sample itself excluded. The randomized arm is deliberately absent, since it is Figure 3's
 subject and appears per cancer type in figS3.
@@ -223,21 +225,21 @@ AE_11.1, AE_10.1) have no deposited embeddings; see `src/prepare/README.md`.
 ```
 TCGA_complete_bp_top1k.csv.gz            cancer-type labels
 hard_links.csv                           GO graph: bottleneck index, layer map
-gsea_gonnect_receptive_fields/gsea_results.csv   GSEA reference, every panel (published: the two below)
-gsea_gonnect_layers/gsea_results.csv             --published: panels a, b
-gsea_gonnect_bottleneck/gsea_results.csv         --published: panel c
+gsea_gonnect_receptive_fields/gsea_results.csv   GSEA reference, every panel (preprint v3: the two below)
+gsea_gonnect_layers/gsea_results.csv             --preprint: panels a, b
+gsea_gonnect_bottleneck/gsea_results.csv         --preprint: panel c
 gsea_baselines/gsea_results_hallmark.csv       panel e
 gsea_baselines/gsea_results_reactomes.csv      panel e
 gsea_baselines/gsea_results_ontovae.csv        panel d
-perm_nulls_gonnect/AE_{2.0,2.1}_{encoder,decoder}_auc/perm_layer_{0..8}_arrays.npz      --published only
-perm_nulls_baselines/OntoVAE_layer_{00..10}_true_auc/perm_nulls_arrays.npz             --published only
+perm_nulls_gonnect/AE_{2.0,2.1}_{encoder,decoder}_auc/perm_layer_{0..8}_arrays.npz      --preprint only
+perm_nulls_baselines/OntoVAE_layer_{00..10}_true_auc/perm_nulls_arrays.npz             --preprint only
 perm_nulls_baselines/VEGA_{hallmark,reactomes}_{true,degree_preserving,random}_auc/perm_nulls_arrays.npz
 latent_embeddings/AE_2.2/AE_2.2.{22..26}_{encoder,decoder,both}_full_dataset.pt   panel c
 go_term_activations_corrected/AE_{2.0,2.1}.{2..6}_{encoder,decoder}_activations.csv.gz  per-seed dots
-                                         (--published: go_term_activations/)
+                                         (--preprint: go_term_activations/)
 untrained_reference/fig4_untrained_{gonnect,dpr,baselines}.tsv                  untrained boxes
 cache/auc_4row_<hash>/                   per-seed AUC matrices (regenerable, slow;
-                                         --published: cache/auc_4row/)
+                                         --preprint: cache/auc_4row/)
 ```
 
 The `perm_nulls_*` `.npz` files are inputs to *this* script rather than caches
@@ -247,18 +249,18 @@ is reported in a summary line at the end of the run. They are built by
 both expensive to rerun — which is why they ship precomputed.
 
 `--no-dots` skips the per-seed dots and the whole `cache/auc_4row` path — much
-faster while iterating on layout. It does not reproduce the published figure.
+faster while iterating on layout. It does not reproduce the preprint v3 figure.
 
 Also writes `out/fig4.csv` with the observed values, permutation p, null mean
 and SD, and the five per-seed values per violin.
 
 **Defaults: the revised figure.** A bare `fig4.py` draws the revised Figure 4,
-which differs from the published one in five ways: `--pool seeds` (see below),
+which differs from the preprint v3 one in five ways: `--pool seeds` (see below),
 `--eval-set test` (every panel scored on the primary tumours of each seed's test
 split, not panels a-c on every primary tumour), the corrected decoder
 activations, one gene-set definition (receptive fields) for every panel, and the
-untrained boxes. `--published` restores all five for any option not given
-explicitly; the published figure also needs the `perm_nulls_*` files above.
+untrained boxes. `--preprint` restores all five for any option not given
+explicitly; the preprint v3 figure also needs the `perm_nulls_*` files above.
 See `src/prepare/README.md`, *Figure 4 on held-out samples* and *Figure 4's gene
 sets*.
 
@@ -271,7 +273,7 @@ b at other activations and nulls, such as the relabelled decoder files. See
 `src/prepare/README.md`, *The untrained control*. `--gsea-layers-csv` and
 `--gsea-bottleneck-csv` set the GSEA reference of panels a-b and of panel c.
 
-`--pool` sets the red line. The published figure (`activations`) scores one
+`--pool` sets the red line. The preprint v3 figure (`activations`) scores one
 AUC on seed-averaged activations for panels a–c, and per-seed AUCs averaged
 over seeds for d–e. `auc` uses the averaged AUCs everywhere. `seeds` makes every
 red line the mean of the five per-seed values. Its null (1,000 permutations,
@@ -285,14 +287,19 @@ model_checkpoints/AE_2.0/AE_2.0.{2..6}_both_model.pt     fixed-link checkpoints
 model_checkpoints/AE_2.0/AE_2.0.{2..6}_none_model.pt     fully-connected MLP (panel a)
 model_checkpoints/AE_2.1/AE_2.1.{2..6}_both_model.pt     soft-link checkpoints
 hard_links.csv                                        which weight positions are GO edges
-activation_preservation_per_node.csv                  panels b, c
+activation_preservation_per_node_corrected.csv        panels b, c
+activation_preservation_per_node.csv                  --preprint: panels b, c
 ```
 
-`activation_preservation_per_node.csv` is a derived table, not raw data. The
-original `fig_sl_preserve/activation_preservation.py` built it from
-`go_term_activations/AE_{2.0,2.1}.{2..6}_{encoder,decoder}_activations.csv.gz`; here it
-is treated as an input. `--preservation-csv` swaps in another such table, e.g.
-one rebuilt from the relabelled decoder activations (see *fig4.py*).
+The per-node table is a derived one, not raw data; here it is treated as an
+input. `prepare/activation_preservation.py` builds the default one from
+`go_term_activations_corrected/AE_{2.0,2.1}.{2..6}_{encoder,decoder}_activations.csv.gz`.
+Preprint v3's table was built by the original
+`fig_sl_preserve/activation_preservation.py` from `go_term_activations/`, whose
+decoder columns are labelled one layer off. Only panel c differs between the
+two: decoder L8's preservation falls from 0.48 to 0.12, because the preprint v3
+L8 columns held the reconstructed genes. `--preprint` reads preprint v3's
+table; `--preservation-csv` swaps in any other.
 
 ### figS1.py — GO-processing hyperparameter sweep
 
@@ -357,14 +364,16 @@ Also writes `out/figS3.csv` with every number in the figure, one row per
 ### figS5.py and figS6.py — GO-term activation heatmaps
 
 ```
-go_term_activations/AE_2.0.{2,3,4}_encoder_activations.csv.gz   figS5
-go_term_activations/AE_2.0.{2,3,4}_decoder_activations.csv.gz   figS6
+go_term_activations_corrected/AE_2.0.{2,3,4}_encoder_activations.csv.gz   figS5
+go_term_activations_corrected/AE_2.0.{2,3,4}_decoder_activations.csv.gz   figS6
 TCGA_complete_bp_top1k.csv.gz                           cancer-type labels
 hard_links.csv                                          restricts columns to GO-term nodes
 ```
 
-`--activations-dir` reads the activations from elsewhere, e.g. the relabelled
-decoder files (see *fig4.py*).
+`--preprint` reads `go_term_activations/` instead, as the preprint v3 figures
+did. Its encoder files are the same, so figS5 does not change; its decoder
+files are labelled one layer off, so figS6 does (see *Figures S5 and S6*).
+`--activations-dir` reads the activations from anywhere else.
 
 ### figS7.py — α-sweep training curves
 
@@ -521,7 +530,7 @@ declared in `pyproject.toml` for exactly this reason.
 absence is expensive rather than merely slow. Its entries are keyed by model,
 seed and evaluation set, not by the files they came from, so fig4 keeps one
 cache per activations directory: `auc_4row/` for `go_term_activations/`
-(`--published`), and `auc_4row_<hash of the directory>/` for any other, such as
+(`--preprint`), and `auc_4row_<hash of the directory>/` for any other, such as
 the default `go_term_activations_corrected/`. The note below is about
 `auc_4row/`. Its 105 entries cover both the
 GONNECT models (from `go_term_activations/`) and the baselines (from
@@ -543,12 +552,12 @@ not in `data/`. Both have since been recovered from the cluster and are shipped
 ## Figures S5 and S6
 
 These had no generating script either, but unlike S7/S8 the inputs are present,
-so they were rewritten from the published captions.
+so they were rewritten from the preprint v3 captions.
 
 The 20 hand-curated GO terms — "processes expected to vary in activity across
 cancer types" — exist nowhere in the repository, so they were **read off the x
-axis of the published figure** and are now hard-coded in `figS5.GO_TERMS`, in
-the published column order. Every id was validated against `hard_links.csv`:
+axis of the preprint v3 figure** and are now hard-coded in `figS5.GO_TERMS`, in
+the preprint v3 column order. Every id was validated against `hard_links.csv`:
 all 20 are real GO nodes, present in both the encoder and the decoder, and none
 is a bottleneck node. Setting `GO_TERMS = None` falls back to the documented
 stand-in (the 20 nodes with the highest **η²**, the share of a node's variance
@@ -556,7 +565,7 @@ lying between cancer types rather than within them, computed on the first seed
 and held fixed across instances) — kept only as a fallback; the real list is
 the default now.
 
-The published figure labelled its columns with the bare accessions. These
+The preprint v3 figure labelled its columns with the bare accessions. These
 scripts label with **`process name (GO:id)`** — the name makes the panel
 readable, the accession keeps it checkable against the graph and the
 manuscript; `figS5.LABEL_WITH_NAMES = False` restores bare accessions. Names
@@ -577,7 +586,8 @@ place.
 | | spread across the 20 terms |
 |---|---|
 | encoder | 0.020 → 0.73 (**37×**) |
-| decoder | 0.004 → 224 (**55,005×**) — one term at 224, sixteen under 2.7 |
+| decoder | 0.087 → 170 (**1,957×**) — one term at 170, the next largest under 16 |
+| decoder, `--preprint` | 0.004 → 224 (**55,005×**) — one term at 224, fifteen under 2.7 |
 
 Raw, the decoder's limit is set by that single node and every other column is
 pale. Scaling asks what the panels are about — which cancer types light a
@@ -588,8 +598,9 @@ largest activations.
 than the biology and is often the largest thing in the column. Scaling without
 removing it first turns a constant column into a saturated ±1 stripe that reads
 as the figure's strongest result. Columns with no variation at all are drawn
-blank and named in the run output — the decoder's `GO:0006631` is one, constant
-to 4e-09 across all 32 cancer types.
+blank and named in the run output. None of the 20 is flat in the default
+inputs; under `--preprint` the decoder's `GO:0006631` is, constant to 4e-09
+across all 32 cancer types.
 
 The scale factor is shared across instances rather than computed per instance,
 so differences between instances survive; normalising each on its own would
@@ -597,14 +608,32 @@ flatten exactly the cross-instance agreement panel b exists to show.
 
 `--no-normalize` plots raw means instead, which keeps magnitude comparable
 between terms at the cost above. `--vmax` fixes a symmetric limit, which clips:
-on the decoder ±4 clips 6.7 % of cells and ±2 clips 10.3 %.
+on the decoder ±4 clips 5.5 % of cells and ±2 clips 10.8 %.
 
 Neither figure carries a title — that belongs in the caption — and the panel
 letters are lower case (**a**, **b**) to match the rest of the paper.
 
-The scientific content reproduces: across instances the signed means are
-essentially uncorrelated while the magnitudes are near identical, which is
-exactly what panels A and B are there to show.
+What the panels show, measured as the Pearson r between two instances of a
+term's 32 centred means (median over the 20 terms and the three pairs of
+instances):
+
+| | signed | absolute |
+|---|---|---|
+| encoder (S5) | +0.08 | 0.50 |
+| decoder (S6) | −0.08 | 0.44 |
+| decoder, `--preprint` | +0.42 | 0.64 |
+
+The signs are arbitrary across instances, as panel a is meant to show. The
+magnitudes agree only moderately, not near-identically as this section used to
+say. The preprint v3 decoder input looked more consistent, probably because 11
+of its columns were reconstructed genes, which every instance has to reproduce.
+
+**The decoder input was corrected.** Preprint v3's Figure S6 read
+`go_term_activations/`, whose decoder columns are labelled one layer off: of
+its 20 columns, 11 held reconstructed genes, 3 proxies and 6 other GO terms.
+The |mean| 224 term and the constant `GO:0006631` both came from that. The
+figure now reads `go_term_activations_corrected/`; `--preprint` restores the
+preprint v3 one. See `src/prepare/README.md`, *The untrained control*.
 
 ## Figures S7 and S8
 
@@ -654,28 +683,28 @@ saved checkpoints:
 | `AE_3.-1.2_decoder` | 0.67214 | 0.70147 |
 
 `AE_3.-1.2_none` trained on plain `mse`, so it is unaffected. The other two are
-plotted as published and carry a footnote in the figure saying what they are;
+plotted as in preprint v3 and carry a footnote in the figure saying what they are;
 recovering a plain-MSE *trace* would need a re-run, since the per-epoch history
 cannot be recomputed from a final checkpoint.
 
-### What changed against the published version
+### What changed against the preprint v3 version
 
 Both figures keep their data and panels. What changed is the house style —
 `FIG_WIDTH_IN`, the type scale, Type 42 fonts — plus two deliberate choices:
 
-- **Colour.** The published pair used matplotlib's `tab10` defaults, whose red
+- **Colour.** The preprint v3 pair used matplotlib's `tab10` defaults, whose red
   and green sit at deuteranopic ΔE 0.7, i.e. one colour for a red-green
   colourblind reader. Both now use an Okabe-Ito set verified against the
   all-pairs CVD comparison, with dash patterns as a secondary encoding. Figure
   5a's own four fail the same check (ΔE 3.9) and are worth revisiting.
-- **figS8's x axis.** The published version binned the signed weight on a linear
+- **figS8's x axis.** The preprint v3 version binned the signed weight on a linear
   axis, which crushes eleven decades into a spike at zero. It now uses
   `log₁₀|w|`, matching Figure 5a — which is what the S8 caption points the
   reader at for the early-stopped counterpart of panel a. Set
-  `figS8.SIGNED_LINEAR_X = True` to restore the published rendering.
+  `figS8.SIGNED_LINEAR_X = True` to restore the preprint v3 rendering.
 
 Panel letters are lowercase here, as in every other regenerated figure; the
-published S7/S8 captions use `A)`/`B)` and need the one-line change.
+preprint v3 S7/S8 captions use `A)`/`B)` and need the one-line change.
 
 ### What is deposited, and what is not
 

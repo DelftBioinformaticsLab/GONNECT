@@ -4,7 +4,7 @@
 # HEAD and the commit willsketch/onto-vae forked from; the repository is no
 # longer maintained, so it will not move. The PyPI release predates it.
 #
-# scikit-learn is pinned to the version the published runs used; it decides the
+# scikit-learn is pinned to the version the runs behind preprint v3 used; it decides the
 # k-means initialisation behind the NMI/ARI/silhouette numbers.
 #
 #     conda env create -f ontovae.yml

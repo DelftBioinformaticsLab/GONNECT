@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-Only the `gonnect` library under `src/gonnect/` is versioned and published. The rest of the repository — the experiment scripts, SLURM jobs, baselines and the figure pipeline — reproduces the accompanying publication and is not part of the distributed package.
+Only the `gonnect` library under `src/gonnect/` is versioned and published. The rest of the repository — the experiment scripts, SLURM jobs, baselines and the figure pipeline — reproduces the accompanying paper and is not part of the distributed package.
 
 ## [1.0.0] - 2026-08-28
 

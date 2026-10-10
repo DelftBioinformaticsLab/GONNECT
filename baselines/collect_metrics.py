@@ -6,7 +6,7 @@
 Both carry every graph arm, the true graph included, in the shape of
 `figures/data/metrics/test_split/{ontovae,vega}_rand.txt`. Figures 2, 3, S1 and
 S4 read those files: Figure 2 the `true` arm, Figure 3 every arm. The deposited
-ones were rescored from the published runs' latents by
+ones were rescored from the latents of the runs behind preprint v3 by
 `figures/src/prepare/rescore_baselines.py`; a rerun's runners write the same
 metrics directly, the silhouette taken against the true cancer types by
 default (`--silhouette-against`). The flat one-method-per-file layout of the

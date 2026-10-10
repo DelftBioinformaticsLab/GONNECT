@@ -1,7 +1,7 @@
 # prepare/ — rebuilding the derived inputs
 
 `../fig*.py` read `data/` and draw. Nothing in this folder is needed to
-reproduce a published figure: `data/` already ships every input, and the
+reproduce a committed figure: `data/` already ships every input, and the
 figures reproduce from it bit-for-bit.
 
 These are the steps that *produced* the derived parts of `data/`, kept so the
@@ -15,7 +15,7 @@ TCGA_complete_bp_top1k.csv.gz
   └─ plot_deg_volcano.py ──────────────→ deg_results.csv
        ├─ + hard_links.csv
        │    ├─ run_gsea.py ────────────→ gsea_gonnect_receptive_fields/
-       │    │    (--gene-sets build_gene_sets → gsea_gonnect_layers/, as published)
+       │    │    (--gene-sets build_gene_sets → gsea_gonnect_layers/, as in preprint v3)
        │    └─ run_gsea_bottleneck.py ─→ gsea_gonnect_bottleneck/
        └─ + ontologies/*.gmt
             └─ run_gsea_baselines.py ──→ gsea_baselines/
@@ -151,7 +151,7 @@ table the same way. Run on the shipped files, it matches the deposited table to
 comes out NaN or +-1e-17 depending on summation order.
 
 `fig4_decoder_comparison.py` then draws every figure that reads decoder
-activations twice, into `as_published/` and `decoder_fixed/`. That is Figure 4
+activations twice, into `as_preprint/` and `decoder_fixed/`. That is Figure 4
 (with the untrained reference in both), Figure S6 and Figure 5. Next to them it
 writes a table per figure:
 - Figure 4: every panel a and b violin under both labellings.
@@ -183,7 +183,7 @@ and pass `--fixed-dir figures/out/prepare/decoder_relabelled` to the last one.
 
 ### Figure 4 on held-out samples
 
-As published, the two sides of Figure 4 score different samples: panels a-c
+As in preprint v3, the two sides of Figure 4 score different samples: panels a-c
 (and `untrained_control.py`, `untrained_dpr.py`) take every primary tumour,
 about 70% of them training samples, while panels d-e (and
 `untrained_baselines.py`) take each seed's test split, of every sample type.
@@ -198,7 +198,7 @@ violin's samples. `eval_set_report.py` tabulates the two figures side by side,
 with the per-cancer-type test-split counts, into `out/prepare/eval_set/`.
 
 `test` is now the default of `fig4.py` and of the three untrained steps; `all`
-is what the published figure did. With every default, the revised Figure 4 and
+is what the preprint v3 figure did. With every default, the revised Figure 4 and
 its untrained references rebuild as follows (`data/untrained_reference/` holds
 copies of the three references, renamed `fig4_untrained_{gonnect,dpr,baselines}.tsv`):
 
@@ -246,13 +246,13 @@ receptive_field`, through `gsea_gene_sets.py`) into
 `gsea_consistency.py`'s `gsea_receptive_fields/` exactly and adds the term
 names; `data/gsea_gonnect_receptive_fields/` is a copy of it. `fig4.py`,
 `untrained_control.py` and `untrained_dpr.py` read it by default.
-`--gene-sets build_gene_sets` rebuilds the published `gsea_gonnect_layers/`.
+`--gene-sets build_gene_sets` rebuilds preprint v3's `gsea_gonnect_layers/`.
 `out/fig4_old.pdf`, `fig4_fixed_rf.pdf` and `fig4_fixed_direct.pdf` compare the
 three definitions on the test split (see `out/prepare/fig4_gene_sets/README.md`).
 
 ## The test-split clustering metrics
 
-As first published, Figure 2's clustering metrics were not on one footing. The
+In preprint v3, Figure 2's clustering metrics were not on one footing. The
 GONNECT workbooks took SS, ARI and NMI (panels b–d) and the per-cancer-type SS
 and purity (j, k) over all 9,797 samples, training data included. Its MSE
 panels (a, i) and every baseline metric came from the test split. The deposited
@@ -340,7 +340,7 @@ pixi run python figures/src/prepare/run_gsea.py
 ```
 
 **Output goes to `figures/out/prepare/<step>/`, not into `data/`.** The shipped
-`data/` is what reproduces the published figures exactly, and the GSEA and
+`data/` is what reproduces the committed figures exactly, and the GSEA and
 permutation steps are stochastic — a rerun landing on top of it would move the
 figures without anyone noticing. Compare first; copy over the shipped file only
 if you mean to replace it.

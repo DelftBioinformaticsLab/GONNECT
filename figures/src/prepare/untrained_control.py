@@ -29,10 +29,10 @@ default) scores as fig4.py does: each trained seed on the primary tumours of
 its own test split (gonnect.train.train.split_data at that seed), and
 initialization i on those of split TRAINED_SEEDS[i % 5], so every box sees the
 same samples as its violin; --eval-set all scores every primary tumour, as the
-published figure did. The trained models are read from
+preprint v3 figure did. The trained models are read from
 go_term_activations_corrected/ and scored against
 gsea_gonnect_receptive_fields/; --activations-dir and --gsea-csv override both
-(the published figure: go_term_activations/ and gsea_gonnect_layers/).
+(the preprint v3 figure: go_term_activations/ and gsea_gonnect_layers/).
 
 The shipped decoder activations
 -------------------------------
@@ -463,20 +463,20 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--activations-dir", type=Path, default=None,
                         help="trained activations (default: <data-dir>/go_term_activations_corrected, the "
-                             "revised Figure 4's; <data-dir>/go_term_activations, the published one's, has its "
+                             "revised Figure 4's; <data-dir>/go_term_activations, preprint v3's, has its "
                              "decoder relabelled)")
     parser.add_argument("--n-inits", type=int, default=50,
                         help="untrained initializations per model and module")
     parser.add_argument("--n-perms", type=int, default=1000, help="column shuffles behind every p")
     parser.add_argument("--rng-seed", type=int, default=42, help="seed of the column shuffles, as in Figure 4")
     parser.add_argument("--eval-set", choices=["all", "test"], default="test",
-                        help="'all': every primary tumour (Figure 4 as published). 'test' (default): as fig4.py "
+                        help="'all': every primary tumour (Figure 4 as in preprint v3). 'test' (default): as fig4.py "
                              "--eval-set test, each trained seed on the primary tumours of its own test split, and "
                              "initialization i on those of split TRAINED_SEEDS[i %% 5], so that every split "
                              "carries the same number of initializations")
     parser.add_argument("--gsea-csv", type=Path, default=None,
                         help="GSEA reference (default: <data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv, "
-                             "as fig4.py; the published figure used gsea_gonnect_layers/gsea_results.csv)")
+                             "as fig4.py; the preprint v3 figure used gsea_gonnect_layers/gsea_results.csv)")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
     start = time.time()

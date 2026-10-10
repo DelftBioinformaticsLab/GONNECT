@@ -41,7 +41,7 @@ from mask_randomization import randomize_mask_stack  # noqa: E402
 ARMS = ("true", "random", "degree_preserving")
 METRIC_SEED = 42  # KMeans, matching the original runs and figures/src/_common
 
-# Genes absent from GONNECT's processed ontology. The published runs dropped
+# Genes absent from GONNECT's processed ontology. The runs behind preprint v3 dropped
 # these from the test split only; see `load_split`.
 DROP_GENES = (
     "A6NC42", "O60635", "O95857", "P00450", "P02814", "P05976", "P11686", "P12882",
@@ -93,7 +93,7 @@ def load_split(expr, ids_path, id_col, label_col, n_nan_cols, drop_genes=None):
     """Return (genes x samples frame, labels) for the samples named in `ids_path`.
 
     Transposed because `match_dataset` wants genes on the index. `drop_genes` is
-    passed for the test split only, as the published runs had it -- test carries
+    passed for the test split only, as the runs behind preprint v3 had it -- test carries
     971 genes against train's 1000.
     """
     ids = np.load(ids_path, allow_pickle=True)
@@ -168,7 +168,8 @@ def masked_mse(model, ont, dataset, gene_map, variant="published"):
     `gene_map` indexes this split's genes into the ontology's gene ordering,
     with -1 for genes it does not carry.
 
-    `published` selects on `gene_map != 1`, as the original runs did. The
+    `published` selects on `gene_map != 1`, as the runs behind preprint v3
+    did (the name predates the paper's review). The
     sentinel is -1, not 1, so that rule drops the gene at ontology position 1
     and keeps the unmatched ones, whose -1 indexes the last column. It is the
     default because the deposited MSE values were computed under it.
@@ -246,7 +247,7 @@ def run_arm(ont, arm, seed, names, labels, gene_maps, run_dir, args, true_masks)
     key = f"{args.top_thresh}_{args.bottom_thresh}"
     ont.masks[key]["decoder"] = randomize_mask_stack(true_masks, arm, seed)
 
-    # The published runs left torch unseeded, so results here are statistically
+    # The runs behind preprint v3 left torch unseeded, so results here are statistically
     # equivalent to the deposited ones rather than identical.
     torch.manual_seed(seed)
     np.random.seed(seed)

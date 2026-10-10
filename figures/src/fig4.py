@@ -5,7 +5,7 @@ Spearman r between the per-(cancer_type, node) AUC and the GSEA -log10(NOM p) of
 the same node. The red dots are the five per-seed observed values, and the red
 line is the statistic on a pooled AUC matrix. For panels d and e that is always
 the per-seed AUC averaged over seeds, since each baseline seed has its own test
-split. For panels a-c the published figure computes one AUC on the seed-averaged
+split. For panels a-c the preprint v3 figure computes one AUC on the seed-averaged
 activations instead. --pool auc (with nulls built by plot_perm_nulls_layers.py
 --pool auc) puts a-c on the baselines' definition, so every red line means the
 same thing. A node's sign is arbitrary per seed, so averaging activations can
@@ -49,14 +49,14 @@ Inputs (relative to --data-dir)
     untrained_reference/fig4_untrained_{gonnect,dpr,baselines}.tsv
         the untrained boxes (see --untrained)
 
-    Under --published instead:
+    Under --preprint instead:
     gsea_gonnect_layers/gsea_results.csv       GONNECT GO terms of panels a-b (direct annotations)
     gsea_gonnect_bottleneck/gsea_results.csv   bottleneck GO terms of panel c (receptive fields)
 
     perm_nulls_gonnect/AE_<version>_<module>_auc/perm_layer_<L>_arrays.npz
     perm_nulls_baselines/OntoVAE_layer_<LL>_true_auc/perm_nulls_arrays.npz
     perm_nulls_baselines/VEGA_<db>_<variant>_auc/perm_nulls_arrays.npz
-        Read only under --pool activations or auc (the published figure's
+        Read only under --pool activations or auc (the preprint v3 figure's
         nulls); --pool seeds, the default, computes its null here. They hold
         the null distribution and the pooled observed
         value of panels a, b, d and e. They are produced by a separate and
@@ -65,7 +65,7 @@ Inputs (relative to --data-dir)
         from the figure; every omission is listed again at the end of the run.
 
     go_term_activations_corrected/AE_<version>.<seed>_<module>_activations.csv.gz
-        per-seed dots of panels a and b (--published: go_term_activations/)
+        per-seed dots of panels a and b (--preprint: go_term_activations/)
     latent_embeddings/AE_2.2/AE_2.2.<seed>_<module>_full_dataset.pt
         panel c, both its null and its dots
     baseline_activations/ontovae/run_seed-<seed>/pathway_activities_test_<variant>.parquet
@@ -82,26 +82,26 @@ Inputs (relative to --data-dir)
 Defaults: the revised figure
 ----------------------------
 Without options, fig4.py draws the revised Figure 4. It differs from the
-published one in five ways, each of which an option below can undo, and
---published undoes all of them at once:
+preprint v3 one in five ways, each of which an option below can undo, and
+--preprint undoes all of them at once:
 
-    --pool seeds              (published: activations)
-    --eval-set test           (published: all)
+    --pool seeds              (preprint v3: activations)
+    --eval-set test           (preprint v3: all)
     --activations-dir <data-dir>/go_term_activations_corrected
-                              (published: go_term_activations, whose decoder
+                              (preprint v3: go_term_activations, whose decoder
                               files are labelled one layer off)
     --gsea-layers-csv and --gsea-bottleneck-csv
                               <data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv
-                              (published: gsea_gonnect_layers/, whose sets miss
+                              (preprint v3: gsea_gonnect_layers/, whose sets miss
                               the genes entering at layers 2-3, for panels a-b,
                               and gsea_gonnect_bottleneck/ for panel c)
     --untrained               <data-dir>/untrained_reference/fig4_untrained_*.tsv
-                              (published: none; --no-untrained drops them)
+                              (preprint v3: none; --no-untrained drops them)
 
 Options
 -------
-    --published
-        Every default above as the published figure had it. Options given
+    --preprint
+        Every default above as the preprint v3 figure had it. Options given
         explicitly still win.
     --untrained  <data-dir>/untrained_reference/fig4_untrained_gonnect.tsv
                  <data-dir>/untrained_reference/fig4_untrained_dpr.tsv
@@ -129,7 +129,7 @@ Options
         The red line's definition (see the top of this docstring). seeds reads
         no perm_nulls_* file and takes a few minutes longer.
     --eval-set {all,test}
-        Which samples every AUC is computed over. 'all' (the published figure)
+        Which samples every AUC is computed over. 'all' (the preprint v3 figure)
         scores panels a-c on every primary tumour, training samples included,
         and panels d-e on their seed's test split, of every sample type. 'test'
         puts all five panels on one footing: the primary tumours of each
@@ -154,7 +154,7 @@ Usage
                    [--gonnect-nulls-dir DIR] [--cache-dir DIR]
                    [--pool {activations,auc,seeds}] [--eval-set {all,test}]
                    [--gsea-layers-csv CSV] [--gsea-bottleneck-csv CSV]
-                   [--no-untrained] [--published]
+                   [--no-untrained] [--preprint]
 
 Writes <out-dir>/fig4.png, fig4.pdf and fig4.csv (one row per violin: pooled
 observed value, permutation p, null mean/SD and the per-seed values). Under
@@ -1081,7 +1081,7 @@ def rand_entry(
     """Compute null + pooled observed + per-seed dots for randomized GONNECT.
 
     ``pool`` picks the pooled matrix: one AUC on the seed-averaged embeddings
-    ("activations", the published figure), or the per-seed AUC averaged over
+    ("activations", the preprint v3 figure), or the per-seed AUC averaged over
     seeds ("auc"), as the baseline panels have it. ``test_split`` scores each
     seed on its own test split (AE_2.2.<run> trained on split run - 20), which
     needs pool="seeds".
@@ -1325,7 +1325,7 @@ def draw_legend(ax, note_lines: list[str], untrained_n: int | None = None,
         plain(4, 1 + i, text, fontsize=PT_SMALL, style="italic")
 
 
-# What the revised figure reads by default, under --data-dir; --published restores the published inputs.
+# What the revised figure reads by default, under --data-dir; --preprint restores preprint v3's inputs.
 REVISED_ACTIVATIONS = "go_term_activations_corrected"
 REVISED_GSEA = Path("gsea_gonnect_receptive_fields") / "gsea_results.csv"
 REVISED_UNTRAINED = [Path("untrained_reference") / f"fig4_untrained_{name}.tsv"
@@ -1333,22 +1333,22 @@ REVISED_UNTRAINED = [Path("untrained_reference") / f"fig4_untrained_{name}.tsv"
 
 
 def resolve_defaults(args: argparse.Namespace) -> None:
-    """Fill every option left unset: the revised figure's value, or under --published the published one's."""
-    published, d = args.published, args.data_dir
+    """Fill every option left unset: the revised figure's value, or under --preprint preprint v3's."""
+    preprint, d = args.preprint, args.data_dir
     if args.pool is None:
-        args.pool = "activations" if published else "seeds"
+        args.pool = "activations" if preprint else "seeds"
     if args.eval_set is None:
-        args.eval_set = "all" if published else "test"
+        args.eval_set = "all" if preprint else "test"
     if args.activations_dir is None:
-        args.activations_dir = d / ("go_term_activations" if published else REVISED_ACTIVATIONS)
+        args.activations_dir = d / ("go_term_activations" if preprint else REVISED_ACTIVATIONS)
     if args.gsea_layers_csv is None:
-        args.gsea_layers_csv = d / "gsea_gonnect_layers" / "gsea_results.csv" if published else d / REVISED_GSEA
+        args.gsea_layers_csv = d / "gsea_gonnect_layers" / "gsea_results.csv" if preprint else d / REVISED_GSEA
     if args.gsea_bottleneck_csv is None:
-        args.gsea_bottleneck_csv = d / "gsea_gonnect_bottleneck" / "gsea_results.csv" if published else d / REVISED_GSEA
+        args.gsea_bottleneck_csv = d / "gsea_gonnect_bottleneck" / "gsea_results.csv" if preprint else d / REVISED_GSEA
     if args.no_untrained:
         args.untrained = []
     elif args.untrained is None:
-        args.untrained = [] if published else [d / p for p in REVISED_UNTRAINED]
+        args.untrained = [] if preprint else [d / p for p in REVISED_UNTRAINED]
 
 
 def default_cache_dir(data_dir: Path, activations_dir: Path) -> Path:
@@ -1368,12 +1368,12 @@ def main() -> None:
     parser.add_argument("--rng-seed", type=int, default=42)
     parser.add_argument("--pool", choices=["activations", "auc", "seeds"], default=None,
                         help="the red line and its null. 'activations' and 'auc' pool the seeds before "
-                             "scoring: one AUC on the seed-averaged embeddings (the published figure) or "
+                             "scoring: one AUC on the seed-averaged embeddings (the preprint v3 figure) or "
                              "the per-seed AUC averaged, as panels d and e have it; they set panel c, while "
                              "a and b take theirs from --gonnect-nulls-dir. 'seeds' makes the red line the "
                              "mean of the per-seed values in every panel, tested against a null that "
                              "shuffles each seed's GO terms independently (seed_mean_entry). "
-                             "Default: seeds (--published: activations)")
+                             "Default: seeds (--preprint: activations)")
     parser.add_argument("--no-dots", action="store_true", help="Skip per-seed dots (fast).")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--untrained", type=Path, nargs="+", default=None,
@@ -1383,26 +1383,26 @@ def main() -> None:
     parser.add_argument("--no-untrained", action="store_true", help="draw no untrained reference")
     parser.add_argument("--activations-dir", type=Path, default=None,
                         help="GONNECT activations (default: <data-dir>/go_term_activations_corrected; "
-                             "--published: <data-dir>/go_term_activations)")
+                             "--preprint: <data-dir>/go_term_activations)")
     parser.add_argument("--gonnect-nulls-dir", type=Path, default=None,
                         help="GONNECT permutation nulls (default: <data-dir>/perm_nulls_gonnect)")
     parser.add_argument("--cache-dir", type=Path, default=None,
                         help="per-seed AUC cache (default: <data-dir>/cache/auc_4row for go_term_activations, "
                              "auc_4row_<hash> for any other activations directory)")
     parser.add_argument("--eval-set", choices=["all", "test"], default=None,
-                        help="the samples every AUC is computed over. 'all' (the published figure): every "
+                        help="the samples every AUC is computed over. 'all' (the preprint v3 figure): every "
                              "primary tumour for panels a-c, the seed's test split of every sample type for d-e. "
                              "'test': the primary tumours of each seed's own test split in every panel; "
-                             "needs --pool seeds. Default: test (--published: all)")
+                             "needs --pool seeds. Default: test (--preprint: all)")
     parser.add_argument("--gsea-layers-csv", type=Path, default=None,
                         help="GSEA reference of panels a-b (default: "
                              "<data-dir>/gsea_gonnect_receptive_fields/gsea_results.csv; "
-                             "--published: <data-dir>/gsea_gonnect_layers/gsea_results.csv)")
+                             "--preprint: <data-dir>/gsea_gonnect_layers/gsea_results.csv)")
     parser.add_argument("--gsea-bottleneck-csv", type=Path, default=None,
                         help="GSEA reference of panel c (default: as --gsea-layers-csv; "
-                             "--published: <data-dir>/gsea_gonnect_bottleneck/gsea_results.csv)")
-    parser.add_argument("--published", action="store_true",
-                        help="the published figure's settings and inputs for every option not given explicitly")
+                             "--preprint: <data-dir>/gsea_gonnect_bottleneck/gsea_results.csv)")
+    parser.add_argument("--preprint", action="store_true",
+                        help="the preprint v3 figure's settings and inputs for every option not given explicitly")
     args = parser.parse_args()
     resolve_defaults(args)
     if args.eval_set == "test" and args.pool != "seeds":
@@ -1659,7 +1659,7 @@ def main() -> None:
                           ("OntoVAE", row_onto), ("VEGA", row_vega)]:
         for e in row:
             p = perm_pval(e["obs_pooled"], e["null"])
-            # Named for what the red line is; the published figure's column keeps its name
+            # Named for what the red line is; the preprint v3 figure's column keeps its name
             rec = {"row": row_name, "label": e["label"].replace("\n", " "),
                    ("obs_mean_over_seeds" if seeds_mode else "obs_pooled"): e["obs_pooled"],
                    "perm_p": p,

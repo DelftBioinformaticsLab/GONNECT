@@ -28,7 +28,7 @@ sample (see their docstrings), so the baseline is the wiring's best case.
 --eval-set test, the default as in fig4.py, scores as fig4.py does: every
 file must hold split_data's test split at its seed, and only the primary
 tumours of that split are scored. --eval-set all scores every row the files
-hold, as the published figure did.
+hold, as the preprint v3 figure did.
 
 Writes, to figures/out/prepare/untrained_baselines/:
 
@@ -112,8 +112,8 @@ def main() -> None:
     parser.add_argument("--n-perms", type=int, default=1000)
     parser.add_argument("--rng-seed", type=int, default=42)
     parser.add_argument("--eval-set", choices=["all", "test"], default="test",
-                        help="'all': every row of the seed's test-split files, of every sample type (Figure 4 as "
-                             "published). 'test' (default): as fig4.py --eval-set test, the files' rows are checked to be "
+                        help="'all': every row of the seed's test-split files, of every sample type (Figure 4 as in "
+                             "preprint v3). 'test' (default): as fig4.py --eval-set test, the files' rows are checked to be "
                              "split_data's test split at the seed, and only its primary tumours are scored")
     parser.add_argument("--fig4-csv", type=Path, default=PREP_OUT_DIR.parent / "fig4.csv",
                         help="fig4.py's table, whose per-seed dots the trained values are checked against")
@@ -135,7 +135,7 @@ def main() -> None:
     enrichment["OntoVAE"] = fig4.load_enrichment_pivot(ontovae_cfg["gsea_csv"], CANCER_TYPE_ORDER)
     shipped = args.data_dir / "baseline_activations"
 
-    # The published OntoVAE term -> layer map, read off the shipped activation columns (term, layer, neuron)
+    # The OntoVAE term -> layer map of the runs behind preprint v3, read off the shipped activation columns (term, layer, neuron)
     columns = pd.read_parquet(shipped / "ontovae" / f"run_seed-{SEEDS[0]}" / "pathway_activities_test_true.parquet"
                               ).columns
     layer_of = {term: layer for term, layer, _ in columns}
@@ -229,12 +229,12 @@ def main() -> None:
     # The trained side must be what Figure 4 plots as dots
     if not args.fig4_csv.exists():
         print(f"WARNING: {args.fig4_csv} not found; the trained values are not checked against Figure 4's dots")
-    published = (pd.read_csv(args.fig4_csv).set_index(["row", "label"]) if args.fig4_csv.exists()
-                 else pd.DataFrame())
+    drawn = (pd.read_csv(args.fig4_csv).set_index(["row", "label"]) if args.fig4_csv.exists()
+             else pd.DataFrame())
     for (row, label), group in values[values.state == TRAINED].groupby(["row", "label"], sort=False):
-        if published.empty:
+        if drawn.empty:
             break
-        dots = published.loc[(row, label), [f"seed_{i}" for i in range(len(SEEDS))]].to_numpy(dtype=float)
+        dots = drawn.loc[(row, label), [f"seed_{i}" for i in range(len(SEEDS))]].to_numpy(dtype=float)
         if not np.allclose(group.sort_values("seed").median_r.to_numpy(), dots, atol=1e-9, equal_nan=True):
             print(f"WARNING: trained {row} {label} differs from fig4.csv's per-seed dots")
 

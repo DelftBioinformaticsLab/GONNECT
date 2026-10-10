@@ -9,7 +9,7 @@ same untrained references, each with that eval set), and writes
   test_split_counts.tsv  per cancer type and split seed: the primary tumours in
                          that seed's test split (what --eval-set test scores),
                          next to the all-primary-tumour count (what 'all' scores
-                         for GONNECT) and the baselines' published test rows of
+                         for GONNECT) and the baselines' deposited test rows of
                          every sample type
   baseline_rows.tsv      per seed: the baselines' test files against split_data's
                          test split (their id-based reload adds every row of a
@@ -73,7 +73,7 @@ def counts(meta: pd.DataFrame, test_split: fig4.TestSplit) -> pd.DataFrame:
 
 
 def baseline_rows(data_dir: Path, meta: pd.DataFrame, test_split: fig4.TestSplit) -> pd.DataFrame:
-    """Per seed: what the baselines' published test files hold against split_data's test split."""
+    """Per seed: what the baselines' deposited test files hold against split_data's test split."""
     method_dbs, _ = fig4.baseline_cfgs(data_dir)
     cfg = method_dbs[("VEGA", "hallmark")]
     out = []

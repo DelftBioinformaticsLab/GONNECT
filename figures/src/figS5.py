@@ -29,9 +29,12 @@ with module="decoder".
 
 Inputs (relative to --data-dir)
 ------------------------------
-    go_term_activations/AE_2.0.<seed>_encoder_activations.csv.gz
+    go_term_activations_corrected/AE_2.0.<seed>_encoder_activations.csv.gz
         one file per model instance; columns are patient_id, four more sample
-        metadata columns, then one column per GO-term node named by GO ID
+        metadata columns, then one column per GO-term node named by GO ID.
+        --preprint reads go_term_activations/ instead, whose encoder files
+        are the same; only its decoder files (Figure S6) are labelled one
+        layer off
     TCGA_complete_bp_top1k.csv.gz
         the sample table the activations are aligned to, row for row
     hard_links.csv
@@ -40,9 +43,9 @@ Inputs (relative to --data-dir)
 
 GO-term selection
 -----------------
-The 20 hand-picked GO terms of the published figure -- "processes expected to
+The 20 hand-picked GO terms of the preprint v3 figure -- "processes expected to
 vary in activity across cancer types" -- are in GO_TERMS below, read off the x
-axis of the published figure in its own column order. Every id was checked
+axis of the preprint v3 figure in its own column order. Every id was checked
 against hard_links.csv: all 20 are real GO nodes present in both modules, and
 none is a bottleneck node. Set GO_TERMS to None to fall back on a
 deterministic stand-in instead (the 20 nodes with the highest eta-squared,
@@ -56,9 +59,9 @@ scaled into [-1, 1] (normalize_terms). Both steps are needed and neither is
 cosmetic.
 
 *Scaling*, because one colour scale cannot serve these 20 terms raw: their
-maxima span 37x in the encoder and 55,005x in the decoder, where one term
-reaches 224 while sixteen stay under 2.7. Raw, the decoder's scale is set by
-that single node and every other column is pale. Scaling asks what the panels
+maxima span 37x in the encoder and 1,957x in the decoder, where one term
+reaches 170 while the next largest stays under 16. Raw, the decoder's scale is
+set by that single node and every other column is pale. Scaling asks what the panels
 are about -- which cancer types light a process up, and whether the instances
 agree -- rather than which process happens to have the largest activations.
 
@@ -67,8 +70,9 @@ initialisation rather than the biology, and it is often the largest thing in
 the column. Scaling without removing it first turns a constant column into a
 saturated stripe of -1 that reads as the strongest result in the figure.
 Columns with no variation at all are drawn blank and named in the run output
-instead of being scaled up; the decoder's GO:0006631 is one, constant to 4e-09
-across all 32 cancer types.
+instead of being scaled up. None of the 20 is flat in the default inputs; under
+--preprint, the decoder's GO:0006631 is, constant to 4e-09 across all 32
+cancer types.
 
 The scale factor is shared across instances rather than computed per instance,
 so differences between instances survive; normalising each on its own would
@@ -76,12 +80,12 @@ flatten exactly the cross-instance agreement panel b exists to show.
 
 ``--no-normalize`` plots raw means instead -- which keeps magnitude comparable
 between terms, at the cost above -- and ``--vmax`` fixes a symmetric limit,
-which clips (on the decoder, +/-4 clips 6.7% of cells and +/-2 clips 10.3%).
+which clips (on the decoder, +/-4 clips 5.5% of cells and +/-2 clips 10.8%).
 
 Usage
 -----
     python figS5.py [--data-dir figures/data] [--out-dir figures/out]
-                    [--seeds 2 3 4] [--vmax V] [--no-normalize]
+                    [--seeds 2 3 4] [--vmax V] [--no-normalize] [--preprint]
 """
 
 import argparse
@@ -97,8 +101,8 @@ from _common import (CANCER_TYPE_ORDER, FIG_WIDTH_IN, LAYERS_BY_MODULE,
                      report_text_overlaps, save_figure)
 
 # ── config ────────────────────────────────────────────────────────────────────
-# The 20 hand-picked GO terms of the published figure: "processes expected to
-# vary in activity across cancer types". Read off the x axis of the published
+# The 20 hand-picked GO terms of the preprint v3 figure: "processes expected to
+# vary in activity across cancer types". Read off the x axis of the preprint v3
 # figure itself, in its column order, so this is the list rather than a
 # reconstruction of it. Every id was checked against hard_links.csv: all 20 are
 # real GO nodes, present in both the encoder and the decoder, and none is a
@@ -130,10 +134,17 @@ GO_TERMS: list[str] | None = [
     "GO:0030195",   # negative regulation of blood coagulation
 ]
 
+# The activations read. The corrected directory holds the re-extracted decoder
+# files and the deposited encoder files, so only Figure S6 differs between the
+# two. The preprint v3 directory's decoder columns are labelled one layer off
+# (see prepare/README.md, *The untrained control*).
+REVISED_ACTIVATIONS = "go_term_activations_corrected"
+PREPRINT_ACTIVATIONS = "go_term_activations"
+
 # Axis labels. GO_TERM_NAMES is read from hard_links.csv at import, so the
 # names always match the graph rather than being a second hand-typed copy that
 # could drift from it. LABEL_WITH_NAMES picks what goes under the x axis: the
-# published figure used the bare accessions, names are the readable choice.
+# preprint v3 figure used the bare accessions, names are the readable choice.
 # Terms with no name in the graph (the eta-squared stand-in's picks) fall back
 # to their id either way.
 LABEL_WITH_NAMES = True
@@ -165,15 +176,15 @@ def term_label(term: str, names: dict[str, str]) -> str:
 
 
 # A column counts as flat when its variation across cancer types is negligible
-# *relative to its own magnitude*. It has to be relative: decoder GO:0006631
-# sits at 0.004 and varies by 4e-9, which is float32 rounding on that value,
-# not signal -- but 4e-9 clears any absolute threshold small enough to be safe
-# for the terms that do vary.
+# *relative to its own magnitude*. It has to be relative: in the preprint v3
+# (mislabelled) decoder input, GO:0006631 sits at 0.004 and varies by 4e-9,
+# which is float32 rounding on that value, not signal -- but 4e-9 clears any
+# absolute threshold small enough to be safe for the terms that do vary.
 #
 # The gap either side of this line is enormous, so its exact value does not
-# matter: that dead column comes in at a ratio of 1.0e-06, and the next
-# smallest of the 20 is above 1e-03. Anywhere in the three orders of magnitude
-# between separates them.
+# matter: that dead column comes in at a ratio of 1.1e-06, and every other
+# column, in either module and either input, is above 0.1. In the default
+# inputs no column is flat.
 FLAT_RTOL = 1e-4
 
 
@@ -198,10 +209,10 @@ def normalize_terms(panel_data: list[pd.DataFrame], terms: list[str],
     Columns that do not vary at all are returned as zeros and named in
     ``flat_terms`` rather than being scaled. Dividing them by their own
     (numerically meaningless) spread is what an uncentred max-scaling does, and
-    it turns a dead node into a saturated column of -1: decoder GO:0006631 is
-    constant to 4e-09 across all 32 cancer types, and scaling its 0.004 offset
-    printed a solid -1 stripe that looked like the strongest result in the
-    figure. A flat column should read as "nothing here", which is white.
+    it turns a dead node into a saturated column of -1: in the preprint v3
+    decoder input, GO:0006631 is constant to 4e-09 across all 32 cancer types,
+    and scaling its 0.004 offset printed a solid -1 stripe that looked like
+    the strongest result in the figure. A flat column should read as "nothing here", which is white.
     """
     centred = []
     for frame in panel_data:
@@ -414,8 +425,9 @@ def select_terms(reference: pd.DataFrame, n_terms: int = N_TERMS) -> list[str]:
     for -- "processes expected to vary in activity across cancer types" is a
     statement about discrimination, not magnitude. Raw variance just returns
     whichever nodes have the largest activations, which are the layers nearest
-    the bottleneck and the genes; that pushed the colour scale to ~+/-79
-    (encoder) and ~+/-224 (decoder), far outside the printed +/-4. Eta-squared
+    the bottleneck and the genes; on the preprint v3 inputs that pushed the
+    colour scale to ~+/-79 (encoder) and ~+/-224 (decoder), far outside the
+    printed +/-4. Eta-squared
     is scale-free and bounded [0, 1], so a small, sharply cancer-type-specific
     node can outrank a large diffuse one. Ties keep file column order, so the
     result is deterministic.
@@ -535,10 +547,14 @@ def main(module: str = "encoder", out_name: str = "figS5") -> None:
                         help="symmetric colour limit; default is the largest "
                              "|mean| over all instances")
     parser.add_argument("--activations-dir", type=Path, default=None,
-                        help="GO-term activations (default: <data-dir>/go_term_activations), "
-                             "e.g. prepare/relabel_decoder_activations.py's")
+                        help=f"GO-term activations (default: <data-dir>/{REVISED_ACTIVATIONS}; "
+                             f"--preprint: <data-dir>/{PREPRINT_ACTIVATIONS})")
+    parser.add_argument("--preprint", action="store_true",
+                        help="the preprint v3 figure's activations, whose decoder columns are "
+                             "labelled one layer off (the encoder files are the same in both)")
     args = parser.parse_args()
-    activations_dir = args.activations_dir or args.data_dir / "go_term_activations"
+    activations_dir = args.activations_dir or args.data_dir / (
+        PREPRINT_ACTIVATIONS if args.preprint else REVISED_ACTIVATIONS)
 
     hard_links = args.data_dir / "hard_links.csv"
     tcga = args.data_dir / "TCGA_complete_bp_top1k.csv.gz"

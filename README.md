@@ -77,7 +77,7 @@ apptainer exec --nv --writable-tmpfs --pwd /opt/app --containall \
 ```
 
 `slurm/` has the exact invocations, all pinned to this image name. Note that the
-published results were produced with the earlier `container_pixi_0.2.1.sif`,
+results in preprint v3 were produced with the earlier `container_pixi_0.2.1.sif`,
 before the image name was unified with the package version.
 
 ### Repository structure
@@ -203,7 +203,7 @@ matplotlib, which is not a dependency — install it separately if you want it.
 All steps assume `pixi shell` and the inputs from the
 [4TU deposit](https://doi.org/10.4121/0d78788b-6bd7-4941-a942-245309107b6d).
 
-**Training:** Submit the SLURM jobs that produced the published models:
+**Training:** Submit the SLURM jobs that produced the models behind preprint v3:
 
 ```bash
 sbatch slurm/AE_2.0/AE_2.0.0_both.sh
